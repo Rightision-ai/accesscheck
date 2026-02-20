@@ -99,6 +99,7 @@ export type Database = {
           access_living_room: boolean | null
           access_other: boolean | null
           access_separate_toilet: boolean | null
+          ai_confidence: number | null
           balcony_steps_count: number | null
           bathroom_dim_depth: number | null
           bathroom_dim_width: number | null
@@ -132,6 +133,7 @@ export type Database = {
           communal_ramp_al: number | null
           communal_ramp_bh: number | null
           communal_ramp_bl: number | null
+          compliance_score: number | null
           created_at: string | null
           door_number: string | null
           door_width_balcony: number | null
@@ -183,6 +185,7 @@ export type Database = {
           num_bed_spaces: number | null
           num_bedrooms: number | null
           num_lifts_dwelling: number | null
+          overall_grade: string | null
           postcode: string | null
           property_door_opening_width: number | null
           property_door_steps_count: number | null
@@ -193,6 +196,7 @@ export type Database = {
           property_ramp_bh: number | null
           property_ramp_bl: number | null
           property_type: string | null
+          raw_ai_data: Json | null
           second_exit_door_width: number | null
           second_exit_ramp_ah: number | null
           second_exit_ramp_al: number | null
@@ -250,6 +254,7 @@ export type Database = {
           access_living_room?: boolean | null
           access_other?: boolean | null
           access_separate_toilet?: boolean | null
+          ai_confidence?: number | null
           balcony_steps_count?: number | null
           bathroom_dim_depth?: number | null
           bathroom_dim_width?: number | null
@@ -283,6 +288,7 @@ export type Database = {
           communal_ramp_al?: number | null
           communal_ramp_bh?: number | null
           communal_ramp_bl?: number | null
+          compliance_score?: number | null
           created_at?: string | null
           door_number?: string | null
           door_width_balcony?: number | null
@@ -334,6 +340,7 @@ export type Database = {
           num_bed_spaces?: number | null
           num_bedrooms?: number | null
           num_lifts_dwelling?: number | null
+          overall_grade?: string | null
           postcode?: string | null
           property_door_opening_width?: number | null
           property_door_steps_count?: number | null
@@ -344,6 +351,7 @@ export type Database = {
           property_ramp_bh?: number | null
           property_ramp_bl?: number | null
           property_type?: string | null
+          raw_ai_data?: Json | null
           second_exit_door_width?: number | null
           second_exit_ramp_ah?: number | null
           second_exit_ramp_al?: number | null
@@ -401,6 +409,7 @@ export type Database = {
           access_living_room?: boolean | null
           access_other?: boolean | null
           access_separate_toilet?: boolean | null
+          ai_confidence?: number | null
           balcony_steps_count?: number | null
           bathroom_dim_depth?: number | null
           bathroom_dim_width?: number | null
@@ -434,6 +443,7 @@ export type Database = {
           communal_ramp_al?: number | null
           communal_ramp_bh?: number | null
           communal_ramp_bl?: number | null
+          compliance_score?: number | null
           created_at?: string | null
           door_number?: string | null
           door_width_balcony?: number | null
@@ -485,6 +495,7 @@ export type Database = {
           num_bed_spaces?: number | null
           num_bedrooms?: number | null
           num_lifts_dwelling?: number | null
+          overall_grade?: string | null
           postcode?: string | null
           property_door_opening_width?: number | null
           property_door_steps_count?: number | null
@@ -495,6 +506,7 @@ export type Database = {
           property_ramp_bh?: number | null
           property_ramp_bl?: number | null
           property_type?: string | null
+          raw_ai_data?: Json | null
           second_exit_door_width?: number | null
           second_exit_ramp_ah?: number | null
           second_exit_ramp_al?: number | null

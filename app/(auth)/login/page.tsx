@@ -41,7 +41,7 @@ const LoginPage = () => {
       >
         <div className="text-center mb-8">
           <img
-            src="/assets/media/login-logo.png"
+            src="/login-logo.png"
             alt="Homingo Logo"
             className="w-40 h-auto block mx-auto mb-6"
           />
