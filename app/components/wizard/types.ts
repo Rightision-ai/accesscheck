@@ -14,4 +14,5 @@ export interface WizardStepProps {
   isProcessing?: boolean;
   processingCategory?: string | null;
   aiSuggestions?: Record<string, any>;
+  validationErrors?: Record<string, string>;
 }

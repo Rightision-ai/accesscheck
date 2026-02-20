@@ -18,7 +18,8 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
     handleUpdateField,
     handlePhotoUpload,
     isProcessing,
-    processingCategory
+    processingCategory,
+    validationErrors
 }) => {
     const categoryPhotos = formData.categoryPhotos || {};
 
@@ -67,13 +68,14 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
                 {CAPTURE_CATEGORIES.filter(cat => !cat.condition || cat.condition(formData)).map(cat => {
                     const currentPhotos = categoryPhotos[cat.id] || [];
                     const isFull = currentPhotos.length >= 3;
+                    const hasError = validationErrors?.[cat.id];
 
                     return (
                         <div key={cat.id} style={{
                             background: '#fff',
                             borderRadius: '20px',
                             padding: '16px',
-                            border: '1px solid var(--border)',
+                            border: hasError ? '2px solid #facc15' : '1px solid var(--border)',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '12px',
@@ -96,6 +98,16 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
                                         }}>
                                             <RefreshCw className="animate-spin" size={10} />
                                             Analyzing...
+                                        </div>
+                                    )}
+                                    {hasError && (
+                                        <div style={{ 
+                                            marginTop: '4px', 
+                                            fontSize: '10px', 
+                                            color: '#ca8a04', 
+                                            fontWeight: '700' 
+                                        }}>
+                                            ⚠️ Unrelated photo
                                         </div>
                                     )}
                                 </div>

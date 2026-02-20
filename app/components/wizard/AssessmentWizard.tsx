@@ -104,6 +104,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     useState<FloorPlanAnalysisResult | null>(null);
   const [formData, setFormData] = useState<any>(initialFormData);
   const [aiSuggestions, setAiSuggestions] = useState<Record<string, any>>({});
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [processingCategory, setProcessingCategory] = useState<string | null>(
     null,
   );
@@ -225,6 +226,12 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
 
         // Trigger AI Analysis for this photo
         setProcessingCategory(categoryId);
+        setValidationErrors(prev => {
+          const next = { ...prev };
+          delete next[categoryId];
+          return next;
+        });
+
         try {
           const analysisResult = await analyzeCategoryPhoto(
             files[0],
@@ -298,6 +305,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                   analysisResult.reason ||
                   "This might not be the correct room.",
               });
+              setValidationErrors(prev => ({ ...prev, [categoryId]: 'Image seems unrelated' }));
             }
           }
         } catch (err) {
@@ -325,6 +333,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   };
 
   const isNextDisabled = () => {
+    if (isProcessing || isAnalyzing) return true;
     if (step === 1)
       return !formData.fullName || !formData.street || !formData.postcode;
     if (step === 2) return !formData.floorPlan && !formData.hasNoFloorPlan;
@@ -435,6 +444,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                 handlePhotoUpload={handlePhotoUpload}
                 isProcessing={isProcessing}
                 processingCategory={processingCategory}
+                validationErrors={validationErrors}
               />
             )}
             {step === 4 && (
