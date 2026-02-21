@@ -44,10 +44,14 @@ export interface FloorPlanAnalysisResult {
   }>;
 }
 
+import { convertHeicToJpegIfNeeded } from "./imageUtils";
+
 export const analyzeFloorPlan = async (
   file: File,
 ): Promise<FloorPlanAnalysisResult | null> => {
   try {
+    file = await convertHeicToJpegIfNeeded(file);
+
     // Convert file to base64
     const base64Data = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();

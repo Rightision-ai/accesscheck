@@ -1,3 +1,5 @@
+import { convertHeicToJpegIfNeeded } from "./imageUtils";
+
 export const compressBase64Image = (base64: string, maxDim = 1024, quality = 0.75): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
@@ -281,6 +283,8 @@ export const analyzeAllCategoryPhotos = async (categoryPhotos: Record<string, st
 
 export const analyzeCategoryPhoto = async (file: File, categoryId: string): Promise<ImageAnalysisResult | null> => {
     try {
+        file = await convertHeicToJpegIfNeeded(file);
+
         const prompt = CATEGORY_PROMPTS[categoryId];
         if (!prompt) {
             console.warn(`No prompt defined for category: ${categoryId}`);

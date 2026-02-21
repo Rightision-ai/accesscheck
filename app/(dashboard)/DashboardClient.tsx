@@ -45,9 +45,6 @@ export default function DashboardClient({ initialCases, user }: DashboardClientP
     };
 
     const handleCompleteWizard = async (newCase: Case) => {
-        // #region agent log
-        fetch('http://127.0.0.1:7776/ingest/358c4c1c-d29f-415a-9f11-2e32b017b478',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'420f70'},body:JSON.stringify({sessionId:'420f70',location:'DashboardClient.tsx:handleCompleteWizard',message:'Wizard completed',data:{newCaseId:newCase?.id,isNumeric:!isNaN(Number(newCase?.id))},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
         setIsWizardOpen(false);
         try {
             const result = await saveSurveyClient(newCase);

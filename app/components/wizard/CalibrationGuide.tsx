@@ -146,7 +146,7 @@ export const CalibrationGuide: React.FC<CalibrationGuideProps> = ({ onPhotoCaptu
                     type="file" 
                     ref={fileInputRef} 
                     onChange={handleFileUpload} 
-                    accept="image/*" 
+                    accept="image/*,image/heic,.heic" 
                     className="hidden" 
                 />
                 

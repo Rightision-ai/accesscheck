@@ -32,6 +32,7 @@ import {
   BatchAnalysisResult,
 } from "@/lib/utils/ImageAnalysisUtils";
 import { uploadBase64ToStorage } from "@/lib/surveys/upload";
+import { convertHeicToJpegIfNeeded } from "@/lib/utils/imageUtils";
 import { saveSurveyClient } from "@/lib/surveys/client";
 import { toast } from "sonner";
 
@@ -235,13 +236,17 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     e: React.ChangeEvent<HTMLInputElement>,
     categoryId?: string,
   ) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+    const rawFiles = Array.from(e.target.files || []);
+    if (rawFiles.length === 0) return;
 
     setIsProcessing(true);
     if (step === 3) setIsAnalyzing(true);
 
     try {
+      const files = await Promise.all(
+        rawFiles.map((f) => convertHeicToJpegIfNeeded(f))
+      );
+
       /** Read a File into a base64 data URL */
       const toBase64 = (file: File): Promise<string> =>
         new Promise((resolve, reject) => {
@@ -382,7 +387,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
       e.target.value = "";
     } catch (error) {
       console.error("File processing error:", error);
-      toast.error("Failed to process image.");
+      toast.error("Photo conversion failed. Please try again.");
     } finally {
       setIsProcessing(false);
       if (step === 3) setIsAnalyzing(false);
@@ -876,28 +881,6 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         aiReport: formData.aiReport,
       },
     };
-
-    // #region agent log
-    fetch("http://127.0.0.1:7776/ingest/358c4c1c-d29f-415a-9f11-2e32b017b478", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Debug-Session-Id": "420f70",
-      },
-      body: JSON.stringify({
-        sessionId: "420f70",
-        location: "AssessmentWizard.tsx:handleSafeClose",
-        message: "Case completed",
-        data: {
-          completedCaseId: completedCase.id,
-          formDataId: formData.id,
-          isNumeric: !isNaN(Number(completedCase.id)),
-        },
-        timestamp: Date.now(),
-        hypothesisId: "H3",
-      }),
-    }).catch(() => {});
-    // #endregion
 
     onComplete(completedCase);
     onClose();

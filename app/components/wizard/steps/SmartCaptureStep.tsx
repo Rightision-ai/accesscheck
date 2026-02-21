@@ -269,7 +269,7 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
                     )}
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/*,image/heic,.heic"
                       hidden
                       onChange={(e) =>
                         handlePhotoUpload && handlePhotoUpload(e, cat.id)

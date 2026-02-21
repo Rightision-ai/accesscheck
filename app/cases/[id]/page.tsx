@@ -15,9 +15,6 @@ export default async function CasePage({
 
   const supabase = await createClient();
   const surveyId = parseInt(id, 10);
-  // #region agent log
-  const _ = await fetch('http://127.0.0.1:7776/ingest/358c4c1c-d29f-415a-9f11-2e32b017b478',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'420f70'},body:JSON.stringify({sessionId:'420f70',location:'cases/[id]/page.tsx',message:'Case page loaded',data:{id,surveyId,isNaN:Number.isNaN(surveyId)},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>null);
-  // #endregion
   if (Number.isNaN(surveyId)) {
     return <div className="p-8 text-center text-red-600">Invalid case ID.</div>;
   }
