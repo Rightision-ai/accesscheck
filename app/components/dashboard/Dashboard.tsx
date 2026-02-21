@@ -134,7 +134,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-2xl shadow-[0_4px_20px_rgba(102,126,234,0.15)]">
           <div className="flex items-center gap-3 mb-3">
             <FileText size={24} className="text-white" />
-            <span className="text-[13px] text-white/90 font-semibold uppercase tracking-wider">
+            <span className="text-xs text-white/90 font-semibold uppercase tracking-wider">
               Total Assessments
             </span>
           </div>
@@ -146,7 +146,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="bg-white p-6 rounded-2xl border-2 border-emerald-500 shadow-[0_4px_12px_rgba(16,185,129,0.1)]">
           <div className="flex items-center gap-3 mb-3">
             <Shield size={24} className="text-emerald-500" />
-            <span className="text-[13px] text-slate-500 font-semibold uppercase tracking-wider">
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
               Finalized Reports
             </span>
           </div>
@@ -158,7 +158,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="bg-white p-6 rounded-2xl border-2 border-amber-600 shadow-[0_4px_12px_rgba(217,119,6,0.1)]">
           <div className="flex items-center gap-3 mb-3">
             <Clock size={24} className="text-amber-600" />
-            <span className="text-[13px] text-slate-500 font-semibold uppercase tracking-wider">
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
               In Review
             </span>
           </div>
@@ -170,7 +170,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="bg-white p-6 rounded-2xl border-2 border-amber-500 shadow-[0_4px_12px_rgba(245,158,11,0.1)]">
           <div className="flex items-center gap-3 mb-3">
             <Clock size={24} className="text-amber-500" />
-            <span className="text-[13px] text-slate-500 font-semibold uppercase tracking-wider">
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
               In Progress
             </span>
           </div>
@@ -182,7 +182,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <div className="bg-white p-6 rounded-2xl border-2 border-slate-400 shadow-[0_4px_12px_rgba(148,163,184,0.1)]">
           <div className="flex items-center gap-3 mb-3">
             <FileText size={24} className="text-slate-400" />
-            <span className="text-[13px] text-slate-500 font-semibold uppercase tracking-wider">
+            <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
               Draft Queue
             </span>
           </div>
@@ -201,10 +201,10 @@ const Dashboard: React.FC<DashboardProps> = ({
               key={filter}
               onClick={() => setActiveFilter(filter)}
               className={cn(
-                "py-2 px-4 rounded-lg text-[13px] font-bold transition-all whitespace-nowrap border-none cursor-pointer",
+                "py-2 px-4 rounded-lg text-xs font-bold transition-all whitespace-nowrap border-none cursor-pointer",
                 activeFilter === filter
                   ? "bg-primary text-white"
-                  : "bg-transparent text-slate-500"
+                  : "bg-transparent text-slate-500",
               )}
             >
               {filter}
@@ -217,7 +217,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="py-2 pr-8 pl-3 rounded-lg border border-gray-200 text-[13px] text-slate-600 outline-none cursor-pointer font-semibold bg-white"
+            className="py-2 pr-8 pl-3 rounded-lg border border-gray-200 text-xs text-slate-600 outline-none cursor-pointer font-semibold bg-white"
           >
             <option value="newest">Newest First</option>
             <option value="oldest">Oldest First</option>
@@ -230,7 +230,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 "p-2 rounded-md border-none cursor-pointer flex items-center justify-center",
                 viewMode === "grid"
                   ? "bg-white text-primary shadow-sm"
-                  : "bg-transparent text-slate-400"
+                  : "bg-transparent text-slate-400",
               )}
             >
               <GridIcon size={18} />
@@ -241,7 +241,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 "p-2 rounded-md border-none cursor-pointer flex items-center justify-center",
                 viewMode === "list"
                   ? "bg-white text-primary shadow-sm"
-                  : "bg-transparent text-slate-400"
+                  : "bg-transparent text-slate-400",
               )}
             >
               <List size={18} />
@@ -309,7 +309,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <span
                       className={cn(
                         "inline-flex items-center gap-1.5 text-xs font-bold py-1.5 px-3 rounded-lg uppercase tracking-wider",
-                        getStatusBadgeClass(c.status)
+                        getStatusBadgeClass(c.status),
                       )}
                     >
                       <div className="w-1.5 h-1.5 rounded-full bg-current" />
@@ -319,7 +319,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <td className="py-4 px-6">
                     <button
                       onClick={() => onSelectCase(c.id)}
-                      className="py-2 px-4 rounded-lg bg-primary text-white text-[13px] font-bold border-none cursor-pointer transition-all"
+                      className="py-2 px-4 rounded-lg bg-primary text-white text-xs font-bold border-none cursor-pointer transition-all"
                     >
                       Open Record
                     </button>

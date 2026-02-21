@@ -30,7 +30,7 @@ const MultiplePropertiesStep: React.FC<WizardStepProps> = ({
       </div>
 
       <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-4 mb-6 mt-4">
-        <p className="m-0 text-[13px] text-slate-600 leading-relaxed">
+        <p className="m-0 text-xs text-slate-600 leading-relaxed">
           If this property is one of a number of{" "}
           <strong>identical units</strong> in the same block or development,
           this survey will apply to all identical units — saving time on repeat
@@ -49,7 +49,7 @@ const MultiplePropertiesStep: React.FC<WizardStepProps> = ({
             "flex-1 py-4 px-3 rounded-xl border-2 cursor-pointer font-bold text-[15px] transition-all text-center",
             isYes
               ? "border-primary bg-primary-light text-indigo-700"
-              : "border-slate-200 bg-white text-slate-500"
+              : "border-slate-200 bg-white text-slate-500",
           )}
           onClick={() => handleUpdateField("multipleProperties", "Yes")}
         >
@@ -60,7 +60,7 @@ const MultiplePropertiesStep: React.FC<WizardStepProps> = ({
             "flex-1 py-4 px-3 rounded-xl border-2 cursor-pointer font-bold text-[15px] transition-all text-center",
             isNo
               ? "border-primary bg-primary-light text-indigo-700"
-              : "border-slate-200 bg-white text-slate-500"
+              : "border-slate-200 bg-white text-slate-500",
           )}
           onClick={() => {
             handleUpdateField("multipleProperties", "No");
@@ -79,7 +79,7 @@ const MultiplePropertiesStep: React.FC<WizardStepProps> = ({
           className="overflow-hidden"
         >
           <div className="bg-primary-light border-[1.5px] border-indigo-200 rounded-[10px] p-4">
-            <label className="text-[13px] font-semibold text-indigo-700 block mb-2.5">
+            <label className="text-xs font-semibold text-indigo-700 block mb-2.5">
               How many identical units are there in total?
             </label>
             <input

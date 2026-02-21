@@ -48,7 +48,7 @@ const LoginPage = () => {
           <h1 className="text-white text-xl font-bold mb-2 tracking-wide">
             Welcome Back
           </h1>
-          <p className="text-white/60 text-[13px]">Sign in to continue</p>
+          <p className="text-white/60 text-xs">Sign in to continue</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -108,7 +108,7 @@ const LoginPage = () => {
         </form>
 
         <div className="mt-8 text-center">
-          <p className="text-white/30 text-[13px]">
+          <p className="text-white/30 text-xs">
             Protected by Homingo Secure Access v2.0
           </p>
         </div>

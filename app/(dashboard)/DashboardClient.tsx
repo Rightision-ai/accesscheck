@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Plus } from 'lucide-react';
 import Header from '../components/dashboard/Header';
 import Dashboard from '../components/dashboard/Dashboard';
 import AssessmentWizard from '../components/wizard/AssessmentWizard';
@@ -75,7 +76,7 @@ export default function DashboardClient({ initialCases, user }: DashboardClientP
                 onOpenWizard={handleOpenWizard}
                 onSearch={setSearchTerm}
             />
-            <main className="min-h-[calc(100vh-80px)]">
+            <main className="min-h-[calc(100vh-80px)] pb-24 md:pb-0">
                 <Dashboard
                     user={user}
                     cases={cases}
@@ -102,6 +103,15 @@ export default function DashboardClient({ initialCases, user }: DashboardClientP
                     setWizardInitialData(null);
                 }}
             />
+
+            {/* Mobile FAB: New Assessment */}
+            <button
+                onClick={handleOpenWizard}
+                className="md:hidden fixed bottom-6 right-6 z-[90] w-14 h-14 rounded-full bg-primary text-white shadow-[0_4px_20px_rgba(99,102,241,0.4)] flex items-center justify-center cursor-pointer hover:bg-primary/90 active:scale-95 transition-all"
+                aria-label="New Assessment"
+            >
+                <Plus size={28} strokeWidth={2.5} />
+            </button>
         </div>
     );
 }

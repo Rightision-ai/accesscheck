@@ -73,7 +73,7 @@ const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick }) => {
         <div
           className={cn(
             "absolute top-3 right-3 py-1.5 px-3 rounded-lg flex items-center gap-1.5 border backdrop-blur-md",
-            statusConfig.className
+            statusConfig.className,
           )}
         >
           <StatusIcon size={14} className="shrink-0" />
@@ -96,7 +96,7 @@ const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick }) => {
         </h3>
 
         {/* Applicant Name */}
-        <div className="text-[13px] text-slate-500 mb-3 font-medium">
+        <div className="text-xs text-slate-500 mb-3 font-medium">
           {caseData.applicantName || "Anonymous Client"}
         </div>
 
