@@ -1,5 +1,5 @@
 import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Upload, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { WizardStepProps } from "../types";
 import { cn } from "@/lib/utils/cn";
@@ -17,6 +17,14 @@ const FloorPlanStep: React.FC<WizardStepProps> = ({
     if (typeof formData.floorPlan === "string") return formData.floorPlan;
     return URL.createObjectURL(formData.floorPlan);
   }, [formData.floorPlan]);
+
+  const overlayState = hasPlan
+    ? isAnalyzing
+      ? "purple"
+      : floorPlanAnalysis
+        ? "green"
+        : "yellow"
+    : null;
 
   // Color mapping for annotation types
   const getTypeColor = (type: string) => {
@@ -90,68 +98,73 @@ const FloorPlanStep: React.FC<WizardStepProps> = ({
           <input
             type="file"
             id="floorPlanUpload"
-            accept="image/*,.pdf"
+            accept="image/*,image/heic,.heic,.pdf"
             hidden
             onChange={handlePhotoUpload}
             disabled={isAnalyzing}
           />
 
-          <AnimatePresence mode="wait">
-            {isAnalyzing ? (
-              <motion.div
-                key="analyzing"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="flex flex-col items-center gap-3 py-10"
-              >
-                <Loader2 className="animate-spin text-primary" size={40} />
-                <span className="font-bold text-primary text-sm">
-                  AI is scanning floor plan...
-                </span>
-              </motion.div>
-            ) : hasPlan && planUrl ? (
-              <motion.div
-                key="done"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="w-full relative"
-              >
-                <div className="relative w-full rounded-2xl overflow-hidden border border-slate-200">
-                  <img
-                    src={planUrl}
-                    alt="Floor Plan"
-                    className="w-full h-auto block"
-                  />
-                  {floorPlanAnalysis?.annotations?.map((ann, idx) => {
-                    const [ymin, xmin, ymax, xmax] = ann.bbox;
-                    const style = getTypeColor(ann.type);
-                    return (
-                      <div
-                        key={idx}
-                        className="absolute rounded pointer-events-none"
-                        style={{
-                          top: `${(ymin / 1000) * 100}%`,
-                          left: `${(xmin / 1000) * 100}%`,
-                          height: `${((ymax - ymin) / 1000) * 100}%`,
-                          width: `${((xmax - xmin) / 1000) * 100}%`,
-                          border: `2px solid ${style.border}`,
-                          backgroundColor: style.bg,
-                        }}
-                      >
-                        {ann.label && (
-                          <span
-                            className="absolute -top-5 left-0 text-white text-[10px] font-bold py-0.5 px-1.5 rounded z-10 whitespace-nowrap"
-                            style={{ background: style.border }}
-                          >
-                            {ann.label}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
+          {hasPlan && planUrl ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="w-full relative"
+            >
+              <div className="relative w-full h-[200px] rounded-2xl overflow-hidden border border-slate-200 flex items-center justify-center bg-slate-50">
+                <img
+                  src={planUrl}
+                  alt="Floor Plan"
+                  className="max-w-full max-h-full w-auto h-auto object-contain"
+                />
+                {overlayState && (
                   <div
-                    className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold"
+                    className={cn(
+                      "absolute inset-0 flex items-center justify-center transition-colors",
+                      overlayState === "purple" && "bg-purple-500/40",
+                      overlayState === "green" && "bg-green-500/40",
+                      overlayState === "yellow" && "bg-amber-400/40",
+                    )}
+                  >
+                    {overlayState === "purple" && (
+                      <div className="flex flex-col items-center gap-2 text-white">
+                        <Loader2 className="animate-spin" size={32} />
+                        <span className="font-bold text-sm">
+                          AI is scanning floor plan...
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {floorPlanAnalysis?.annotations?.map((ann, idx) => {
+                  const [ymin, xmin, ymax, xmax] = ann.bbox;
+                  const style = getTypeColor(ann.type);
+                  return (
+                    <div
+                      key={idx}
+                      className="absolute rounded pointer-events-none z-10"
+                      style={{
+                        top: `${(ymin / 1000) * 100}%`,
+                        left: `${(xmin / 1000) * 100}%`,
+                        height: `${((ymax - ymin) / 1000) * 100}%`,
+                        width: `${((xmax - xmin) / 1000) * 100}%`,
+                        border: `2px solid ${style.border}`,
+                        backgroundColor: style.bg,
+                      }}
+                    >
+                      {ann.label && (
+                        <span
+                          className="absolute -top-5 left-0 text-white text-[10px] font-bold py-0.5 px-1.5 rounded z-10 whitespace-nowrap"
+                          style={{ background: style.border }}
+                        >
+                          {ann.label}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+                {!isAnalyzing && (
+                  <div
+                    className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold z-20"
                     onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
                     onMouseLeave={(e) => (e.currentTarget.style.opacity = "0")}
                   >
@@ -160,68 +173,58 @@ const FloorPlanStep: React.FC<WizardStepProps> = ({
                       <span>Click to Replace</span>
                     </div>
                   </div>
-                </div>
-
-                {floorPlanAnalysis && (
-                  <div className="mt-4 flex flex-wrap gap-2 justify-center">
-                    {floorPlanAnalysis.entrance_level && (
-                      <div className="flex items-center gap-1.5 py-1.5 px-3 bg-green-50 rounded-lg border border-green-200">
-                        <div className="w-2 h-2 rounded-full bg-green-600" />
-                        <span className="text-xs font-semibold text-green-800">
-                          {floorPlanAnalysis.entrance_level.value} Level
-                        </span>
-                      </div>
-                    )}
-                    {floorPlanAnalysis.lift?.detected && (
-                      <div className="flex items-center gap-1.5 py-1.5 px-3 bg-purple-50 rounded-lg border border-purple-200">
-                        <div className="w-2 h-2 rounded-full bg-purple-500" />
-                        <span className="text-xs font-semibold text-purple-900">
-                          Lift Detected
-                        </span>
-                      </div>
-                    )}
-                    {floorPlanAnalysis.annotations?.some(
-                      (a) => a.type === "stairs",
-                    ) && (
-                      <div className="flex items-center gap-1.5 py-1.5 px-3 bg-orange-50 rounded-lg border border-orange-200">
-                        <div className="w-2 h-2 rounded-full bg-amber-500" />
-                        <span className="text-xs font-semibold text-orange-800">
-                          Stairs Found
-                        </span>
-                      </div>
-                    )}
-                  </div>
                 )}
-              </motion.div>
-            ) : (
-              <motion.div
-                key="idle"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex flex-col items-center gap-3"
-              >
-                <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-slate-500 shadow-md">
-                  <Upload size={24} />
-                </div>
-                <div className="text-center">
-                  <span className="block font-extrabold text-slate-800 text-[15px]">
-                    Click to Upload Plan
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    PNG, JPG or PDF (Max 10MB)
-                  </span>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </div>
 
-          {isAnalyzing && (
+              {floorPlanAnalysis && (
+                <div className="mt-4 flex flex-wrap gap-2 justify-center">
+                  {floorPlanAnalysis.entrance_level && (
+                    <div className="flex items-center gap-1.5 py-1.5 px-3 bg-green-50 rounded-lg border border-green-200">
+                      <div className="w-2 h-2 rounded-full bg-green-600" />
+                      <span className="text-xs font-semibold text-green-800">
+                        {floorPlanAnalysis.entrance_level.value} Level
+                      </span>
+                    </div>
+                  )}
+                  {floorPlanAnalysis.lift?.detected && (
+                    <div className="flex items-center gap-1.5 py-1.5 px-3 bg-purple-50 rounded-lg border border-purple-200">
+                      <div className="w-2 h-2 rounded-full bg-purple-500" />
+                      <span className="text-xs font-semibold text-purple-900">
+                        Lift Detected
+                      </span>
+                    </div>
+                  )}
+                  {floorPlanAnalysis.annotations?.some(
+                    (a) => a.type === "stairs",
+                  ) && (
+                    <div className="flex items-center gap-1.5 py-1.5 px-3 bg-orange-50 rounded-lg border border-orange-200">
+                      <div className="w-2 h-2 rounded-full bg-amber-500" />
+                      <span className="text-xs font-semibold text-orange-800">
+                        Stairs Found
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          ) : (
             <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: "100%" }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="absolute bottom-0 left-0 h-1 bg-primary"
-            />
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center gap-3"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-slate-500 shadow-md">
+                <Upload size={24} />
+              </div>
+              <div className="text-center">
+                <span className="block font-extrabold text-slate-800 text-[15px]">
+                  Click to Upload Plan
+                </span>
+                <span className="text-xs text-slate-500">
+                  PNG, JPG or PDF (Max 10MB)
+                </span>
+              </div>
+            </motion.div>
           )}
         </label>
 
