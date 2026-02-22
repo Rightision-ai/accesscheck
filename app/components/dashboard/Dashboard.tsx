@@ -194,14 +194,14 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Controls */}
       <div className="bg-white py-5 px-6 rounded-2xl mb-6 border border-gray-200 flex justify-between items-center flex-wrap gap-4">
-        {/* Filters */}
-        <div className="flex gap-2 bg-slate-50 p-1 rounded-[10px]">
+        {/* Filters - horizontal scroll on small screens */}
+        <div className="flex gap-2 bg-slate-50 p-1 rounded-[10px] overflow-x-auto overflow-y-hidden min-w-0 flex-nowrap [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
           {filters.map((filter) => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
               className={cn(
-                "py-2 px-4 rounded-lg text-xs font-bold transition-all whitespace-nowrap border-none cursor-pointer",
+                "py-2 px-4 rounded-lg text-xs font-bold transition-all whitespace-nowrap border-none cursor-pointer shrink-0",
                 activeFilter === filter
                   ? "bg-primary text-white"
                   : "bg-transparent text-slate-500",
