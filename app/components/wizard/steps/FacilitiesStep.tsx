@@ -50,7 +50,7 @@ const FacilitiesStep: React.FC<WizardStepProps> = ({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="bg-slate-50 p-3 rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Bed size={16} className="text-slate-500" />

@@ -332,7 +332,7 @@ const ComplianceSummary = ({
       </div>
     </div>
 
-    {(
+    {
       <div
         style={{
           marginTop: "16px",
@@ -361,36 +361,36 @@ const ComplianceSummary = ({
             gap: "8px",
           }}
         >
-          {(risks && risks.length > 0)
-            ? risks.map((risk: any, i: number) => (
-                <div
-                  key={i}
-                  style={{
-                    fontSize: "12px",
-                    color: "#b91c1c",
-                    background: "#fef2f2",
-                    padding: "8px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid #fecaca",
-                  }}
-                >
-                  <strong>{risk.ruleId}:</strong> {risk.description}
-                </div>
-              ))
-            : (
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "#64748b",
-                    padding: "8px 0",
-                  }}
-                >
-                  None identified
-                </div>
-              )}
+          {risks && risks.length > 0 ? (
+            risks.map((risk: any, i: number) => (
+              <div
+                key={i}
+                style={{
+                  fontSize: "12px",
+                  color: "#b91c1c",
+                  background: "#fef2f2",
+                  padding: "8px 12px",
+                  borderRadius: "6px",
+                  border: "1px solid #fecaca",
+                }}
+              >
+                <strong>{risk.ruleId}:</strong> {risk.description}
+              </div>
+            ))
+          ) : (
+            <div
+              style={{
+                fontSize: "12px",
+                color: "#64748b",
+                padding: "8px 0",
+              }}
+            >
+              None identified
+            </div>
+          )}
         </div>
       </div>
-    )}
+    }
   </div>
 );
 
@@ -1457,7 +1457,7 @@ const ReportView: React.FC<ReportViewProps> = ({
     >
       {/* Nav Toolbar */}
       <div
-        className="no-print"
+        className="no-print report-toolbar"
         style={{
           maxWidth: "1000px",
           margin: "16px auto 16px",
@@ -1466,24 +1466,7 @@ const ReportView: React.FC<ReportViewProps> = ({
           alignItems: "center",
         }}
       >
-        <button
-          onClick={onBack}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            border: "1px solid #e2e8f0",
-            background: "#fff",
-            padding: "10px 20px",
-            borderRadius: "12px",
-            fontWeight: "700",
-            cursor: "pointer",
-            color: "#64748b",
-          }}
-        >
-          <ChevronLeft size={18} /> Back to Dashboard
-        </button>
-        <div style={{ display: "flex", gap: "12px" }}>
+        <div className="report-toolbar-actions" style={{ display: "flex", gap: "12px" }}>
           <button
             onClick={handleSave}
             disabled={isSaving || isLocked}
@@ -1578,17 +1561,27 @@ const ReportView: React.FC<ReportViewProps> = ({
         onConfirm={finalizeSave}
       />
 
-      {/* AHR Main Document Content */}
+      {/* AHR Main Document Content - fixed width on all devices; zoom/scroll to view on small screens */}
       <div
-        className="report-pages"
+        className="report-pages-wrapper"
         style={{
-          maxWidth: "900px",
+          overflowX: "auto",
+          overflowY: "visible",
           margin: "0 auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: "20px",
+          maxWidth: "100%",
         }}
       >
+        <div
+          className="report-pages"
+          style={{
+            width: "900px",
+            minWidth: "900px",
+            margin: "0 auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: "20px",
+          }}
+        >
         {/* --- PAGE 1: CORE DATA & ELIGIBILITY --- */}
         <div
           className="ahr-page"
@@ -1836,7 +1829,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                   onClick={() => handleOverride("multipleProperties", "No")}
                 />
               </div>
-              {(
+              {
                 <div
                   style={{
                     display: "flex",
@@ -1878,7 +1871,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                     }
                   />
                 </div>
-              )}
+              }
             </div>
           </SectionBlock>
 
@@ -2565,7 +2558,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                     onClick={() => handleOverride("communalDoorPresent", false)}
                   />
                 </div>
-                {(
+                {
                   <div
                     style={{
                       flex: 1,
@@ -2717,7 +2710,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       />
                     </div>
                   </div>
-                )}
+                }
               </div>
             </div>
 
@@ -2882,7 +2875,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                   </div>
                 </div>
 
-                {(
+                {
                   <div
                     style={{
                       flex: 1,
@@ -3502,7 +3495,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       </div>
                     </div>
                   </div>
-                )}
+                }
               </div>
             </div>
 
@@ -3556,7 +3549,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                     onClick={() => handleOverride("communalLiftPresent", false)}
                   />
                 </div>
-                {(
+                {
                   <div
                     style={{
                       flex: 1,
@@ -3777,7 +3770,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       </div>
                     </div>
                   </div>
-                )}
+                }
               </div>
             </div>
 
@@ -3828,7 +3821,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                     onClick={() => handleOverride("propertyDoorPresent", false)}
                   />
                 </div>
-                {(
+                {
                   <div
                     style={{
                       flex: 1,
@@ -3968,10 +3961,9 @@ const ReportView: React.FC<ReportViewProps> = ({
                       />
                     </div>
                   </div>
-                )}
+                }
               </div>
             </div>
-
           </SectionBlock>
         </div>
 
@@ -4148,7 +4140,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                   </div>
                 </div>
 
-                {(
+                {
                   <div
                     style={{
                       flex: 1,
@@ -4818,7 +4810,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       </div>
                     </div>
                   </div>
-                )}
+                }
               </div>
             </div>
 
@@ -5934,7 +5926,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                   </div>
                 </div>
 
-                {(
+                {
                   <div
                     style={{
                       flex: 1,
@@ -6607,7 +6599,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       </div>
                     </div>
                   </div>
-                )}
+                }
               </div>
             </div>
 
@@ -7280,7 +7272,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                     }
                   />
                 </div>
-                {(
+                {
                   <div style={{ flex: 1 }}>
                     <div
                       style={{
@@ -7444,7 +7436,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       </div>
                     </div>
                   </div>
-                )}
+                }
               </div>
             </div>
           </SectionBlock>
@@ -9128,7 +9120,6 @@ const ReportView: React.FC<ReportViewProps> = ({
                 </div>
               </div>
             </div>
-
           </SectionBlock>
           <SectionBlock title="Property Location" number="">
             {/* Property Location Map */}
@@ -9496,10 +9487,39 @@ const ReportView: React.FC<ReportViewProps> = ({
             </div>
           ));
         })()}
+        </div>
       </div>
 
       <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400..700&display=swap');
+
+                .report-toolbar {
+                  width: 100%;
+                  padding-left: 12px;
+                  padding-right: 12px;
+                  box-sizing: border-box;
+                }
+                .report-toolbar-actions {
+                  flex-wrap: wrap;
+                  justify-content: flex-start;
+                }
+                @media (max-width: 640px) {
+                  .report-toolbar {
+                    margin-left: 8px;
+                    margin-right: 8px;
+                    padding-left: 0;
+                    padding-right: 0;
+                  }
+                  .report-toolbar-actions {
+                    gap: 8px;
+                    width: 100%;
+                  }
+                  .report-toolbar-actions button {
+                    flex: 1 1 100%;
+                    min-width: 0;
+                    justify-content: center;
+                  }
+                }
 
                 @media print {
                     body { background: #fff !important; margin: 0; padding: 0; }
@@ -9518,6 +9538,19 @@ const ReportView: React.FC<ReportViewProps> = ({
                 }
                 .ahr-page {
                     position: relative;
+                }
+                /* Report content: always original design on all devices; no responsive layout change */
+                .report-pages-wrapper {
+                  -webkit-overflow-scrolling: touch;
+                }
+                .report-pages {
+                  width: 900px !important;
+                  min-width: 900px !important;
+                  max-width: 900px !important;
+                  box-sizing: border-box;
+                }
+                .report-pages .ahr-page {
+                  flex-shrink: 0;
                 }
             `}</style>
     </div>

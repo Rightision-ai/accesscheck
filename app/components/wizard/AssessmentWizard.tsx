@@ -654,18 +654,18 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4 z-[1000]">
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 z-1000">
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 40 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 40 }}
-        className="w-full max-w-[780px] h-[85vh] bg-white/95 rounded-[20px] flex flex-col overflow-hidden shadow-2xl border border-white/70"
+        className="w-full max-w-[780px] h-[90vh] sm:h-[85vh] max-h-dvh bg-white/95 rounded-xl sm:rounded-[20px] flex flex-col overflow-hidden shadow-2xl border border-white/70"
       >
         {/* Header Section */}
         <ProgressBar currentStep={step} steps={steps} />
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto px-4">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-4 min-h-0">
           <AnimatePresence mode="wait">
             {step === 1 && (
               <ClientInfoStep
@@ -765,18 +765,21 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         </div>
 
         {/* Footer Controls */}
-        <div className="py-3 px-5 bg-white border-t border-border flex justify-between items-center">
-          <button onClick={onClose} className="w-10 h-10 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center cursor-pointer text-slate-500">
-            <X size={20} />
+        <div className="shrink-0 py-2 px-3 sm:py-3 sm:px-5 bg-white border-t border-border flex flex-wrap justify-between items-center gap-2">
+          <button
+            onClick={onClose}
+            className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-50 rounded-lg sm:rounded-xl border border-slate-200 flex items-center justify-center cursor-pointer text-slate-500 shrink-0 order-first"
+            aria-label="Close"
+          >
+            <X size={18} className="sm:w-5 sm:h-5" />
           </button>
-
-          <div className="flex gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 min-w-0 flex-1">
             {step > 1 && (
               <button
                 onClick={() => setStep(step - 1)}
-                className="py-2.5 px-5 bg-white text-text-main rounded-xl border border-slate-200 font-bold text-sm flex items-center gap-1.5 cursor-pointer"
+                className="py-2 px-3 sm:py-2.5 sm:px-5 bg-white text-text-main rounded-lg sm:rounded-xl border border-slate-200 font-bold text-xs sm:text-sm flex items-center gap-1 sm:gap-1.5 cursor-pointer shrink-0"
               >
-                <ChevronLeft size={20} /> Back
+                <ChevronLeft size={18} className="sm:w-5 sm:h-5 shrink-0" /> <span className="hidden sm:inline">Back</span>
               </button>
             )}
 
@@ -784,12 +787,12 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
               onClick={handleSaveDraft}
               disabled={isSavingDraft}
               className={cn(
-                "py-2.5 px-5 bg-white rounded-xl border font-bold text-sm flex items-center gap-1.5",
+                "py-2 px-3 sm:py-2.5 sm:px-5 bg-white rounded-lg sm:rounded-xl border font-bold text-xs sm:text-sm flex items-center gap-1 sm:gap-1.5 shrink-0",
                 "border-primary text-primary",
                 isSavingDraft && "opacity-70 cursor-not-allowed"
               )}
             >
-              {isSavingDraft ? "Saving…" : "Save Progress"}
+              {isSavingDraft ? "Saving…" : <><span className="hidden sm:inline">Save Progress</span><span className="sm:hidden">Save</span></>}
             </button>
 
             {step === 4 && (
@@ -802,7 +805,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                   step3AnalysisComplete
                 }
                 className={cn(
-                  "py-2.5 px-5 rounded-xl border font-bold text-sm flex items-center gap-1.5",
+                  "py-2 px-3 sm:py-2.5 sm:px-5 rounded-lg sm:rounded-xl border font-bold text-xs sm:text-sm flex items-center gap-1 sm:gap-1.5 shrink-0",
                   step3AnalysisComplete && "border-green-600 text-green-600 bg-green-50 cursor-not-allowed",
                   isAnalyzing && !step3AnalysisComplete && "border-primary text-primary bg-white cursor-not-allowed",
                   ((formData.photos || []).length < 1 || isProcessing) && !step3AnalysisComplete && !isAnalyzing && "bg-slate-300 border-slate-300 text-white cursor-not-allowed opacity-60 shadow-none",
@@ -811,18 +814,18 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
               >
                 {isAnalyzing ? (
                   <>
-                    <RefreshCw className="animate-spin" size={16} />
-                    Analyzing...
+                    <RefreshCw className="animate-spin shrink-0" size={14} />
+                    <span className="hidden sm:inline">Analyzing...</span>
                   </>
                 ) : step3AnalysisComplete ? (
                   <>
-                    <CheckCircle size={16} />
-                    Analyzed
+                    <CheckCircle size={14} className="shrink-0" />
+                    <span className="hidden sm:inline">Analyzed</span>
                   </>
                 ) : (
                   <>
-                    <Camera size={16} />
-                    Analyze Photos
+                    <Camera size={14} className="shrink-0" />
+                    <span className="hidden sm:inline">Analyze Photos</span>
                   </>
                 )}
               </button>
@@ -841,18 +844,17 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                 }
               }}
               className={cn(
-                "py-2.5 px-5 rounded-xl border-none font-bold text-sm flex items-center gap-1.5 transition-all",
+                "py-2 px-3 sm:py-2.5 sm:px-5 rounded-lg sm:rounded-xl border-none font-bold text-xs sm:text-sm flex items-center gap-1 sm:gap-1.5 transition-all shrink-0",
                 isNextDisabled()
                   ? "bg-slate-300 text-white cursor-not-allowed opacity-60 shadow-none"
                   : "bg-primary text-white cursor-pointer shadow-[0_4px_12px_rgba(99,102,241,0.3)]"
               )}
             >
-              {step === 9
-                ? "Complete Assessment"
-                : step === 8
-                  ? "Start AI Analysis"
-                  : "Continue"}
-              {step < 9 && <ChevronRight size={20} />}
+              <span className="hidden sm:inline">
+                {step === 9 ? "Complete Assessment" : step === 8 ? "Start AI Analysis" : "Continue"}
+              </span>
+              <span className="sm:hidden">{step === 9 ? "Complete" : step === 8 ? "Analyze" : "Next"}</span>
+              {step < 9 && <ChevronRight size={18} className="sm:w-5 sm:h-5 shrink-0" />}
             </button>
           </div>
         </div>

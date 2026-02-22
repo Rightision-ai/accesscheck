@@ -89,25 +89,26 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-[1280px] mx-auto px-6 h-16 flex justify-between items-center">
-          <div className="flex items-center gap-4">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-3 sm:py-0 sm:h-16 min-h-14 flex flex-wrap justify-between items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
             <button
               onClick={() => router.push("/")}
-              className="p-2 rounded-full bg-transparent border-none cursor-pointer text-slate-500 flex items-center justify-center"
+              className="p-2 rounded-full bg-transparent border-none cursor-pointer text-slate-500 flex items-center justify-center shrink-0 touch-manipulation"
+              aria-label="Back to dashboard"
             >
               <ArrowLeft size={20} />
             </button>
-            <div>
-              <h1 className="text-lg font-bold text-slate-900 m-0">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 m-0 truncate">
                 Case {caseData.id}
               </h1>
-              <p className="text-xs text-slate-500 m-0">{caseData.address}</p>
+              <p className="text-xs text-slate-500 m-0 truncate">{caseData.address}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0 flex-wrap justify-end">
             <div
-              className="flex items-center gap-1.5 py-1.5 px-3 rounded-full text-xs font-bold border"
+              className="flex items-center gap-1.5 py-1.5 px-2.5 sm:px-3 rounded-full text-xs font-bold border shrink-0"
               style={{
                 background: statusBg,
                 color: statusColor,
@@ -118,30 +119,32 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
               {displayStatus}
             </div>
 
-            <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
+            <div className="flex gap-1 sm:gap-2 bg-slate-100 p-1 rounded-lg">
               <button
                 onClick={() => setActiveTab("details")}
                 className={cn(
-                  "py-1.5 px-4 rounded-md text-xs font-semibold border-none cursor-pointer flex items-center gap-2 transition-all",
+                  "py-1.5 px-2 sm:px-4 rounded-md text-xs font-semibold border-none cursor-pointer flex items-center gap-2 transition-all touch-manipulation",
                   activeTab === "details"
                     ? "bg-white text-slate-900 shadow-sm"
                     : "bg-transparent text-slate-500",
                 )}
+                aria-label="Case Overview"
               >
-                <List size={16} />
-                Case Overview
+                <List size={16} className="shrink-0" />
+                <span className="hidden sm:inline">Case Overview</span>
               </button>
               <button
                 onClick={() => setActiveTab("ahr")}
                 className={cn(
-                  "py-1.5 px-4 rounded-md text-xs font-semibold border-none cursor-pointer flex items-center gap-2 transition-all",
+                  "py-1.5 px-2 sm:px-4 rounded-md text-xs font-semibold border-none cursor-pointer flex items-center gap-2 transition-all touch-manipulation",
                   activeTab === "ahr"
                     ? "bg-white text-slate-900 shadow-sm"
                     : "bg-transparent text-slate-500",
                 )}
+                aria-label="AHR Report"
               >
-                <FileText size={16} />
-                AHR Report
+                <FileText size={16} className="shrink-0" />
+                <span className="hidden sm:inline">AHR Report</span>
               </button>
             </div>
           </div>
@@ -153,50 +156,53 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
           <div className="flex flex-col gap-6">
             {/* Case Details */}
             <div className="flex flex-wrap gap-6 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm items-stretch">
-              {/* Score Card */}
-              <div
-                className="rounded-[20px] p-6 flex flex-col items-center justify-center min-w-[140px] min-h-[160px]"
-                style={{
-                  background: scoreColor.bg,
-                  color: scoreColor.fg,
-                  boxShadow: `0 8px 24px ${scoreColor.bg}40`,
-                }}
-              >
-                <div className="text-[11px] font-extrabold opacity-95 tracking-wider uppercase mb-2">
-                  Score
-                </div>
-                <div className="text-5xl font-black leading-none">
-                  {scoreNum != null ? Math.round(scoreNum) : "-"}
-                </div>
-                {grade && (
-                  <div className="mt-3 py-1 px-3 rounded-full text-xs font-extrabold bg-white/20 backdrop-blur-sm">
-                    Grade: {grade}
-                  </div>
-                )}
-              </div>
-
-              {/* Confidence Card */}
-              <div className="bg-white rounded-[20px] p-6 border border-slate-200 flex flex-col items-center justify-center min-w-[140px] min-h-[160px]">
+              {/* Score + Confidence side by side (including on mobile) */}
+              <div className="flex gap-3 sm:gap-6 flex-1 min-w-0 basis-full sm:basis-auto">
+                {/* Score Card */}
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center mb-3"
+                  className="flex-1 min-w-0 rounded-[20px] p-4 sm:p-6 flex flex-col items-center justify-center min-h-[140px] sm:min-h-[160px]"
                   style={{
-                    background: confidenceStyle.iconBg,
-                    color: confidenceStyle.color,
+                    background: scoreColor.bg,
+                    color: scoreColor.fg,
+                    boxShadow: `0 8px 24px ${scoreColor.bg}40`,
                   }}
                 >
-                  <CheckCircle size={24} />
+                  <div className="text-[11px] font-extrabold opacity-95 tracking-wider uppercase mb-2">
+                    Score
+                  </div>
+                  <div className="text-4xl sm:text-5xl font-black leading-none">
+                    {scoreNum != null ? Math.round(scoreNum) : "-"}
+                  </div>
+                  {grade && (
+                    <div className="mt-2 sm:mt-3 py-1 px-2 sm:px-3 rounded-full text-xs font-extrabold bg-white/20 backdrop-blur-sm">
+                      Grade: {grade}
+                    </div>
+                  )}
                 </div>
-                <div className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
-                  Confidence
-                </div>
-                <div className="text-3xl font-black text-slate-900 leading-none">
-                  {confidencePct}%
-                </div>
-                <div
-                  className="text-xs font-bold mt-1"
-                  style={{ color: confidenceStyle.color }}
-                >
-                  {confidenceLabel}
+
+                {/* Confidence Card */}
+                <div className="flex-1 min-w-0 bg-white rounded-[20px] p-4 sm:p-6 border border-slate-200 flex flex-col items-center justify-center min-h-[140px] sm:min-h-[160px]">
+                  <div
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center mb-2 sm:mb-3"
+                    style={{
+                      background: confidenceStyle.iconBg,
+                      color: confidenceStyle.color,
+                    }}
+                  >
+                    <CheckCircle size={24} />
+                  </div>
+                  <div className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
+                    Confidence
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-900 leading-none">
+                    {confidencePct}%
+                  </div>
+                  <div
+                    className="text-xs font-bold mt-1"
+                    style={{ color: confidenceStyle.color }}
+                  >
+                    {confidenceLabel}
+                  </div>
                 </div>
               </div>
 
