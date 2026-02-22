@@ -1561,17 +1561,27 @@ const ReportView: React.FC<ReportViewProps> = ({
         onConfirm={finalizeSave}
       />
 
-      {/* AHR Main Document Content */}
+      {/* AHR Main Document Content - fixed width on all devices; zoom/scroll to view on small screens */}
       <div
-        className="report-pages"
+        className="report-pages-wrapper"
         style={{
-          maxWidth: "900px",
+          overflowX: "auto",
+          overflowY: "visible",
           margin: "0 auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: "20px",
+          maxWidth: "100%",
         }}
       >
+        <div
+          className="report-pages"
+          style={{
+            width: "900px",
+            minWidth: "900px",
+            margin: "0 auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: "20px",
+          }}
+        >
         {/* --- PAGE 1: CORE DATA & ELIGIBILITY --- */}
         <div
           className="ahr-page"
@@ -9477,6 +9487,7 @@ const ReportView: React.FC<ReportViewProps> = ({
             </div>
           ));
         })()}
+        </div>
       </div>
 
       <style>{`
@@ -9527,6 +9538,19 @@ const ReportView: React.FC<ReportViewProps> = ({
                 }
                 .ahr-page {
                     position: relative;
+                }
+                /* Report content: always original design on all devices; no responsive layout change */
+                .report-pages-wrapper {
+                  -webkit-overflow-scrolling: touch;
+                }
+                .report-pages {
+                  width: 900px !important;
+                  min-width: 900px !important;
+                  max-width: 900px !important;
+                  box-sizing: border-box;
+                }
+                .report-pages .ahr-page {
+                  flex-shrink: 0;
                 }
             `}</style>
     </div>
