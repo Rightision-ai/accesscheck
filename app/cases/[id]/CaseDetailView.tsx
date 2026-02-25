@@ -5,6 +5,7 @@ import { Case } from "@/types/dashboard";
 import ReportView from "@/app/components/report/ReportView";
 import { useRouter } from "next/navigation";
 import { saveSurveyClient } from "@/lib/surveys/client";
+import { deleteSurvey } from "@/lib/surveys/actions";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -18,6 +19,7 @@ import {
   Home,
   Calendar,
   User,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -85,6 +87,17 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this assessment? This cannot be undone.")) return;
+    const result = await deleteSurvey(caseData.id);
+    if (result.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Assessment deleted");
+    router.push("/");
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -119,6 +132,14 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
               {displayStatus}
             </div>
 
+            <button
+              onClick={handleDelete}
+              className="py-1.5 px-2 sm:px-3 rounded-lg text-xs font-semibold border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer flex items-center gap-2 transition-all touch-manipulation shrink-0"
+              title="Delete assessment"
+            >
+              <Trash2 size={16} className="shrink-0" />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
             <div className="flex gap-1 sm:gap-2 bg-slate-100 p-1 rounded-lg">
               <button
                 onClick={() => setActiveTab("details")}

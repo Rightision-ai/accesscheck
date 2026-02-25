@@ -17,6 +17,7 @@ interface DashboardProps {
   user: any;
   cases: Case[];
   onSelectCase: (id: string) => void;
+  onDeleteCase?: (id: string) => void;
   searchTerm: string;
 }
 
@@ -24,6 +25,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   user,
   cases,
   onSelectCase,
+  onDeleteCase,
   searchTerm,
 }) => {
   const [activeFilter, setActiveFilter] = useState("All Cases");
@@ -266,6 +268,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               key={caseData.id}
               caseData={caseData}
               onClick={onSelectCase}
+              onDelete={onDeleteCase}
             />
           ))}
         </div>
@@ -317,12 +320,23 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </span>
                   </td>
                   <td className="py-4 px-6">
-                    <button
-                      onClick={() => onSelectCase(c.id)}
-                      className="py-2 px-4 rounded-lg bg-primary text-white text-xs font-bold border-none cursor-pointer transition-all"
-                    >
-                      Open Record
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => onSelectCase(c.id)}
+                        className="py-2 px-4 rounded-lg bg-primary text-white text-xs font-bold border-none cursor-pointer transition-all"
+                      >
+                        Open Record
+                      </button>
+                      {onDeleteCase && (
+                        <button
+                          onClick={() => onDeleteCase(c.id)}
+                          className="py-2 px-3 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 text-xs font-bold border border-red-200 cursor-pointer transition-all"
+                          title="Delete assessment"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

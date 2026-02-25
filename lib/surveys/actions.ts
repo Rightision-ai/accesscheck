@@ -51,3 +51,29 @@ export async function saveSurvey(caseData: any) {
   revalidatePath('/');
   return { success: true, id: newId };
 }
+
+/**
+ * Delete a survey (case/assessment) by id. Only the owning user can delete (enforced by RLS).
+ */
+export async function deleteSurvey(caseId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return { error: 'Not authenticated' };
+
+  const surveyId = parseInt(caseId, 10);
+  if (Number.isNaN(surveyId)) return { error: 'Invalid case ID' };
+
+  const { error } = await supabase
+    .from('surveys')
+    .delete()
+    .eq('id', surveyId);
+
+  if (error) {
+    console.error('Error deleting survey:', error);
+    return { error: error.message };
+  }
+
+  revalidatePath('/');
+  return { success: true };
+}

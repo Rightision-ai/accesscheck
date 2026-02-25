@@ -8,6 +8,7 @@ import AssessmentWizard from '../components/wizard/AssessmentWizard';
 import { Case } from '@/types/dashboard';
 import { useRouter } from 'next/navigation';
 import { saveSurveyClient } from '@/lib/surveys/client';
+import { deleteSurvey } from '@/lib/surveys/actions';
 import { toast } from 'sonner';
 
 interface DashboardClientProps {
@@ -66,6 +67,17 @@ export default function DashboardClient({ initialCases, user }: DashboardClientP
         }
     };
 
+    const handleDeleteCase = async (id: string) => {
+        if (!confirm('Are you sure you want to delete this assessment? This cannot be undone.')) return;
+        const result = await deleteSurvey(id);
+        if (result.error) {
+            toast.error(result.error);
+            return;
+        }
+        setCases(prev => prev.filter(c => c.id !== id));
+        toast.success('Assessment deleted');
+    };
+
     return (
         <div className="app-container">
             <Header
@@ -78,6 +90,7 @@ export default function DashboardClient({ initialCases, user }: DashboardClientP
                     user={user}
                     cases={cases}
                     onSelectCase={handleSelectCase}
+                    onDeleteCase={handleDeleteCase}
                     searchTerm={searchTerm}
                 />
             </main>

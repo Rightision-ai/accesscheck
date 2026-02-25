@@ -2,16 +2,17 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { MapPin, Calendar, FileText, Shield, Clock, ChevronRight } from "lucide-react";
+import { MapPin, Calendar, FileText, Shield, Clock, ChevronRight, Trash2 } from "lucide-react";
 import { Case } from "@/types/dashboard";
 import { cn } from "@/lib/utils/cn";
 
 interface CaseCardProps {
   caseData: Case;
   onClick: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
-const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick }) => {
+const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick, onDelete }) => {
   const getStatusConfig = (status: string) => {
     switch (status) {
       case "Pending":
@@ -111,9 +112,25 @@ const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick }) => {
           </div>
         </div>
 
-        {/* Navigation arrow */}
-        <div className="flex justify-end mt-3 pt-3 border-t border-slate-100">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white">
+        {/* Bottom actions */}
+        <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-100 gap-2">
+          {onDelete ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(caseData.id);
+              }}
+              className="py-2 px-3 rounded-lg text-xs font-semibold border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer transition-colors flex items-center gap-1.5"
+              title="Delete assessment"
+              aria-label="Delete assessment"
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
             <ChevronRight size={18} />
           </div>
         </div>
