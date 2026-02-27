@@ -2,17 +2,23 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { MapPin, Calendar, FileText, Shield, Clock, ChevronRight, Trash2 } from "lucide-react";
+import {
+  MapPin,
+  Calendar,
+  FileText,
+  Shield,
+  Clock,
+  ChevronRight,
+} from "lucide-react";
 import { Case } from "@/types/dashboard";
 import { cn } from "@/lib/utils/cn";
 
 interface CaseCardProps {
   caseData: Case;
   onClick: (id: string) => void;
-  onDelete?: (id: string) => void;
 }
 
-const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick, onDelete }) => {
+const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick }) => {
   const getStatusConfig = (status: string) => {
     switch (status) {
       case "Pending":
@@ -91,45 +97,33 @@ const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick, onDelete }) => {
           {caseData.address || "Address Pending"}
         </h3>
 
-        {/* Applicant Name */}
-        <div className="text-xs text-slate-500 mb-3 font-medium">
-          {caseData.applicantName || "Anonymous Client"}
-        </div>
-
-        {/* Meta Information */}
-        <div className="flex gap-4 pt-3 border-t border-slate-100">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <MapPin size={14} />
-            <span>{caseData.city || "Location TBC"}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <Calendar size={14} />
-            <span>
-              {caseData.assessmentDate
-                ? new Date(caseData.assessmentDate).toLocaleDateString()
-                : "Date TBC"}
-            </span>
+        {/* Inspector Name */}
+        <div className="mb-3">
+          <div className="text-xs text-slate-600 font-medium mt-0.5">
+            {caseData.applicantName || "Unknown"}
           </div>
         </div>
 
-        {/* Bottom actions */}
-        <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-100 gap-2">
-          {onDelete ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete(caseData.id);
-              }}
-              className="py-2 px-3 rounded-lg text-xs font-semibold border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer transition-colors flex items-center gap-1.5"
-              title="Delete assessment"
-              aria-label="Delete assessment"
-            >
-              <Trash2 size={14} />
-              Delete
-            </button>
-          ) : (
-            <span />
-          )}
+        {/* Bottom meta + action */}
+        <div className="flex justify-between items-center mt-3">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 min-w-0">
+              <MapPin size={14} />
+              <span className="truncate">
+                {caseData.postcode || "Postcode TBC"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 shrink-0">
+              <Calendar size={14} />
+              <span>
+                {caseData.assessmentDate
+                  ? new Date(caseData.assessmentDate).toLocaleDateString(
+                      "en-GB",
+                    )
+                  : "Date TBC"}
+              </span>
+            </div>
+          </div>
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shrink-0">
             <ChevronRight size={18} />
           </div>

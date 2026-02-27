@@ -268,7 +268,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               key={caseData.id}
               caseData={caseData}
               onClick={onSelectCase}
-              onDelete={onDeleteCase}
             />
           ))}
         </div>

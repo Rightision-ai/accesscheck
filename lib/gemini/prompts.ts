@@ -183,10 +183,11 @@ Range	Grade
 Note: Score is always 0–100. Never output a score above 100.
 ________________________________________
 STEP 11 — Human-Readable Summary
-Provide:
-•	Strengths
-•	Weaknesses
-•	At least one actionable recommendation
+Provide Summary as separate bullet-point lists:
+•	Strengths: several short bullet points (one per line). If there are no meaningful strengths, leave empty string "".
+•	Weaknesses: several short bullet points (one per line). If there are none, leave empty string "".
+•	Recommendation: several short actionable bullet points (one per line). If there are none, leave empty string "".
+Format each field as multiple lines, one bullet point per line. The UI will display them as a bullet list. Do not add "None" or "N/A"—use an empty string and the UI will handle it.
 ⚠️ If the property includes any high-risk mismatch (e.g., bathtub for wheelchair user, steep access path, or narrow doors), override the final grade upward bias: downgrade by one letter grade.
 ________________________________________
 STEP 12 — JSON Output Example
@@ -201,11 +202,12 @@ AccessibilityScore must be a percentage string between 0 and 100 (e.g. "47.3%").
   "AppliedRules": [...],
   "InferenceNotes": [...],
   "Summary": {
-    "Strengths": "Single-level layout and flat access route.",
-    "Weaknesses": "Shower-over-bath configuration unsuitable for wheelchair user.",
-    "Recommendation": "Replace bathtub with roll-in shower for true independent use."
+    "Strengths": "Single-level layout.\nFlat access route.\nWide entrance door.",
+    "Weaknesses": "Shower-over-bath unsuitable for wheelchair user.\nNarrow bathroom door.",
+    "Recommendation": "Replace bathtub with roll-in shower.\nConsider widening bathroom door."
   }
 }
+If a category has nothing to report, use "": e.g. "Weaknesses": "" or "Recommendation": "".
 ________________________________________
 STEP 13 — Reviewer AI Loop
 Reviewer AI validates:

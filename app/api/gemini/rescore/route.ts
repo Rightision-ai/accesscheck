@@ -63,8 +63,10 @@ Apply penalty rules for high-risk combinations.
 
 CRITICAL: The AccessibilityScore MUST NEVER exceed 100. Always clamp the final percentage to [0, 100]. If any calculation yields >100, use exactly 100.0.
 
+SUMMARY: Provide Strengths, Weaknesses, and Recommendation as bullet-point lists: one point per line (use newline \\n between points). If there is nothing to say for a category, use empty string "" for that field. Do not write "None" or "N/A"—leave empty and the UI will handle it.
+
 RESPOND IN EXACT JSON:
-{"AccessibilityScore": "XX.X%", "Grade": "X", "Summary": {"Strengths": "...", "Weaknesses": "...", "Recommendation": "..."}}`;
+{"AccessibilityScore": "XX.X%", "Grade": "X", "Summary": {"Strengths": "point1\\npoint2", "Weaknesses": "point1", "Recommendation": "point1\\npoint2"}}`;
 
     const requestBody = {
       contents: [{ parts: [{ text: scoringPrompt }] }],

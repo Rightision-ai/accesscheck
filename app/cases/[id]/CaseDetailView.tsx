@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Case } from "@/types/dashboard";
 import ReportView from "@/app/components/report/ReportView";
 import { useRouter } from "next/navigation";
@@ -18,8 +18,13 @@ import {
   Clock,
   Home,
   Calendar,
-  User,
+  MapPin,
   Trash2,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ImageIcon,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -27,26 +32,69 @@ interface CaseDetailViewProps {
   caseData: Case;
 }
 
+function toBulletItems(text: string | undefined): string[] {
+  if (!text || typeof text !== "string") return [];
+  return text
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function SummaryBulletList({
+  items,
+  emptyMessage,
+}: {
+  items: string[];
+  emptyMessage: string;
+}) {
+  if (items.length === 0) {
+    return (
+      <p className="text-sm leading-relaxed text-slate-600 m-0">
+        {emptyMessage || "—"}
+      </p>
+    );
+  }
+  return (
+    <ul className="list-disc list-inside text-sm leading-relaxed text-slate-600 m-0 pl-1 space-y-1">
+      {items.map((item, i) => (
+        <li key={i}>{item}</li>
+      ))}
+    </ul>
+  );
+}
+
 const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"details" | "ahr">("details");
+  const [propertyCoords, setPropertyCoords] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
+  const [isMapLoading, setIsMapLoading] = useState(false);
+  const [evidenceIndex, setEvidenceIndex] = useState(0);
   const { aiReport, wizardData } = caseData.mlData || {};
   const summary = aiReport?.Summary;
-  const grade = aiReport?.Grade;
-  const scoreNum =
-    typeof (aiReport?.AccessibilityScore ?? caseData.aiScore) === "number"
-      ? ((aiReport?.AccessibilityScore ?? caseData.aiScore) as number)
-      : parseFloat(
-          String(aiReport?.AccessibilityScore ?? caseData.aiScore ?? ""),
-        ) || null;
-  const scoreColor =
-    scoreNum != null
-      ? scoreNum >= 80
-        ? { bg: "#059669", fg: "#fff" }
-        : scoreNum >= 50
-          ? { bg: "#d97706", fg: "#fff" }
-          : { bg: "#dc2626", fg: "#fff" }
-      : { bg: "#64748b", fg: "#fff" };
+
+  useEffect(() => {
+    const postcode = wizardData?.postcode || caseData.postcode;
+    if (!postcode) return;
+    setIsMapLoading(true);
+    fetch("/api/proximity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        postcode,
+        street: wizardData?.street || "",
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.lat != null && data?.lon != null)
+          setPropertyCoords({ lat: data.lat, lon: data.lon });
+      })
+      .catch(() => {})
+      .finally(() => setIsMapLoading(false));
+  }, [caseData.postcode, wizardData?.postcode, wizardData?.street]);
   const confidenceRaw =
     (caseData.mlData as any)?.aiReport?.Confidence || "MEDIUM";
   const confidencePct =
@@ -88,7 +136,12 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this assessment? This cannot be undone.")) return;
+    if (
+      !confirm(
+        "Are you sure you want to delete this assessment? This cannot be undone.",
+      )
+    )
+      return;
     const result = await deleteSurvey(caseData.id);
     if (result.error) {
       toast.error(result.error);
@@ -115,7 +168,9 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
               <h1 className="text-base sm:text-lg font-bold text-slate-900 m-0 truncate">
                 Case {caseData.id}
               </h1>
-              <p className="text-xs text-slate-500 m-0 truncate">{caseData.address}</p>
+              <p className="text-xs text-slate-500 m-0 truncate">
+                {caseData.address}
+              </p>
             </div>
           </div>
 
@@ -146,7 +201,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
                 className={cn(
                   "py-1.5 px-2 sm:px-4 rounded-md text-xs font-semibold border-none cursor-pointer flex items-center gap-2 transition-all touch-manipulation",
                   activeTab === "details"
-                    ? "bg-white text-slate-900 shadow-sm"
+                    ? "bg-white text-slate-900 "
                     : "bg-transparent text-slate-500",
                 )}
                 aria-label="Case Overview"
@@ -159,7 +214,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
                 className={cn(
                   "py-1.5 px-2 sm:px-4 rounded-md text-xs font-semibold border-none cursor-pointer flex items-center gap-2 transition-all touch-manipulation",
                   activeTab === "ahr"
-                    ? "bg-white text-slate-900 shadow-sm"
+                    ? "bg-white text-slate-900 "
                     : "bg-transparent text-slate-500",
                 )}
                 aria-label="AHR Report"
@@ -172,45 +227,73 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
         </div>
       </div>
 
-      <div className="max-w-[1280px] mx-auto py-8 px-6">
+      <div className="max-w-[1280px] mx-auto py-5 px-4 sm:px-6">
         {activeTab === "details" && (
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
             {/* Case Details */}
-            <div className="flex flex-wrap gap-6 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm items-stretch">
-              {/* Score + Confidence side by side (including on mobile) */}
-              <div className="flex gap-3 sm:gap-6 flex-1 min-w-0 basis-full sm:basis-auto">
-                {/* Score Card */}
-                <div
-                  className="flex-1 min-w-0 rounded-[20px] p-4 sm:p-6 flex flex-col items-center justify-center min-h-[140px] sm:min-h-[160px]"
-                  style={{
-                    background: scoreColor.bg,
-                    color: scoreColor.fg,
-                    boxShadow: `0 8px 24px ${scoreColor.bg}40`,
-                  }}
-                >
-                  <div className="text-[11px] font-extrabold opacity-95 tracking-wider uppercase mb-2">
-                    Score
-                  </div>
-                  <div className="text-4xl sm:text-5xl font-black leading-none">
-                    {scoreNum != null ? Math.round(scoreNum) : "-"}
-                  </div>
-                  {grade && (
-                    <div className="mt-2 sm:mt-3 py-1 px-2 sm:px-3 rounded-full text-xs font-extrabold bg-white/20 backdrop-blur-sm">
-                      Grade: {grade}
+            <div className="flex flex-col-reverse sm:flex-row-reverse gap-4 sm:gap-6 bg-white p-5 rounded-3xl border border-slate-200 ">
+              {/* Left column: full address and date (separator to the right of confidence) */}
+              <div className="flex-1 w-full md:w-auto flex flex-col justify-center min-w-0 sm:border-l sm:border-slate-200 sm:pl-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                  <div className="flex gap-3 sm:gap-4 items-start">
+                    <div className="p-2 sm:p-2.5 rounded-lg bg-violet-100 text-violet-600 shrink-0">
+                      <Home size={18} className="sm:w-5 sm:h-5" />
                     </div>
-                  )}
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] sm:text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Property Address
+                      </div>
+                      <div className="text-sm sm:text-base font-extrabold text-slate-900 leading-snug">
+                        {caseData.address}
+                        <br />
+                        <span className="text-xs sm:text-sm font-semibold opacity-70">
+                          {[caseData.city, caseData.postcode]
+                            .filter(Boolean)
+                            .join(", ") || "—"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 sm:gap-4 items-start">
+                    <div className="p-2 sm:p-2.5 rounded-lg bg-blue-100 text-blue-600 shrink-0">
+                      <Calendar size={18} className="sm:w-5 sm:h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[11px] sm:text-xs font-bold text-slate-500 mb-1 uppercase">
+                        Assessment Date
+                      </div>
+                      <div className="text-sm sm:text-base font-extrabold text-slate-900">
+                        {caseData.assessmentDate
+                          ? new Date(
+                              caseData.assessmentDate,
+                            ).toLocaleDateString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "Not set"}
+                      </div>
+                      <div className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-0.5">
+                        Standard Field Survey
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              </div>
 
-                {/* Confidence Card */}
-                <div className="flex-1 min-w-0 bg-white rounded-[20px] p-4 sm:p-6 border border-slate-200 flex flex-col items-center justify-center min-h-[140px] sm:min-h-[160px]">
+              {/* Right column: confidence score */}
+              <div className="flex justify-center sm:justify-end shrink-0">
+                <div className="bg-white rounded-[20px] p-4 sm:p-5 border border-slate-200 flex flex-col items-center justify-center min-h-[120px] sm:min-h-[130px] w-full sm:w-auto sm:min-w-[200px] max-w-[280px]">
                   <div
-                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center mb-2 sm:mb-3"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center mb-2"
                     style={{
                       background: confidenceStyle.iconBg,
                       color: confidenceStyle.color,
                     }}
                   >
-                    <CheckCircle size={24} />
+                    <CheckCircle size={32} />
                   </div>
                   <div className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
                     Confidence
@@ -226,124 +309,133 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
                   </div>
                 </div>
               </div>
-
-              {/* Property Address */}
-              <div className="flex-1 min-w-[200px] flex gap-4 items-center">
-                <div className="p-2.5 rounded-xl bg-violet-50 text-violet-600 shrink-0">
-                  <Home size={20} />
-                </div>
-                <div>
-                  <div className="text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wider">
-                    Property Address
-                  </div>
-                  <div className="text-base font-extrabold text-slate-900 leading-snug">
-                    {caseData.address}
-                  </div>
-                  <div className="text-sm font-semibold text-slate-500 mt-0.5">
-                    {[caseData.city, caseData.postcode]
-                      .filter(Boolean)
-                      .join(", ") || "—"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Assessment Date */}
-              <div className="flex-1 min-w-[200px] flex gap-4 items-center">
-                <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 shrink-0">
-                  <Calendar size={20} />
-                </div>
-                <div>
-                  <div className="text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wider">
-                    Assessment Date
-                  </div>
-                  <div className="text-base font-extrabold text-slate-900">
-                    {caseData.assessmentDate
-                      ? new Date(caseData.assessmentDate).toLocaleDateString(
-                          "en-GB",
-                          { day: "numeric", month: "short", year: "numeric" },
-                        )
-                      : "Not set"}
-                  </div>
-                  <div className="text-xs font-semibold text-slate-500 mt-0.5">
-                    Standard Field Survey
-                  </div>
-                </div>
-              </div>
-
-              {/* Name */}
-              <div className="flex-1 min-w-[200px] flex gap-4 items-center">
-                <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 shrink-0">
-                  <User size={20} />
-                </div>
-                <div>
-                  <div className="text-[11px] font-bold text-slate-500 mb-1 uppercase tracking-wider">
-                    Name
-                  </div>
-                  <div className="text-base font-extrabold text-slate-900">
-                    {caseData.applicantName || "Not specified"}
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* AI Analysis Summary */}
             {summary ? (
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-6">
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                  <div className="flex items-center gap-2 mb-4">
-                    <CheckCircle size={20} className="text-emerald-500" />
-                    <h2 className="text-lg font-bold text-slate-900 m-0">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-4">
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 ">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle size={18} className="text-emerald-500" />
+                    <h2 className="text-base font-bold text-slate-900 m-0">
                       Strengths
                     </h2>
                   </div>
-                  <div className="text-sm leading-relaxed text-slate-600 whitespace-pre-line">
-                    {summary.Strengths || "No strengths identified."}
-                  </div>
+                  <SummaryBulletList
+                    items={toBulletItems(summary.Strengths)}
+                    emptyMessage="No strengths identified."
+                  />
                 </div>
 
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                  <div className="flex items-center gap-2 mb-4">
-                    <AlertTriangle size={20} className="text-amber-500" />
-                    <h2 className="text-lg font-bold text-slate-900 m-0">
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 ">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle size={18} className="text-amber-500" />
+                    <h2 className="text-base font-bold text-slate-900 m-0">
                       Weaknesses
                     </h2>
                   </div>
-                  <div className="text-sm leading-relaxed text-slate-600 whitespace-pre-line">
-                    {summary.Weaknesses || "No weaknesses identified."}
-                  </div>
+                  <SummaryBulletList
+                    items={toBulletItems(summary.Weaknesses)}
+                    emptyMessage="No weaknesses identified."
+                  />
                 </div>
 
                 {summary.Recommendation && (
-                  <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Info size={20} className="text-blue-600" />
-                      <h2 className="text-lg font-bold text-slate-900 m-0">
+                  <div className="bg-white rounded-2xl border border-slate-200 p-5 ">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Info size={18} className="text-blue-600" />
+                      <h2 className="text-base font-bold text-slate-900 m-0">
                         Recommendation
                       </h2>
                     </div>
-                    <div className="text-sm leading-relaxed text-slate-600 whitespace-pre-line">
-                      {summary.Recommendation}
-                    </div>
+                    <SummaryBulletList
+                      items={toBulletItems(summary.Recommendation)}
+                      emptyMessage=""
+                    />
                   </div>
                 )}
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-dashed border-slate-300 py-12 text-center text-slate-400">
-                <Info size={32} className="mb-4 opacity-50" />
+              <div className="bg-white rounded-2xl border border-dashed border-slate-300 py-8 text-center  text-slate-400">
+                <Info size={28} className="mb-3 opacity-50" />
                 <p className="text-sm font-medium">
                   No AI analysis data available for this case.
                 </p>
               </div>
             )}
 
-            {/* Evidence Portfolio */}
-            {((caseData.evidence?.length ?? 0) > 0 ||
-              wizardData?.floorPlan) && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-                <h3 className="text-base font-extrabold text-slate-900 mb-5 flex items-center gap-2">
-                  Evidence Portfolio
+            {/* Map and Floor plan – always visible cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
+                  <MapPin size={20} className="text-slate-600" />
+                  Property Location
                 </h3>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5 mb-10">
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 relative h-[200px]">
+                  {isMapLoading ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 animate-pulse">
+                      <Loader2 className="w-8 h-8 text-slate-400 animate-spin mb-2" />
+                      <span className="text-xs font-semibold text-slate-400">
+                        Loading map...
+                      </span>
+                    </div>
+                  ) : propertyCoords ? (
+                    <img
+                      src={`/api/map-image?lat=${propertyCoords.lat}&lon=${propertyCoords.lon}`}
+                      alt="Property location"
+                      className="w-full h-full object-cover block"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                      <MapPin size={24} className="mb-2 opacity-60" />
+                      <span className="text-sm font-semibold">No map info</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-2">
+                  Approximate location based on postcode:{" "}
+                  {wizardData?.postcode || caseData.postcode || "N/A"}
+                </p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
+                  <FileText size={20} className="text-violet-600" />
+                  Validated Floor Plan
+                </h3>
+                {wizardData?.floorPlan ? (
+                  <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                    <img
+                      src={
+                        typeof wizardData.floorPlan === "string"
+                          ? wizardData.floorPlan
+                          : URL.createObjectURL(wizardData.floorPlan)
+                      }
+                      alt="Floor plan"
+                      className="w-full max-h-[320px] object-contain rounded-lg"
+                    />
+                    <p className="mt-2 text-[11px] text-center text-slate-500 font-semibold">
+                      Homingo AI Vision: Spatial Mapping Applied (M4
+                      Compliance Verified)
+                    </p>
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 rounded-xl bg-slate-50 h-[200px] flex flex-col items-center justify-center text-slate-400">
+                    <FileText size={24} className="mb-2 opacity-60" />
+                    <span className="text-sm font-semibold">No plan</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Evidence Portfolio - always visible card */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 ">
+              <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
+                <ImageIcon size={18} className="text-slate-600" />
+                Evidence Portfolio
+              </h3>
+              {(caseData.evidence?.length ?? 0) > 0 ? (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
                   {(caseData.evidence || []).map((img: string, idx: number) => (
                     <div
                       key={idx}
@@ -352,9 +444,9 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
                       <img
                         src={img}
                         alt="Evidence"
-                        className="w-full aspect-[16/10] object-cover block"
+                        className="w-full aspect-16/10 object-cover block"
                       />
-                      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent text-white text-[11px] font-extrabold">
+                      <div className="absolute bottom-0 left-0 right-0 p-3 bg-linear-to-t from-black/80 to-transparent text-white text-[11px] font-extrabold">
                         {idx === 0
                           ? "External Elevation"
                           : `Internal Asset #${idx}`}
@@ -362,35 +454,18 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
                     </div>
                   ))}
                 </div>
-                {wizardData?.floorPlan && (
-                  <div>
-                    <h4 className="text-xs font-extrabold text-violet-900 border-l-4 border-violet-900 pl-3 mb-5">
-                      Validated Floor Plan Map
-                    </h4>
-                    <div className="border border-slate-200 rounded-2xl p-5 bg-slate-50">
-                      <img
-                        src={
-                          typeof wizardData.floorPlan === "string"
-                            ? wizardData.floorPlan
-                            : URL.createObjectURL(wizardData.floorPlan)
-                        }
-                        alt="Floor Plan"
-                        className="w-full max-h-[500px] object-contain rounded-xl"
-                      />
-                      <div className="mt-4 text-xs text-center text-slate-500 font-bold">
-                        Homingo AI Vision: Spatial Mapping Applied (M4
-                        Compliance Verified)
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+              ) : (
+                <div className="border border-slate-200 rounded-xl bg-slate-50 h-[180px] flex flex-col items-center justify-center text-slate-400">
+                  <ImageIcon size={24} className="mb-2 opacity-60" />
+                  <span className="text-sm font-semibold">No evidence</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
         {activeTab === "ahr" && (
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden ">
             <ReportView
               caseData={caseData}
               onBack={() => setActiveTab("details")}

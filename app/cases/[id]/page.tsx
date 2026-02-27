@@ -25,7 +25,9 @@ export default async function CasePage({
     .single();
 
   if (error || !survey) {
-    console.error("Error fetching survey:", error);
+    if (error?.code !== "PGRST116") {
+      console.error("Error fetching survey:", error);
+    }
     // Handle error or redirect
     return (
       <div className="p-8 text-center text-red-600">
