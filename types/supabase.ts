@@ -162,6 +162,7 @@ export type Database = {
           has_level_access_shower: boolean | null
           has_platform_stair_lift: boolean | null
           has_private_garden: boolean | null
+          has_property_front_door: boolean | null
           has_property_ramp: boolean | null
           has_ramped_second_exit: boolean | null
           has_second_exit: boolean | null
@@ -182,6 +183,7 @@ export type Database = {
           kitchen_turning_150x150: boolean | null
           kitchen_turning_170x140: boolean | null
           kitchen_wheelchair_accessible: boolean | null
+          known_hazards: string | null
           num_bed_spaces: number | null
           num_bedrooms: number | null
           num_lifts_dwelling: number | null
@@ -317,6 +319,7 @@ export type Database = {
           has_level_access_shower?: boolean | null
           has_platform_stair_lift?: boolean | null
           has_private_garden?: boolean | null
+          has_property_front_door?: boolean | null
           has_property_ramp?: boolean | null
           has_ramped_second_exit?: boolean | null
           has_second_exit?: boolean | null
@@ -337,6 +340,7 @@ export type Database = {
           kitchen_turning_150x150?: boolean | null
           kitchen_turning_170x140?: boolean | null
           kitchen_wheelchair_accessible?: boolean | null
+          known_hazards?: string | null
           num_bed_spaces?: number | null
           num_bedrooms?: number | null
           num_lifts_dwelling?: number | null
@@ -472,6 +476,7 @@ export type Database = {
           has_level_access_shower?: boolean | null
           has_platform_stair_lift?: boolean | null
           has_private_garden?: boolean | null
+          has_property_front_door?: boolean | null
           has_property_ramp?: boolean | null
           has_ramped_second_exit?: boolean | null
           has_second_exit?: boolean | null
@@ -492,6 +497,7 @@ export type Database = {
           kitchen_turning_150x150?: boolean | null
           kitchen_turning_170x140?: boolean | null
           kitchen_wheelchair_accessible?: boolean | null
+          known_hazards?: string | null
           num_bed_spaces?: number | null
           num_bedrooms?: number | null
           num_lifts_dwelling?: number | null

@@ -3,6 +3,12 @@ import { motion } from "framer-motion";
 import { Bed, Bath, Toilet, MapPin, Users } from "lucide-react";
 import { WizardStepProps } from "../types";
 import { AIConfirmationCard } from "../AIConfirmationCard";
+import {
+  deriveBathroomLocation,
+  normalizeBathroomLocation,
+  normalizeBathingType,
+  normalizeToiletType,
+} from "@/lib/utils/normalizeAiOutputs";
 
 const FacilitiesStep: React.FC<WizardStepProps> = ({
   formData,
@@ -10,6 +16,15 @@ const FacilitiesStep: React.FC<WizardStepProps> = ({
   floorPlanAnalysis,
   aiSuggestions,
 }) => {
+  const aiBathroomDetected = normalizeBathroomLocation(
+    aiSuggestions?.bathroom_location,
+  );
+  const floorPlanBathroomDerived = deriveBathroomLocation({
+    accessFacilities: floorPlanAnalysis?.facilities_per_floor?.access_level,
+    aboveFacilities: floorPlanAnalysis?.facilities_per_floor?.above,
+    belowFacilities: floorPlanAnalysis?.facilities_per_floor?.below,
+    floorLevelNumber: floorPlanAnalysis?.floor_level_number,
+  });
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -44,7 +59,7 @@ const FacilitiesStep: React.FC<WizardStepProps> = ({
               </div>
             </div>
             {floorPlanAnalysis && (
-              <div className="py-1 px-3 rounded-full bg-green-100 text-green-800 text-[11px] font-extrabold">
+              <div className="py-1 px-3 rounded-full bg-purple-100 text-purple-800 text-[11px] font-extrabold">
                 AI Detection Active
               </div>
             )}
@@ -125,7 +140,7 @@ const FacilitiesStep: React.FC<WizardStepProps> = ({
           label="Bathroom Location"
           description="Floor where the primary bathing facility is located."
           icon={<MapPin size={18} />}
-          detectedValue={null}
+          detectedValue={aiBathroomDetected || floorPlanBathroomDerived}
           userValue={formData.bathroomLocation}
           options={[
             "Ground Floor",
@@ -140,7 +155,7 @@ const FacilitiesStep: React.FC<WizardStepProps> = ({
           label="Bathing Facilities"
           description="Type of primary bathing equipment."
           icon={<Bath size={18} />}
-          detectedValue={aiSuggestions?.bathing_type || null}
+          detectedValue={normalizeBathingType(aiSuggestions?.bathing_type) || null}
           userValue={formData.bathingType}
           options={[
             "Bath Only",
@@ -155,7 +170,7 @@ const FacilitiesStep: React.FC<WizardStepProps> = ({
           label="Toilet Type"
           description="Configuration of the primary WC."
           icon={<Toilet size={18} />}
-          detectedValue={aiSuggestions?.toilet_type || null}
+          detectedValue={normalizeToiletType(aiSuggestions?.toilet_type) || null}
           userValue={formData.toiletType}
           options={["Standard", "Raised Height", "Wash/Dry (Smart)"]}
           onConfirm={(val) => handleUpdateField("toiletType", val)}

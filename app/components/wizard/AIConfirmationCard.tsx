@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Check, AlertCircle, Info } from 'lucide-react';
+import { Check, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 interface AIConfirmationCardProps {
@@ -24,7 +24,6 @@ export const AIConfirmationCard: React.FC<AIConfirmationCardProps> = ({
     onConfirm,
     confidence
 }) => {
-    const isConfirmed = detectedValue === userValue && userValue !== null;
     const isHighConfidence = (confidence || 0) > 0.8;
 
     return (
@@ -44,7 +43,7 @@ export const AIConfirmationCard: React.FC<AIConfirmationCardProps> = ({
                 {detectedValue !== null && (
                     <div className={cn(
                         "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold flex items-center gap-1",
-                        isHighConfidence ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
+                        isHighConfidence ? "bg-purple-100 text-purple-800" : "bg-purple-50 text-purple-700"
                     )}>
                         <div className="w-1.5 h-1.5 rounded-full bg-current" />
                         AI: {detectedValue.toString()}
@@ -64,17 +63,13 @@ export const AIConfirmationCard: React.FC<AIConfirmationCardProps> = ({
                             onClick={() => onConfirm(opt)}
                             className={cn(
                                 "py-2.5 px-2 rounded-xl border-2 font-bold text-xs cursor-pointer transition-all flex items-center justify-center gap-1.5 relative",
-                                isSelected && "border-primary bg-primary text-white",
-                                isSuggestion && !isSelected && "border-primary-light bg-white text-primary",
+                                isSelected && !isSuggestion && "border-primary bg-primary text-white",
+                                isSelected && isSuggestion && "border-purple-600 bg-purple-600 text-white",
+                                isSuggestion && !isSelected && "border-purple-200 bg-purple-50 text-purple-700",
                                 !isSelected && !isSuggestion && "border-slate-200 bg-white text-slate-500"
                             )}
                         >
                             {opt}
-                            {isSuggestion && !isSelected && (
-                                <div className="absolute -top-1 -right-1 bg-primary text-white rounded-full p-0.5">
-                                    <Info size={9} />
-                                </div>
-                            )}
                             {isSelected && <Check size={12} />}
                         </button>
                     );

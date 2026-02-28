@@ -67,6 +67,7 @@ CREATE TABLE surveys (
   communal_lift_count_in_block  SMALLINT,
 
   -- Section D: Property Front Door (Q6)
+  has_property_front_door       BOOLEAN,
   property_door_steps_count     SMALLINT,
   property_door_threshold_height text,
   property_door_opening_width   NUMERIC(5,1),
@@ -204,5 +205,6 @@ CREATE TABLE surveys (
 
   -- Summary
   can_be_adapted                BOOLEAN,
+  known_hazards                 TEXT,
   comments                      TEXT
 );

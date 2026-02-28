@@ -53,7 +53,6 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
   validationErrors,
   onClearValidationError,
   isAnalyzing,
-  analysisComplete,
   categoryResults,
   onPhotosChanged,
 }) => {
@@ -73,7 +72,7 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
     handleUpdateField("photos", allCategorizedPhotos);
 
     onClearValidationError?.(catId);
-    onPhotosChanged?.();
+    onPhotosChanged?.(updatedCategoryPhotos);
   };
 
   return (
@@ -156,8 +155,7 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
           const hasError = validationErrors?.[cat.id];
           const analysisResult = categoryResults?.[cat.id];
 
-          const isUploadBlocked =
-            isProcessing || isAnalyzing || analysisComplete;
+          const isUploadBlocked = isProcessing || isAnalyzing;
 
           const cardBorderClass =
             analysisResult === "valid"
@@ -247,7 +245,7 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
                     />
                     <button
                       onClick={() => removePhoto(cat.id, idx)}
-                      disabled={isAnalyzing || analysisComplete}
+                      disabled={isAnalyzing}
                       className="absolute top-0.5 right-0.5 bg-black/50 border-none rounded-full w-[18px] h-[18px] flex items-center justify-center text-white z-10 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Trash2 size={10} />

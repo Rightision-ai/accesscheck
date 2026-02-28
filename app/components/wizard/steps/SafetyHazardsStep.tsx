@@ -4,6 +4,7 @@ import { ShieldAlert, Undo2, Info } from "lucide-react";
 import { WizardStepProps } from "../types";
 import { AIConfirmationCard } from "../AIConfirmationCard";
 import { cn } from "@/lib/utils/cn";
+import { normalizeSecondExitLocation } from "@/lib/utils/normalizeAiOutputs";
 
 const SafetyHazardsStep: React.FC<WizardStepProps> = ({
   formData,
@@ -11,6 +12,12 @@ const SafetyHazardsStep: React.FC<WizardStepProps> = ({
   floorPlanAnalysis,
   aiSuggestions,
 }) => {
+  const aiSecondExitDetected =
+    aiSuggestions?.second_exit_present === true
+      ? "Yes"
+      : aiSuggestions?.second_exit_present === false
+        ? "No"
+        : null;
   // Collect AI hazards
   const aiHazards: string[] = [];
   if (aiSuggestions?.suggested_hazards) {
@@ -47,15 +54,7 @@ const SafetyHazardsStep: React.FC<WizardStepProps> = ({
           label="Emergency Exit (Second Exit)"
           description="Presence of a secondary escape route (back door, etc.)"
           icon={<Undo2 size={22} />}
-          detectedValue={
-            floorPlanAnalysis?.second_exit?.detected
-              ? "Yes"
-              : aiSuggestions?.second_exit_suggested !== undefined
-                ? aiSuggestions.second_exit_suggested
-                  ? "Yes"
-                  : "No"
-                : null
-          }
+          detectedValue={aiSecondExitDetected}
           confidence={floorPlanAnalysis?.second_exit?.confidence}
           userValue={formData.secondExit}
           options={["Yes", "No"]}
@@ -75,7 +74,10 @@ const SafetyHazardsStep: React.FC<WizardStepProps> = ({
                   onClick={() => handleUpdateField("secondExitLocation", loc)}
                   className={cn(
                     "py-3 px-4 rounded-xl border font-bold text-xs cursor-pointer transition-all",
-                    formData.secondExitLocation === loc
+                    (formData.secondExitLocation ||
+                      normalizeSecondExitLocation(
+                        aiSuggestions?.second_exit_access_to_street,
+                      )) === loc
                       ? "border-primary bg-primary-light text-primary"
                       : "border-slate-300 bg-white text-slate-500",
                   )}
@@ -133,7 +135,7 @@ const SafetyHazardsStep: React.FC<WizardStepProps> = ({
                       current ? `${current}, ${tag}` : tag,
                     );
                 }}
-                className="py-1 px-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-600 cursor-pointer flex items-center gap-1"
+                className="py-1 px-2.5 rounded-lg bg-purple-50 border border-purple-200 text-[11px] font-bold text-purple-700 cursor-pointer flex items-center gap-1"
               >
                 <ShieldAlert size={10} /> AI: {tag}
               </button>

@@ -1229,6 +1229,18 @@ const ReportView: React.FC<ReportViewProps> = ({
 
   const rawAhr = caseData.mlData?.rawAhr || {};
   const wizardData = caseData.mlData?.wizardData || {};
+  const analyzedAiSuggestions =
+    wizardData.aiSuggestions ||
+    caseData.mlData?.aiReport?.analysisData?.aiSuggestions ||
+    {};
+  const analyzedSecondExitPresent =
+    typeof analyzedAiSuggestions.second_exit_present === "boolean"
+      ? analyzedAiSuggestions.second_exit_present
+      : undefined;
+  const analyzedSecondExitAccessToStreet =
+    typeof analyzedAiSuggestions.second_exit_access_to_street === "boolean"
+      ? analyzedAiSuggestions.second_exit_access_to_street
+      : undefined;
 
   // Auto-fetch proximity data for Section 23 on mount if postcode is available and not already overridden
   useEffect(() => {
@@ -2226,6 +2238,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                     "throughFloorLift",
                     rawAhr.eligibility_checks?.special_equipment
                       ?.through_floor_lift ??
+                      analyzedAiSuggestions.through_floor_lift_present ??
                       (wizardData.internalLift === "Through-Floor Lift"
                         ? true
                         : false),
@@ -2238,6 +2251,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                   value={getVal(
                     "stepLift",
                     rawAhr.eligibility_checks?.special_equipment?.step_lift ??
+                      analyzedAiSuggestions.step_lift_present ??
                       false,
                   )}
                   isModified={isMod("stepLift")}
@@ -2248,7 +2262,9 @@ const ReportView: React.FC<ReportViewProps> = ({
                   value={getVal(
                     "platformLift",
                     rawAhr.eligibility_checks?.special_equipment
-                      ?.platform_lift ?? false,
+                      ?.platform_lift ??
+                      analyzedAiSuggestions.platform_stair_lift_present ??
+                      false,
                   )}
                   isModified={isMod("platformLift")}
                   onChange={(v) => handleOverride("platformLift", v)}
@@ -2258,6 +2274,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                   value={getVal(
                     "levelAccessShower",
                     rawAhr.eligibility_checks?.level_access_shower_present ??
+                      analyzedAiSuggestions.level_access_shower_present ??
                       (wizardData.bathingType?.includes("Level Access")
                         ? true
                         : false),
@@ -2270,7 +2287,9 @@ const ReportView: React.FC<ReportViewProps> = ({
                   value={getVal(
                     "ceilingTrackHoist",
                     rawAhr.eligibility_checks?.special_equipment
-                      ?.ceiling_track_hoist ?? false,
+                      ?.ceiling_track_hoist ??
+                      analyzedAiSuggestions.ceiling_track_hoist_present ??
+                      false,
                   )}
                   isModified={isMod("ceilingTrackHoist")}
                   onChange={(v) => handleOverride("ceilingTrackHoist", v)}
@@ -2280,6 +2299,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                   value={getVal(
                     "stairLift",
                     rawAhr.eligibility_checks?.special_equipment?.stair_lift ??
+                      analyzedAiSuggestions.stair_lift_present ??
                       (wizardData.internalLift === "Stairlift" ? true : false),
                   )}
                   isModified={isMod("stairLift")}
@@ -2322,26 +2342,30 @@ const ReportView: React.FC<ReportViewProps> = ({
                         gap: "6px",
                       }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          border: "1.5px solid #1e40af",
-                          borderRadius: "6px",
-                          height: "24px",
-                          background: "#fff",
-                        }}
-                      >
-                        {[1, 2, 3].map((i) => (
-                          <div
-                            key={i}
-                            style={{
-                              width: "18px",
-                              borderRight:
-                                i === 3 ? "none" : "1px solid #bfdbfe",
-                            }}
-                          />
-                        ))}
-                      </div>
+                      <AHR_MeasurementBox
+                        segments={3}
+                        value={getVal(
+                          "throughFloorLiftWidth",
+                          rawAhr.eligibility_checks?.special_equipment
+                            ?.through_floor_lift_dimensions?.width ??
+                            analyzedAiSuggestions.through_floor_lift_internal_width_cm,
+                        )}
+                        unit={null}
+                        isModified={isMod("throughFloorLiftWidth")}
+                        isLocked={isLocked}
+                        onChange={() =>
+                          openModal(
+                            "Through Floor Lift Width",
+                            "throughFloorLiftWidth",
+                            getVal(
+                              "throughFloorLiftWidth",
+                              rawAhr.eligibility_checks?.special_equipment
+                                ?.through_floor_lift_dimensions?.width ??
+                                analyzedAiSuggestions.through_floor_lift_internal_width_cm,
+                            ),
+                          )
+                        }
+                      />
                       <span
                         style={{
                           fontSize: "10px",
@@ -2355,7 +2379,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                     <span
                       style={{
                         fontSize: "10px",
-                        color: "#10b981",
+                        color: "#7c3aed",
                         fontWeight: "900",
                       }}
                     >
@@ -2368,26 +2392,30 @@ const ReportView: React.FC<ReportViewProps> = ({
                         gap: "6px",
                       }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          border: "1.5px solid #1e40af",
-                          borderRadius: "6px",
-                          height: "24px",
-                          background: "#fff",
-                        }}
-                      >
-                        {[1, 2, 3].map((i) => (
-                          <div
-                            key={i}
-                            style={{
-                              width: "18px",
-                              borderRight:
-                                i === 3 ? "none" : "1px solid #bfdbfe",
-                            }}
-                          />
-                        ))}
-                      </div>
+                      <AHR_MeasurementBox
+                        segments={3}
+                        value={getVal(
+                          "throughFloorLiftDepth",
+                          rawAhr.eligibility_checks?.special_equipment
+                            ?.through_floor_lift_dimensions?.depth ??
+                            analyzedAiSuggestions.through_floor_lift_internal_depth_cm,
+                        )}
+                        unit={null}
+                        isModified={isMod("throughFloorLiftDepth")}
+                        isLocked={isLocked}
+                        onChange={() =>
+                          openModal(
+                            "Through Floor Lift Depth",
+                            "throughFloorLiftDepth",
+                            getVal(
+                              "throughFloorLiftDepth",
+                              rawAhr.eligibility_checks?.special_equipment
+                                ?.through_floor_lift_dimensions?.depth ??
+                                analyzedAiSuggestions.through_floor_lift_internal_depth_cm,
+                            ),
+                          )
+                        }
+                      />
                       <span
                         style={{
                           fontSize: "10px",
@@ -2447,7 +2475,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                       "stopTriggered",
                       !getVal(
                         "stopTriggered",
-                        rawAhr.eligibility_checks?.stop_triggered,
+                        rawAhr.eligibility_checks?.stop_triggered ??
+                          analyzedAiSuggestions.stop_assessment_flag,
                       ),
                     )
                   }
@@ -2481,7 +2510,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                   >
                     {getVal(
                       "stopTriggered",
-                      rawAhr.eligibility_checks?.stop_triggered,
+                      rawAhr.eligibility_checks?.stop_triggered ??
+                        analyzedAiSuggestions.stop_assessment_flag,
                     ) && (
                       <Check
                         size={20}
@@ -2538,6 +2568,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                     checked={getVal(
                       "communalDoorPresent",
                       rawAhr.external_access?.communal_front_door?.present ??
+                        analyzedAiSuggestions.communal_front_door_present ??
                         wizardData.communalDoorPresent === "Y",
                     )}
                     isModified={isMod("communalDoorPresent")}
@@ -2550,6 +2581,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       getVal(
                         "communalDoorPresent",
                         rawAhr.external_access?.communal_front_door?.present ??
+                          analyzedAiSuggestions.communal_front_door_present ??
                           wizardData.communalDoorPresent === "Y",
                       ) === false
                     }
@@ -3612,7 +3644,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                           style={{
                             fontSize: "12px",
                             fontWeight: "900",
-                            color: "#10b981",
+                            color: "#7c3aed",
                           }}
                         >
                           X
@@ -3801,6 +3833,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                     checked={getVal(
                       "propertyDoorPresent",
                       rawAhr.external_access?.property_front_door?.present ??
+                        analyzedAiSuggestions.property_front_door_present ??
                         true,
                     )}
                     isModified={isMod("propertyDoorPresent")}
@@ -3813,6 +3846,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       getVal(
                         "propertyDoorPresent",
                         rawAhr.external_access?.property_front_door?.present ??
+                          analyzedAiSuggestions.property_front_door_present ??
                           true,
                       ) === false
                     }
@@ -4917,12 +4951,15 @@ const ReportView: React.FC<ReportViewProps> = ({
                   wizardFacilities ??
                   [],
               );
+              const normFacility = (value: string) =>
+                value
+                  .toLowerCase()
+                  .replace(/[_/()-]+/g, " ")
+                  .replace(/\s+/g, " ")
+                  .trim();
               const has = (item: string) =>
                 facilities.some((f: string) =>
-                  f
-                    .toLowerCase()
-                    .replace(/_/g, " ")
-                    .includes(item.toLowerCase()),
+                  normFacility(f).includes(normFacility(item)),
                 );
               const toggle = (item: string) => {
                 const current = Array.isArray(facilities)
@@ -5525,8 +5562,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                         checked={
                           getVal(
                             "secondExitPresent",
-                            rawAhr.context_amenities?.second_exit?.present ??
-                              wizardData.secondExit === "Yes",
+                            analyzedSecondExitPresent,
                           ) === true
                         }
                         isModified={isMod("secondExitPresent")}
@@ -5540,8 +5576,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                         checked={
                           getVal(
                             "secondExitPresent",
-                            rawAhr.context_amenities?.second_exit?.present ??
-                              wizardData.secondExit === "Yes",
+                            analyzedSecondExitPresent,
                           ) === false
                         }
                         isModified={isMod("secondExitPresent")}
@@ -5580,9 +5615,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                         checked={
                           getVal(
                             "secondExitAccessToStreet",
-                            rawAhr.context_amenities?.second_exit
-                              ?.access_to_street ??
-                              wizardData.secondExitLocation === "Public Way",
+                            analyzedSecondExitAccessToStreet,
                           ) === true
                         }
                         isModified={isMod("secondExitAccessToStreet")}
@@ -5596,9 +5629,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                         checked={
                           getVal(
                             "secondExitAccessToStreet",
-                            rawAhr.context_amenities?.second_exit
-                              ?.access_to_street ??
-                              wizardData.secondExitLocation === "Public Way",
+                            analyzedSecondExitAccessToStreet,
                           ) === false
                         }
                         isModified={isMod("secondExitAccessToStreet")}
@@ -8414,7 +8445,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                       segments={4}
                       value={getVal(
                         "doorLivingWidth",
-                        rawAhr.internal_doors?.living_room?.width_cm,
+                        rawAhr.internal_doors?.living_room?.width_cm ??
+                          analyzedAiSuggestions.door_opening_width_living_room_cm,
                       )}
                       unit={null}
                       isModified={isMod("doorLivingWidth")}
@@ -8425,7 +8457,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                           "doorLivingWidth",
                           getVal(
                             "doorLivingWidth",
-                            rawAhr.internal_doors?.living_room?.width_cm,
+                            rawAhr.internal_doors?.living_room?.width_cm ??
+                              analyzedAiSuggestions.door_opening_width_living_room_cm,
                           ),
                         )
                       }
@@ -8471,7 +8504,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                       segments={4}
                       value={getVal(
                         "doorKitchenWidth",
-                        rawAhr.internal_doors?.kitchen?.width_cm,
+                        rawAhr.internal_doors?.kitchen?.width_cm ??
+                          analyzedAiSuggestions.door_opening_width_kitchen_cm,
                       )}
                       unit={null}
                       isModified={isMod("doorKitchenWidth")}
@@ -8482,7 +8516,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                           "doorKitchenWidth",
                           getVal(
                             "doorKitchenWidth",
-                            rawAhr.internal_doors?.kitchen?.width_cm,
+                            rawAhr.internal_doors?.kitchen?.width_cm ??
+                              analyzedAiSuggestions.door_opening_width_kitchen_cm,
                           ),
                         )
                       }
@@ -8526,7 +8561,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                       segments={4}
                       value={getVal(
                         "doorBed1Width",
-                        rawAhr.internal_doors?.bedroom_1?.width_cm,
+                        rawAhr.internal_doors?.bedroom_1?.width_cm ??
+                          analyzedAiSuggestions.door_opening_width_bed_1_cm,
                       )}
                       unit={null}
                       isModified={isMod("doorBed1Width")}
@@ -8537,7 +8573,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                           "doorBed1Width",
                           getVal(
                             "doorBed1Width",
-                            rawAhr.internal_doors?.bedroom_1?.width_cm,
+                            rawAhr.internal_doors?.bedroom_1?.width_cm ??
+                              analyzedAiSuggestions.door_opening_width_bed_1_cm,
                           ),
                         )
                       }
@@ -8581,7 +8618,10 @@ const ReportView: React.FC<ReportViewProps> = ({
                   >
                     <AHR_MeasurementBox
                       segments={4}
-                      value={getVal("doorToiletWidth", "")}
+                      value={getVal(
+                        "doorToiletWidth",
+                        analyzedAiSuggestions.door_opening_width_separate_toilet_cm ?? "",
+                      )}
                       unit={null}
                       isModified={isMod("doorToiletWidth")}
                       isLocked={isLocked}
@@ -8589,7 +8629,10 @@ const ReportView: React.FC<ReportViewProps> = ({
                         openModal(
                           "Toilet Door Width",
                           "doorToiletWidth",
-                          getVal("doorToiletWidth", ""),
+                          getVal(
+                            "doorToiletWidth",
+                            analyzedAiSuggestions.door_opening_width_separate_toilet_cm ?? "",
+                          ),
                         )
                       }
                     />
@@ -8634,7 +8677,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                       segments={4}
                       value={getVal(
                         "doorBathroomWidth",
-                        rawAhr.internal_doors?.bathroom?.width_cm,
+                        rawAhr.internal_doors?.bathroom?.width_cm ??
+                          analyzedAiSuggestions.door_opening_width_bathroom_cm,
                       )}
                       unit={null}
                       isModified={isMod("doorBathroomWidth")}
@@ -8645,7 +8689,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                           "doorBathroomWidth",
                           getVal(
                             "doorBathroomWidth",
-                            rawAhr.internal_doors?.bathroom?.width_cm,
+                            rawAhr.internal_doors?.bathroom?.width_cm ??
+                              analyzedAiSuggestions.door_opening_width_bathroom_cm,
                           ),
                         )
                       }
@@ -8687,7 +8732,10 @@ const ReportView: React.FC<ReportViewProps> = ({
                   >
                     <AHR_MeasurementBox
                       segments={4}
-                      value={getVal("doorBed2Width", "")}
+                      value={getVal(
+                        "doorBed2Width",
+                        analyzedAiSuggestions.door_opening_width_bed_2_cm ?? "",
+                      )}
                       unit={null}
                       isModified={isMod("doorBed2Width")}
                       isLocked={isLocked}
@@ -8695,7 +8743,10 @@ const ReportView: React.FC<ReportViewProps> = ({
                         openModal(
                           "Bed 2 Door Width",
                           "doorBed2Width",
-                          getVal("doorBed2Width", ""),
+                          getVal(
+                            "doorBed2Width",
+                            analyzedAiSuggestions.door_opening_width_bed_2_cm ?? "",
+                          ),
                         )
                       }
                     />
@@ -8738,7 +8789,10 @@ const ReportView: React.FC<ReportViewProps> = ({
                   >
                     <AHR_MeasurementBox
                       segments={4}
-                      value={getVal("doorBalconyWidth", "")}
+                      value={getVal(
+                        "doorBalconyWidth",
+                        analyzedAiSuggestions.door_opening_width_balcony_cm ?? "",
+                      )}
                       unit={null}
                       isModified={isMod("doorBalconyWidth")}
                       isLocked={isLocked}
@@ -8746,7 +8800,10 @@ const ReportView: React.FC<ReportViewProps> = ({
                         openModal(
                           "Balcony Door Width",
                           "doorBalconyWidth",
-                          getVal("doorBalconyWidth", ""),
+                          getVal(
+                            "doorBalconyWidth",
+                            analyzedAiSuggestions.door_opening_width_balcony_cm ?? "",
+                          ),
                         )
                       }
                     />
@@ -8788,7 +8845,10 @@ const ReportView: React.FC<ReportViewProps> = ({
                   >
                     <AHR_MeasurementBox
                       segments={4}
-                      value={getVal("doorBed3Width", "")}
+                      value={getVal(
+                        "doorBed3Width",
+                        analyzedAiSuggestions.door_opening_width_bed_3_cm ?? "",
+                      )}
                       unit={null}
                       isModified={isMod("doorBed3Width")}
                       isLocked={isLocked}
@@ -8796,7 +8856,10 @@ const ReportView: React.FC<ReportViewProps> = ({
                         openModal(
                           "Bed 3 Door Width",
                           "doorBed3Width",
-                          getVal("doorBed3Width", ""),
+                          getVal(
+                            "doorBed3Width",
+                            analyzedAiSuggestions.door_opening_width_bed_3_cm ?? "",
+                          ),
                         )
                       }
                     />
@@ -9240,6 +9303,54 @@ const ReportView: React.FC<ReportViewProps> = ({
                     isLocked={isLocked}
                   />
                 </div>
+              </div>
+
+              <h2
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "900",
+                  color: "#1e40af",
+                  marginBottom: "10px",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                KNOWN HAZARDS
+              </h2>
+
+              <div
+                onClick={() => {
+                  if (isLocked) return;
+                  const current = getVal(
+                    "knownHazards",
+                    wizardData.hazards ||
+                      analyzedAiSuggestions.known_hazards ||
+                      analyzedAiSuggestions.suggested_hazards ||
+                      "",
+                  );
+                  openModal("Known Hazards", "knownHazards", current);
+                }}
+                style={{
+                  minHeight: "90px",
+                  border: `1.5px solid ${isMod("knownHazards") ? AHR_MODIFIED : "#bfdbfe"}`,
+                  borderRadius: "4px",
+                  padding: "14px 16px",
+                  fontSize: "13px",
+                  color: isMod("knownHazards") ? AHR_MODIFIED : "#1e293b",
+                  lineHeight: "1.55",
+                  fontWeight: "500",
+                  whiteSpace: "pre-wrap",
+                  background: isMod("knownHazards") ? "#f0fdf4" : "#fff",
+                  cursor: isLocked ? "default" : "pointer",
+                  marginBottom: "16px",
+                }}
+              >
+                {getVal(
+                  "knownHazards",
+                  wizardData.hazards ||
+                    analyzedAiSuggestions.known_hazards ||
+                    analyzedAiSuggestions.suggested_hazards ||
+                    "",
+                ) || "None recorded"}
               </div>
 
               <h2

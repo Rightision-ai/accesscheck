@@ -3,6 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Home, Key, ArrowUpCircle, Building2 } from "lucide-react";
 import { WizardStepProps } from "../types";
 import { AIConfirmationCard } from "../AIConfirmationCard";
+import {
+  normalizeCommunalLiftOption,
+  normalizeEntranceLevel,
+  normalizePropertyType,
+} from "@/lib/utils/normalizeAiOutputs";
 
 const PropertyAccessStep: React.FC<WizardStepProps> = ({
   formData,
@@ -32,7 +37,7 @@ const PropertyAccessStep: React.FC<WizardStepProps> = ({
           label="Property Type"
           description="The architectural style of the dwelling."
           icon={<Home size={18} />}
-          detectedValue={null}
+          detectedValue={normalizePropertyType(aiSuggestions?.property_type)}
           userValue={formData.propertyType}
           options={["House", "Bungalow", "Flat", "Maisonette"]}
           onConfirm={(val) => handleUpdateField("propertyType", val)}
@@ -85,14 +90,9 @@ const PropertyAccessStep: React.FC<WizardStepProps> = ({
           description="The main floor of the dwelling entrance."
           icon={<ArrowUpCircle size={18} />}
           detectedValue={
-            aiSuggestions?.entrance_level ||
-            (floorPlanAnalysis?.entrance_level?.value === "GROUND"
-              ? "Ground Floor"
-              : floorPlanAnalysis?.entrance_level?.value === "UPPER"
-                ? "Upper Floor"
-                : floorPlanAnalysis?.entrance_level?.value === "BASEMENT"
-                  ? "Basement"
-                  : null)
+            normalizeEntranceLevel(aiSuggestions?.entrance_level) ||
+            normalizeEntranceLevel(floorPlanAnalysis?.entrance_level?.value) ||
+            null
           }
           confidence={floorPlanAnalysis?.entrance_level?.confidence}
           userValue={formData.entranceLevel}
@@ -107,7 +107,14 @@ const PropertyAccessStep: React.FC<WizardStepProps> = ({
             label="Communal Lifts"
             description="Is there lift access to the property floor?"
             icon={<Building2 size={18} />}
-            detectedValue={floorPlanAnalysis?.lift.detected ? "Yes" : "No"}
+            detectedValue={
+              normalizeCommunalLiftOption(
+                aiSuggestions?.communal_lift_present ??
+                  aiSuggestions?.communal_lifts_option ??
+                  floorPlanAnalysis?.lift?.detected,
+                aiSuggestions?.communal_lift_type,
+              ) || null
+            }
             confidence={floorPlanAnalysis?.lift.confidence}
             userValue={formData.communalLifts}
             options={["No", "Yes - Passenger", "Yes - Platform"]}

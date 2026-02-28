@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { ShieldCheck, Loader2, FileText, ClipboardCheck } from "lucide-react";
+import { ShieldCheck, Loader2 } from "lucide-react";
 import { WizardStepProps } from "../types";
 
 const AnalysisStep: React.FC<WizardStepProps> = ({
@@ -28,11 +28,11 @@ const AnalysisStep: React.FC<WizardStepProps> = ({
             </div>
             <div>
               <h3 className="text-xl font-extrabold text-primary mb-2">
-                Analyzing Compliance
+                Building Final Report
               </h3>
               <p className="text-text-dim text-sm">
-                The Homingo ASE engine is processing 43 data points against
-                enterprise accessibility standards.
+                The Homingo AI engine is consolidating extracted section data
+                and confidence signals for the final report.
               </p>
             </div>
           </div>
@@ -47,35 +47,10 @@ const AnalysisStep: React.FC<WizardStepProps> = ({
                 Assessment Ready
               </h3>
               <p className="text-text-dim text-[15px]">
-                Analysis complete. A detailed grade and compliance report
+                Analysis complete. A confidence-based accessibility report
                 generated for {formData.fullName}.
               </p>
             </div>
-
-            {/* <div className="grid grid-cols-2 gap-3 w-full">
-              <div className="p-5 bg-white rounded-[20px] border border-border flex items-center gap-4 text-left">
-                <ClipboardCheck size={18} className="text-primary" />
-                <div>
-                  <span className="block text-xs font-bold text-slate-500 mb-0.5">
-                    Compliance
-                  </span>
-                  <span className="text-xl font-extrabold text-slate-800">
-                    {formData.aiReport?.AccessibilityScore || "Pending…"}
-                  </span>
-                </div>
-              </div>
-              <div className="p-5 bg-white rounded-[20px] border border-border flex items-center gap-4 text-left">
-                <FileText size={18} className="text-green-600" />
-                <div>
-                  <span className="block text-xs font-bold text-slate-500 mb-0.5">
-                    Grade
-                  </span>
-                  <span className="text-xl font-extrabold text-slate-800">
-                    {formData.aiReport?.Grade || "—"}
-                  </span>
-                </div>
-              </div>
-            </div> */}
 
             <div className="p-5 bg-slate-50 rounded-[20px] border border-slate-200 w-full text-left">
               <h4 className="text-xs font-extrabold text-slate-800 mb-3 uppercase">

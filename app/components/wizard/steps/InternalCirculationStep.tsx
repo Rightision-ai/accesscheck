@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUpRight, ArrowDownCircle } from "lucide-react";
 import { WizardStepProps } from "../types";
 import { AIConfirmationCard } from "../AIConfirmationCard";
+import { normalizeInternalLiftOption } from "@/lib/utils/normalizeAiOutputs";
 
 const InternalCirculationStep: React.FC<WizardStepProps> = ({
   formData,
@@ -103,7 +104,17 @@ const InternalCirculationStep: React.FC<WizardStepProps> = ({
           label="Internal Lift / Stairlift"
           description="Mechanical aids for level changes."
           icon={<ArrowDownCircle size={18} />}
-          detectedValue={null}
+          detectedValue={
+            aiSuggestions?.internal_lift_option !== undefined ||
+            aiSuggestions?.stair_lift_present !== undefined ||
+            aiSuggestions?.through_floor_lift_present !== undefined
+              ? normalizeInternalLiftOption({
+                  stairLift: aiSuggestions?.stair_lift_present,
+                  throughFloorLift: aiSuggestions?.through_floor_lift_present,
+                  internalLiftRaw: aiSuggestions?.internal_lift_option,
+                })
+              : null
+          }
           userValue={formData.internalLift}
           options={["None", "Stairlift", "Through-Floor Lift"]}
           onConfirm={(val) => handleUpdateField("internalLift", val)}

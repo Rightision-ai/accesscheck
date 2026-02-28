@@ -32,30 +32,42 @@ export function buildSurveyData(
   // Mirror ReportView's getVal: override first, then original
   const get = (key: string, original: any) =>
     overrides[key] !== undefined ? overrides[key] : original;
+  const aiSuggestions = wizardData.aiSuggestions ?? {};
+  const aiTransportTypes = Array.isArray(aiSuggestions.transport_types)
+    ? aiSuggestions.transport_types
+    : typeof aiSuggestions.transport_types === "string"
+      ? aiSuggestions.transport_types
+          .split(",")
+          .map((t: string) => t.trim())
+          .filter(Boolean)
+      : [];
 
   // Transport types from proximity or overrides
   const transportTypes: string[] =
     get(
       "proximityTransportTypes",
-      rawAhr.context_amenities?.proximity?.transport_types,
+      rawAhr.context_amenities?.proximity?.transport_types ?? aiTransportTypes,
     ) || [];
 
   // Facilities arrays
   const accessFacilities = get(
     "facilitiesAccessLevel",
     rawAhr.facility_distribution?.access_level_has ??
+      aiSuggestions.facilities_access_level ??
       wizardData.facilitiesAccessLevel ??
       [],
   );
   const aboveFacilities = get(
     "facilitiesAboveLevel",
     rawAhr.facility_distribution?.above_access_level_has ??
+      aiSuggestions.facilities_above_level ??
       wizardData.facilitiesAboveLevel ??
       [],
   );
   const belowFacilities = get(
     "facilitiesBelowLevel",
     rawAhr.facility_distribution?.below_access_level_has ??
+      aiSuggestions.facilities_below_level ??
       wizardData.facilitiesBelowLevel ??
       [],
   );
@@ -64,6 +76,7 @@ export function buildSurveyData(
   const stairsType = get(
     "stairsType",
     rawAhr.vertical_circulation?.internal_stairs?.type ??
+      aiSuggestions.stair_type ??
       (wizardData.internalStairsType === "Straight"
         ? "STRAIGHT"
         : ["Quarter Turn", "Half Turn", "Spiral", "Winding"].includes(
@@ -83,13 +96,20 @@ export function buildSurveyData(
     thumbnail_url: caseData.thumbnail || null,
     raw_ai_data: caseData.mlData,
     compliance_score: caseData.aiScore ?? null,
-    overall_grade: caseData.mlData?.aiReport?.Grade || null,
-    ai_confidence: 0.9,
+    overall_grade: rawAhr.meta_data?.overall_grade || null,
+    ai_confidence:
+      num(String(caseData.mlData?.aiReport?.ConfidenceScore || "").replace("%", "")) ??
+      null,
     comments: get(
       "adaptabilityReasoning",
       rawAhr.adaptability_assessment?.spatial_feasibility?.reasoning ||
+        caseData.mlData?.aiReport?.ReportData?.adaptability?.comments ||
         caseData.description ||
         null,
+    ),
+    known_hazards: get(
+      "knownHazards",
+      wizardData.hazards || aiSuggestions.known_hazards || null,
     ),
 
     // ── Section A – Address ──
@@ -137,6 +157,7 @@ export function buildSurveyData(
       get(
         "communalLiftServicingCount",
         rawAhr.eligibility_checks?.lifts_servicing_dwelling_count ??
+          aiSuggestions.lifts_servicing_dwelling_count ??
           wizardData.communalLiftCount,
       ),
     ),
@@ -146,6 +167,7 @@ export function buildSurveyData(
       get(
         "throughFloorLift",
         rawAhr.eligibility_checks?.special_equipment?.through_floor_lift ??
+          aiSuggestions.through_floor_lift_present ??
           wizardData.internalLift === "Through-Floor Lift",
       ),
     ),
@@ -153,56 +175,75 @@ export function buildSurveyData(
       get(
         "throughFloorLiftWidth",
         rawAhr.eligibility_checks?.special_equipment
-          ?.through_floor_lift_dimensions?.width,
+          ?.through_floor_lift_dimensions?.width ??
+          aiSuggestions.through_floor_lift_internal_width_cm,
       ),
     ),
     through_floor_lift_dim_depth: num(
       get(
         "throughFloorLiftDepth",
         rawAhr.eligibility_checks?.special_equipment
-          ?.through_floor_lift_dimensions?.depth,
+          ?.through_floor_lift_dimensions?.depth ??
+          aiSuggestions.through_floor_lift_internal_depth_cm,
       ),
     ),
     has_ceiling_track_hoist: bool(
       get(
         "ceilingTrackHoist",
-        rawAhr.eligibility_checks?.special_equipment?.ceiling_track_hoist,
+        rawAhr.eligibility_checks?.special_equipment?.ceiling_track_hoist ??
+          aiSuggestions.ceiling_track_hoist_present,
       ),
     ),
     has_step_lift: bool(
-      get("stepLift", rawAhr.eligibility_checks?.special_equipment?.step_lift),
+      get(
+        "stepLift",
+        rawAhr.eligibility_checks?.special_equipment?.step_lift ??
+          aiSuggestions.step_lift_present,
+      ),
     ),
     has_stair_lift: bool(
       get(
         "stairLift",
         rawAhr.eligibility_checks?.special_equipment?.stair_lift ??
+          aiSuggestions.stair_lift_present ??
           wizardData.internalLift === "Stairlift",
       ),
     ),
     has_platform_stair_lift: bool(
       get(
         "platformLift",
-        rawAhr.eligibility_checks?.special_equipment?.platform_lift,
+        rawAhr.eligibility_checks?.special_equipment?.platform_lift ??
+          aiSuggestions.platform_stair_lift_present,
       ),
     ),
     has_level_access_shower: bool(
       get(
         "levelAccessShower",
         rawAhr.eligibility_checks?.level_access_shower_present ??
+          aiSuggestions.level_access_shower_present ??
           wizardData.bathingType?.includes("Level Access"),
       ),
     ),
 
     // ── Stop Flags ──
     stop_flag_no_lift_or_ramp:
-      bool(get("stopTriggered", rawAhr.eligibility_checks?.stop_triggered)) ??
+      bool(
+        get(
+          "stopTriggered",
+          rawAhr.eligibility_checks?.stop_triggered ??
+            aiSuggestions.stop_if_no_lift_or_ramp ??
+            aiSuggestions.stop_assessment_flag,
+        ),
+      ) ??
       false,
     stop_flag_too_many_steps: false, // calculated from step counts
     stop_flag_internal_steps:
       Number(
         get(
           "internalStepsCount",
-          rawAhr.vertical_circulation?.internal_stairs?.step_count || 0,
+          rawAhr.vertical_circulation?.internal_stairs?.step_count ??
+            aiSuggestions.internal_steps_count ??
+            0,
         ),
       ) > 0,
     stop_flag_stair_width:
@@ -238,6 +279,7 @@ export function buildSurveyData(
       get(
         "communalDoorPresent",
         rawAhr.external_access?.communal_front_door?.present ??
+          aiSuggestions.communal_front_door_present ??
           wizardData.communalDoorPresent === "Y",
       ),
     ),
@@ -248,11 +290,18 @@ export function buildSurveyData(
           wizardData.communalStepCount,
       ),
     ),
-    communal_door_threshold_height: get("communalDoorThreshold", null) || null,
+    communal_door_threshold_height:
+      get(
+        "communalDoorThreshold",
+        rawAhr.external_access?.communal_front_door?.threshold_height_cm?.value ??
+          aiSuggestions.communal_front_door_threshold_height_cm ??
+          null,
+      ) || null,
     communal_door_opening_width: num(
       get(
         "communalDoorWidth",
-        rawAhr.external_access?.communal_front_door?.width_cm?.value,
+        rawAhr.external_access?.communal_front_door?.width_cm?.value ??
+          aiSuggestions.communal_front_door_opening_width_cm,
       ),
     ),
 
@@ -294,24 +343,31 @@ export function buildSurveyData(
     ),
 
     has_communal_lift: bool(
-      get("communalLiftPresent", rawAhr.external_access?.lift_details?.present),
+      get(
+        "communalLiftPresent",
+        rawAhr.external_access?.lift_details?.present ??
+          aiSuggestions.communal_lift_present,
+      ),
     ),
     communal_lift_dim_width: num(
       get(
         "communalLiftWidth",
-        rawAhr.external_access?.lift_details?.internal_dimensions_cm?.width,
+        rawAhr.external_access?.lift_details?.internal_dimensions_cm?.width ??
+          aiSuggestions.communal_lift_internal_width_cm,
       ),
     ),
     communal_lift_dim_depth: num(
       get(
         "communalLiftDepth",
-        rawAhr.external_access?.lift_details?.internal_dimensions_cm?.depth,
+        rawAhr.external_access?.lift_details?.internal_dimensions_cm?.depth ??
+          aiSuggestions.communal_lift_internal_depth_cm,
       ),
     ),
     communal_lift_door_width: num(
       get(
         "communalLiftDoorWidth",
-        rawAhr.external_access?.lift_details?.door_clear_opening_cm?.value,
+        rawAhr.external_access?.lift_details?.door_clear_opening_cm?.value ??
+          aiSuggestions.communal_lift_door_opening_width_cm,
       ),
     ),
     communal_lift_id: get("communalLiftID1", "") || null,
@@ -319,22 +375,39 @@ export function buildSurveyData(
       get(
         "communalLiftServicingCount",
         rawAhr.eligibility_checks?.lifts_servicing_dwelling_count ??
+          aiSuggestions.lifts_servicing_dwelling_count ??
           wizardData.communalLiftCount,
       ),
     ),
 
     // Property door
+    has_property_front_door: bool(
+      get(
+        "propertyDoorPresent",
+        rawAhr.external_access?.property_front_door?.present ??
+          aiSuggestions.property_front_door_present,
+      ),
+    ),
     property_door_steps_count: num(
       get(
         "propertyDoorSteps",
-        rawAhr.external_access?.property_front_door?.steps_count,
+        rawAhr.external_access?.property_front_door?.steps_count ??
+          aiSuggestions.property_front_door_steps_count,
       ),
     ),
-    property_door_threshold_height: get("propertyDoorThreshold", null) || null,
+    property_door_threshold_height:
+      get(
+        "propertyDoorThreshold",
+        rawAhr.external_access?.property_front_door?.threshold_height_cm?.value ??
+          aiSuggestions.property_front_door_threshold_height_cm ??
+          aiSuggestions.property_front_door_threshold_band ??
+          null,
+      ) || null,
     property_door_opening_width: num(
       get(
         "propertyDoorWidth",
-        rawAhr.external_access?.property_front_door?.width_cm?.value,
+        rawAhr.external_access?.property_front_door?.width_cm?.value ??
+          aiSuggestions.property_front_door_opening_width_cm,
       ),
     ),
 
@@ -411,13 +484,15 @@ export function buildSurveyData(
     internal_steps_count: num(
       get(
         "internalStepsCount",
-        rawAhr.vertical_circulation?.internal_stairs?.step_count,
+        rawAhr.vertical_circulation?.internal_stairs?.step_count ??
+          aiSuggestions.internal_steps_count,
       ),
     ),
     has_internal_stairs: bool(
       get(
         "stairsPresent",
         rawAhr.vertical_circulation?.internal_stairs?.present ??
+          aiSuggestions.has_stairs ??
           wizardData.internalStairs === "Yes",
       ),
     ),
@@ -425,6 +500,7 @@ export function buildSurveyData(
       get(
         "stairsWidth",
         rawAhr.vertical_circulation?.internal_stairs?.min_width_cm?.value ??
+          aiSuggestions.internal_stair_width_cm ??
           wizardData.stairWidth,
       ),
     ),
@@ -434,7 +510,9 @@ export function buildSurveyData(
       get(
         "stairsClearSpaceBottom",
         rawAhr.vertical_circulation?.internal_stairs?.clear_space_bottom_70cm ??
-          wizardData.stairBottomClearance === "Y",
+          ((num(aiSuggestions.stair_clearance_bottom_cm) ?? 0) >= 70
+            ? true
+            : wizardData.stairBottomClearance === "Y"),
       ),
     ),
 
@@ -443,6 +521,7 @@ export function buildSurveyData(
       get(
         "secondExitPresent",
         rawAhr.context_amenities?.second_exit?.present ??
+          aiSuggestions.second_exit_present ??
           wizardData.secondExit === "Yes",
       ),
     ),
@@ -450,17 +529,27 @@ export function buildSurveyData(
       get(
         "secondExitAccessToStreet",
         rawAhr.context_amenities?.second_exit?.access_to_street ??
+          aiSuggestions.second_exit_access_to_street ??
           wizardData.secondExitLocation === "Public Way",
       ),
     ),
     second_exit_steps_count: num(
-      get("secondExitSteps", rawAhr.context_amenities?.second_exit?.steps),
+      get(
+        "secondExitSteps",
+        rawAhr.context_amenities?.second_exit?.steps ??
+          aiSuggestions.second_exit_steps_count,
+      ),
     ),
-    second_exit_threshold_height: get("secondExitThreshold", null) || null,
+    second_exit_threshold_height:
+      get(
+        "secondExitThreshold",
+        aiSuggestions.second_exit_threshold_band ?? null,
+      ) || null,
     second_exit_door_width: num(
       get(
         "secondExitWidth",
-        rawAhr.context_amenities?.second_exit?.opening_width_cm,
+        rawAhr.context_amenities?.second_exit?.opening_width_cm ??
+          aiSuggestions.second_exit_door_opening_width_cm,
       ),
     ),
     has_ramped_second_exit: bool(
@@ -505,6 +594,7 @@ export function buildSurveyData(
       get(
         "gardenPresent",
         rawAhr.context_amenities?.garden?.present ??
+          aiSuggestions.private_garden_present ??
           wizardData.gardenAccess === "Yes",
       ),
     ),
@@ -512,14 +602,22 @@ export function buildSurveyData(
       get(
         "balconyPresent",
         rawAhr.context_amenities?.balcony?.present ??
+          aiSuggestions.balcony_present ??
           wizardData.balconyPresent === "Yes",
       ),
     ),
     garden_steps_count: num(
-      get("gardenSteps", rawAhr.context_amenities?.garden?.steps),
+      get(
+        "gardenSteps",
+        rawAhr.context_amenities?.garden?.steps ?? aiSuggestions.garden_steps_count,
+      ),
     ),
     balcony_steps_count: num(
-      get("balconySteps", rawAhr.context_amenities?.balcony?.steps),
+      get(
+        "balconySteps",
+        rawAhr.context_amenities?.balcony?.steps ??
+          aiSuggestions.balcony_steps_count,
+      ),
     ),
 
     // ── Section F – Hallway ──
@@ -545,6 +643,7 @@ export function buildSurveyData(
       get(
         "wheelchairStoragePresent",
         rawAhr.internal_circulation?.wheelchair_storage?.present ??
+          aiSuggestions.wheelchair_storage_present ??
           wizardData.wheelchairStoragePresent === "Y",
       ),
     ),
@@ -552,6 +651,7 @@ export function buildSurveyData(
       get(
         "wheelchairStorageWidth",
         rawAhr.internal_circulation?.wheelchair_storage?.dimensions_cm?.width ??
+          aiSuggestions.wheelchair_storage_estimate_width_cm ??
           wizardData.wheelchairStorageWidthCm,
       ),
     ),
@@ -559,13 +659,16 @@ export function buildSurveyData(
       get(
         "wheelchairStorageLength",
         rawAhr.internal_circulation?.wheelchair_storage?.dimensions_cm
-          ?.length ?? wizardData.wheelchairStorageLengthCm,
+          ?.length ??
+          aiSuggestions.wheelchair_storage_estimate_length_cm ??
+          wizardData.wheelchairStorageLengthCm,
       ),
     ),
     wheelchair_charging_socket: bool(
       get(
         "wheelchairStorageCharging",
-        rawAhr.internal_circulation?.wheelchair_storage?.charging_point,
+        rawAhr.internal_circulation?.wheelchair_storage?.charging_point ??
+          aiSuggestions.wheelchair_storage_charging_present,
       ),
     ),
 
@@ -574,6 +677,7 @@ export function buildSurveyData(
       get(
         "kitchenTurningSpaceFits150",
         rawAhr.room_analysis?.kitchen?.turning_circle?.fits_150cm ??
+          aiSuggestions.turning_circle ??
           wizardData.kitchenTurningCircle === "Yes",
       ),
     ),
@@ -581,6 +685,7 @@ export function buildSurveyData(
       get(
         "kitchenTurningSpaceFits170",
         rawAhr.room_analysis?.kitchen?.turning_circle?.fits_170x140 ??
+          aiSuggestions.turning_circle_170x140 ??
           wizardData.kitchenTurning170 === "Y",
       ),
     ),
@@ -588,6 +693,7 @@ export function buildSurveyData(
       get(
         "kitchenAccessibleUnits",
         rawAhr.room_analysis?.kitchen?.accessible_units ??
+          aiSuggestions.accessible_layout ??
           wizardData.kitchenAccessibleUnits === "Y",
       ),
     ),
@@ -595,6 +701,7 @@ export function buildSurveyData(
       get(
         "kitchenSeparateToLiving",
         rawAhr.room_analysis?.kitchen?.separate_from_living ??
+          aiSuggestions.separate_from_living ??
           wizardData.kitchenSeparateLiving === "Y",
       ),
     ),
@@ -605,19 +712,29 @@ export function buildSurveyData(
         "toiletPresent",
         rawAhr.facility_distribution?.access_level_has?.some?.((f: string) =>
           f.includes("separate_wc"),
-        ) ?? wizardData.separateToiletPresent === "Y",
+        ) ??
+          aiSuggestions.has_separate_toilet ??
+          wizardData.separateToiletPresent === "Y",
       ),
     ),
-    toilet_dim_width: num(get("toiletWidth", null)),
-    toilet_dim_depth: num(get("toiletLength", null)),
-    toilet_count: num(get("toiletCount", 1)),
-    toilet_lateral_space_cm: num(get("toiletLateralSpace", null)),
+    toilet_dim_width: num(
+      get("toiletWidth", aiSuggestions.separate_toilet_dimensions_width_cm ?? null),
+    ),
+    toilet_dim_depth: num(
+      get("toiletLength", aiSuggestions.separate_toilet_dimensions_depth_cm ?? null),
+    ),
+    toilet_count: num(get("toiletCount", aiSuggestions.separate_toilet_count ?? 1)),
+    toilet_lateral_space_cm: num(
+      get("toiletLateralSpace", aiSuggestions.separate_toilet_lateral_space_cm ?? null),
+    ),
 
     // ── Section F – Bathroom ──
     bathroom_turning_150x150: bool(
       get(
         "bathroomTurningSpaceFits150",
         rawAhr.room_analysis?.bathroom?.turning_circle?.fits_150cm ??
+          aiSuggestions.bathroom_turning_space_150 ??
+          aiSuggestions.turning_circle ??
           wizardData.bathroomTurning150 === "Y",
       ),
     ),
@@ -625,6 +742,7 @@ export function buildSurveyData(
       get(
         "bathroomWidth",
         rawAhr.room_analysis?.bathroom?.dimensions_cm?.width ??
+          aiSuggestions.bathroom_dimensions_width_cm ??
           wizardData.bathroomWidthCm,
       ),
     ),
@@ -632,65 +750,120 @@ export function buildSurveyData(
       get(
         "bathroomLength",
         rawAhr.room_analysis?.bathroom?.dimensions_cm?.length ??
+          aiSuggestions.bathroom_dimensions_depth_cm ??
           wizardData.bathroomLengthCm,
       ),
     ),
     bathroom_has_level_access_shower: bool(
       get(
         "bathroomLAShower",
+        aiSuggestions.bathroom_la_shower_and_bath ??
         wizardData.bathingType?.includes("Level Access") ?? false,
       ),
     ),
     bathroom_has_bath: bool(
       get("bathroomBathOnly", wizardData.bathingType === "Bath Only"),
     ),
-    bathroom_has_la_shower_and_bath:
-      bool(get("bathroomLAShower", false)) &&
-      bool(get("bathroomBathOnly", false)),
-    bathroom_next_to_toilet: bool(get("bathroomNextToToilet", false)),
+    bathroom_has_la_shower_and_bath: bool(
+      get(
+        "bathroomHasLaShowerAndBath",
+        aiSuggestions.bathroom_la_shower_and_bath ??
+          (bool(get("bathroomLAShower", false)) &&
+            bool(get("bathroomBathOnly", false))),
+      ),
+    ),
+    bathroom_next_to_toilet: bool(
+      get(
+        "bathroomNextToToilet",
+        aiSuggestions.bathroom_next_to_separate_toilet ?? false,
+      ),
+    ),
     bathroom_toilet_lateral_space: num(
       get(
         "bathroomLateralSpace",
         rawAhr.room_analysis?.bathroom?.lateral_space_cm ??
+          aiSuggestions.bathroom_toilet_lateral_space_cm ??
           wizardData.bathroomLateralSpace,
       ),
     ),
 
     // ── Section F – Door Opening Widths ──
     door_width_living_room: num(
-      get("doorLivingWidth", rawAhr.internal_doors?.living_room?.width_cm),
+      get(
+        "doorLivingWidth",
+        rawAhr.internal_doors?.living_room?.width_cm ??
+          aiSuggestions.door_opening_width_living_room_cm,
+      ),
     ),
     door_width_kitchen: num(
-      get("doorKitchenWidth", rawAhr.internal_doors?.kitchen?.width_cm),
+      get(
+        "doorKitchenWidth",
+        rawAhr.internal_doors?.kitchen?.width_cm ??
+          aiSuggestions.door_opening_width_kitchen_cm,
+      ),
     ),
     door_width_bed1: num(
-      get("doorBed1Width", rawAhr.internal_doors?.bedroom_1?.width_cm),
+      get(
+        "doorBed1Width",
+        rawAhr.internal_doors?.bedroom_1?.width_cm ??
+          aiSuggestions.door_opening_width_bed_1_cm,
+      ),
     ),
-    door_width_bed2: num(get("doorBed2Width", null)),
-    door_width_bed3: num(get("doorBed3Width", null)),
+    door_width_bed2: num(
+      get("doorBed2Width", aiSuggestions.door_opening_width_bed_2_cm ?? null),
+    ),
+    door_width_bed3: num(
+      get("doorBed3Width", aiSuggestions.door_opening_width_bed_3_cm ?? null),
+    ),
     door_width_bathroom: num(
-      get("doorBathroomWidth", rawAhr.internal_doors?.bathroom?.width_cm),
+      get(
+        "doorBathroomWidth",
+        rawAhr.internal_doors?.bathroom?.width_cm ??
+          aiSuggestions.door_opening_width_bathroom_cm,
+      ),
     ),
-    door_width_separate_toilet: num(get("doorToiletWidth", null)),
-    door_width_balcony: num(get("doorBalconyWidth", null)),
+    door_width_separate_toilet: num(
+      get(
+        "doorToiletWidth",
+        aiSuggestions.door_opening_width_separate_toilet_cm ?? null,
+      ),
+    ),
+    door_width_balcony: num(
+      get("doorBalconyWidth", aiSuggestions.door_opening_width_balcony_cm ?? null),
+    ),
 
     // ── Section F – Parking ──
     has_carport_next_to_property:
-      get("parkingType", rawAhr.context_amenities?.parking?.type) ===
+      get(
+        "parkingType",
+        rawAhr.context_amenities?.parking?.type ??
+          (aiSuggestions.parking_next_to_property ? "OFF_STREET" : null),
+      ) ===
       "OFF_STREET",
-    has_covered_carport_or_garage: bool(get("parkingCovered", false)),
+    has_covered_carport_or_garage: bool(
+      get("parkingCovered", aiSuggestions.parking_covered ?? false),
+    ),
     has_designated_parking_bay: bool(
-      get("parkingDesignated", rawAhr.context_amenities?.parking?.designated),
+      get(
+        "parkingDesignated",
+        rawAhr.context_amenities?.parking?.designated ??
+          aiSuggestions.parking_designated,
+      ),
     ),
 
     // ── Section F – Proximity ──
     shops_within_100m: bool(
-      get("proximityShops", rawAhr.context_amenities?.proximity?.shops_lt_100m),
+      get(
+        "proximityShops",
+        rawAhr.context_amenities?.proximity?.shops_lt_100m ??
+          aiSuggestions.proximity_shops_lt_100m,
+      ),
     ),
     transport_within_100m: bool(
       get(
         "proximityTransport",
-        rawAhr.context_amenities?.proximity?.transport_lt_100m,
+        rawAhr.context_amenities?.proximity?.transport_lt_100m ??
+          aiSuggestions.proximity_transport_lt_100m,
       ),
     ),
     transport_dlr: transportTypes.includes("DLR"),

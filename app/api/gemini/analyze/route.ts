@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SCORING_PROMPT } from "@/lib/gemini/prompts";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_API_URL =
@@ -29,21 +28,6 @@ export async function POST(req: NextRequest) {
     console.log(
       `[Gemini API] Processing request with ${images?.length || 0} images...`,
     );
-
-    // Build request parts
-    // If prompt is provided by client, use it. If it's the specific analysis prompt, we might want to append it or use the predefined one.
-    // The client (AssessmentWizard) sends a specific prompt constructed with user details.
-    // We will prepend the SYSTEM PROMPT if it's an analysis request, or just use the client prompt if it already contains instructions.
-    // For now, let's assume the client sends the user-specific context and we append the system prompt, OR the client sends the full prompt.
-    // Looking at references/src/hooks/useScoringEngine.ts (which I haven't read yet but can infer), it likely sends the full prompt.
-    // Actually, looking at server.js, it just takes `prompt` from body.
-
-    // However, for the full analysis, we should probably ensure the SCORING_PROMPT is used.
-    // Let's assume the client sends the specific case details and we combine it, OR the client sends the full prompt.
-    // Given the `server.js` implementation: `const parts = [{ text: prompt }];`
-    // I will stick to what the server does: simply pass the prompt through.
-    // BUT, if the prompt is short (just user details), we might need to inject the system prompt.
-    // For now, I'll follow server.js exactly.
 
     const parts: any[] = [{ text: prompt }];
 

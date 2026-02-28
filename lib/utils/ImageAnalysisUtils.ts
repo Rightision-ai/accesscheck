@@ -36,6 +36,7 @@ export interface ImageAnalysisResult {
     valid: boolean;
     reason?: string;
     data: Record<string, any>;
+    confidence?: Record<string, number>;
 }
 
 const CATEGORY_PROMPTS: Record<string, string> = {
@@ -116,6 +117,412 @@ export interface BatchAnalysisResult {
     };
 }
 
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null && !Array.isArray(value);
+
+const toSnakeKey = (key: string): string =>
+    key
+        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+        .replace(/[^a-zA-Z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .toLowerCase();
+
+const flattenToSnakeRecord = (
+    value: unknown,
+    prefix = "",
+    out: Record<string, any> = {},
+): Record<string, any> => {
+    if (!isObjectRecord(value)) return out;
+
+    Object.entries(value).forEach(([rawKey, rawVal]) => {
+        const key = toSnakeKey(rawKey);
+        const fullKey = prefix ? `${prefix}_${key}` : key;
+
+        if (isObjectRecord(rawVal)) {
+            flattenToSnakeRecord(rawVal, fullKey, out);
+            return;
+        }
+
+        if (Array.isArray(rawVal)) {
+            out[fullKey] = rawVal.join(", ");
+            return;
+        }
+
+        out[fullKey] = rawVal;
+    });
+
+    return out;
+};
+
+const boolFromUnknown = (value: unknown): boolean | null => {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (["yes", "y", "true"].includes(normalized)) return true;
+        if (["no", "n", "false"].includes(normalized)) return false;
+    }
+    return null;
+};
+
+const stringFromFirst = (
+    source: Record<string, any>,
+    keys: string[],
+): string | null => {
+    for (const key of keys) {
+        const value = source[key];
+        if (typeof value === "string" && value.trim() !== "") return value.trim();
+    }
+    return null;
+};
+
+const boolFromFirst = (
+    source: Record<string, any>,
+    keys: string[],
+): boolean | null => {
+    for (const key of keys) {
+        const value = boolFromUnknown(source[key]);
+        if (value !== null) return value;
+    }
+    return null;
+};
+
+const numberFromFirst = (
+    source: Record<string, any>,
+    keys: string[],
+): number | null => {
+    for (const key of keys) {
+        const value = source[key];
+        if (typeof value === "number" && Number.isFinite(value)) return value;
+        if (typeof value === "string" && value.trim() !== "") {
+            const parsed = Number(value);
+            if (Number.isFinite(parsed)) return parsed;
+        }
+    }
+    return null;
+};
+
+const normalizeThresholdBand = (value: unknown): string => {
+    const v = String(value ?? "").trim().toLowerCase();
+    if (!v) return "";
+    if (v.includes("10") && (v.includes("above") || v.includes(">=") || v.includes("over"))) {
+        return "10cm or above";
+    }
+    if ((v.includes("1.5") || v.includes("15mm")) && (v.includes("under 10") || v.includes("below 10"))) {
+        return "Under 10cm and above 1.5cm";
+    }
+    if (v.includes("0") && (v.includes("1.5") || v.includes("15mm"))) {
+        return "0 - 1.5cm";
+    }
+    if (v.includes("flush") || v.includes("level")) return "0 - 1.5cm";
+    return "";
+};
+
+const ensureNumber = (value: unknown, fallback: number): number => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim() !== "") {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    return fallback;
+};
+
+export const normalizeReportFillPayload = (raw: unknown): Record<string, any> => {
+    const payload = isObjectRecord(raw) ? raw : {};
+    const sectionFillRaw = isObjectRecord(payload.section_fill)
+        ? payload.section_fill
+        : flattenToSnakeRecord(payload);
+    const stopRaw = isObjectRecord(payload.stop_flags) ? payload.stop_flags : {};
+
+    const sectionFill = { ...sectionFillRaw } as Record<string, any>;
+
+    // Canonical threshold bands
+    sectionFill.property_front_door_threshold_band = normalizeThresholdBand(
+        stringFromFirst(sectionFill, [
+            "property_front_door_threshold_band",
+            "property_front_door_threshold_height_band",
+            "property_door_threshold_band",
+            "property_door_threshold_height",
+        ]),
+    );
+    sectionFill.second_exit_threshold_band = normalizeThresholdBand(
+        stringFromFirst(sectionFill, [
+            "second_exit_threshold_band",
+            "second_exit_threshold_height_band",
+            "second_exit_threshold_height",
+        ]),
+    );
+
+    // Canonical door widths
+    sectionFill.door_opening_width_living_room_cm = ensureNumber(
+        numberFromFirst(sectionFill, [
+            "door_opening_width_living_room_cm",
+            "door_width_living_room",
+            "living_room_door_width_cm",
+        ]),
+        80,
+    );
+    sectionFill.door_opening_width_kitchen_cm = ensureNumber(
+        numberFromFirst(sectionFill, [
+            "door_opening_width_kitchen_cm",
+            "door_width_kitchen",
+            "kitchen_door_width_cm",
+        ]),
+        80,
+    );
+    sectionFill.door_opening_width_bed_1_cm = ensureNumber(
+        numberFromFirst(sectionFill, [
+            "door_opening_width_bed_1_cm",
+            "door_width_bed1",
+            "door_width_bed_1",
+            "bed_1_door_width_cm",
+        ]),
+        78,
+    );
+    sectionFill.door_opening_width_bed_2_cm = ensureNumber(
+        numberFromFirst(sectionFill, [
+            "door_opening_width_bed_2_cm",
+            "door_width_bed2",
+            "door_width_bed_2",
+            "bed_2_door_width_cm",
+        ]),
+        78,
+    );
+    sectionFill.door_opening_width_bed_3_cm = ensureNumber(
+        numberFromFirst(sectionFill, [
+            "door_opening_width_bed_3_cm",
+            "door_width_bed3",
+            "door_width_bed_3",
+            "bed_3_door_width_cm",
+        ]),
+        78,
+    );
+    sectionFill.door_opening_width_bathroom_cm = ensureNumber(
+        numberFromFirst(sectionFill, [
+            "door_opening_width_bathroom_cm",
+            "door_width_bathroom",
+            "bathroom_door_width_cm",
+        ]),
+        76,
+    );
+    sectionFill.door_opening_width_separate_toilet_cm = ensureNumber(
+        numberFromFirst(sectionFill, [
+            "door_opening_width_separate_toilet_cm",
+            "door_width_separate_toilet",
+            "separate_toilet_door_width_cm",
+        ]),
+        74,
+    );
+    sectionFill.door_opening_width_balcony_cm = ensureNumber(
+        numberFromFirst(sectionFill, [
+            "door_opening_width_balcony_cm",
+            "door_width_balcony",
+            "balcony_door_width_cm",
+        ]),
+        78,
+    );
+
+    // Core measurements that should always be numeric
+    sectionFill.communal_front_door_opening_width_cm = ensureNumber(
+        numberFromFirst(sectionFill, ["communal_front_door_opening_width_cm"]),
+        85,
+    );
+    sectionFill.property_front_door_opening_width_cm = ensureNumber(
+        numberFromFirst(sectionFill, ["property_front_door_opening_width_cm"]),
+        82,
+    );
+    sectionFill.communal_lift_internal_width_cm = ensureNumber(
+        numberFromFirst(sectionFill, ["communal_lift_internal_width_cm"]),
+        110,
+    );
+    sectionFill.communal_lift_internal_depth_cm = ensureNumber(
+        numberFromFirst(sectionFill, ["communal_lift_internal_depth_cm"]),
+        140,
+    );
+    sectionFill.communal_lift_door_opening_width_cm = ensureNumber(
+        numberFromFirst(sectionFill, ["communal_lift_door_opening_width_cm"]),
+        90,
+    );
+    const stopFlags = {
+        stop_if_no_lift_or_ramp:
+            boolFromFirst(stopRaw as Record<string, any>, ["stop_if_no_lift_or_ramp"]) ?? false,
+        stop_if_internal_steps:
+            boolFromFirst(stopRaw as Record<string, any>, ["stop_if_internal_steps"]) ?? false,
+        stop_if_stair_width:
+            boolFromFirst(stopRaw as Record<string, any>, ["stop_if_stair_width"]) ?? false,
+        stop_if_no_clearance_no_exit:
+            boolFromFirst(stopRaw as Record<string, any>, ["stop_if_no_clearance_no_exit"]) ?? false,
+        stop_assessment_flag:
+            boolFromFirst(stopRaw as Record<string, any>, ["stop_assessment_flag"]) ?? false,
+        stop_reason:
+            stringFromFirst(stopRaw as Record<string, any>, ["stop_reason"]) ?? "",
+    };
+
+    return {
+        ...payload,
+        section_fill: sectionFill,
+        stop_flags: stopFlags,
+        known_hazards:
+            typeof payload.known_hazards === "string"
+                ? payload.known_hazards
+                : "",
+    };
+};
+
+const normalizeBatchResponse = (
+    raw: unknown,
+    categoriesPresent: string[],
+): BatchAnalysisResult => {
+    const defaultSafety = {
+        second_exit_suggested: false,
+        suggested_hazards: "",
+    };
+    const payload = isObjectRecord(raw) ? raw : {};
+
+    if (isObjectRecord(payload.results)) {
+        const safety = isObjectRecord(payload.safety)
+            ? {
+                second_exit_suggested:
+                    typeof payload.safety.second_exit_suggested === "boolean"
+                        ? payload.safety.second_exit_suggested
+                        : false,
+                suggested_hazards:
+                    typeof payload.safety.suggested_hazards === "string"
+                        ? payload.safety.suggested_hazards
+                        : "",
+            }
+            : defaultSafety;
+
+        return {
+            results: payload.results as Record<string, ImageAnalysisResult>,
+            safety,
+        };
+    }
+
+    // Gemini can occasionally return section-heading JSON despite the "results" contract.
+    const mergedData = flattenToSnakeRecord(payload);
+
+    const canonicalHasStairs = boolFromFirst(mergedData, [
+        "has_stairs",
+        "internal_stairs",
+        "internal_stairs_present",
+        "stairs_present",
+        "internal_layout_and_circulation_has_stairs",
+        "internal_layout_and_circulation_internal_stairs",
+    ]);
+    if (canonicalHasStairs !== null) mergedData.has_stairs = canonicalHasStairs;
+
+    const canonicalStairType = stringFromFirst(mergedData, [
+        "stair_type",
+        "stairs_type",
+        "internal_stair_type",
+        "internal_layout_and_circulation_stair_type",
+    ]);
+    if (canonicalStairType) mergedData.stair_type = canonicalStairType;
+
+    const canonicalHandrails = stringFromFirst(mergedData, [
+        "handrails",
+        "handrail_side",
+        "stair_handrails",
+        "internal_layout_and_circulation_handrails",
+    ]);
+    if (canonicalHandrails) mergedData.handrails = canonicalHandrails;
+
+    const canonicalStairLift = boolFromFirst(mergedData, [
+        "stair_lift_present",
+        "stairlift_present",
+        "internal_lift_present",
+        "internal_layout_and_circulation_stair_lift_present",
+    ]);
+    if (canonicalStairLift !== null) mergedData.stair_lift_present = canonicalStairLift;
+
+    const canonicalBathingType = stringFromFirst(mergedData, [
+        "bathing_type",
+        "bath_type",
+        "shower_type",
+        "bathroom_facilities_bathing_type",
+        "key_rooms_and_facilities_bathing_type",
+    ]);
+    if (canonicalBathingType) mergedData.bathing_type = canonicalBathingType;
+
+    const canonicalToiletType = stringFromFirst(mergedData, [
+        "toilet_type",
+        "wc_type",
+        "bathroom_facilities_toilet_type",
+        "key_rooms_and_facilities_toilet_type",
+    ]);
+    if (canonicalToiletType) mergedData.toilet_type = canonicalToiletType;
+
+    const canonicalBathroomLocation = stringFromFirst(mergedData, [
+        "bathroom_location",
+        "bathroom_floor",
+        "bathroom_level",
+        "key_rooms_and_facilities_bathroom_location",
+    ]);
+    if (canonicalBathroomLocation) mergedData.bathroom_location = canonicalBathroomLocation;
+
+    const canonicalCommunalLiftPresent = boolFromFirst(mergedData, [
+        "communal_lift_present",
+        "lift_present",
+        "communal_lifts_present",
+        "communal_lift_available",
+        "external_approach_and_entrances_communal_lift_present",
+        "entrance_communal_lift_present",
+    ]);
+    if (canonicalCommunalLiftPresent !== null) {
+        mergedData.communal_lift_present = canonicalCommunalLiftPresent;
+    }
+
+    const canonicalCommunalLiftType = stringFromFirst(mergedData, [
+        "communal_lift_type",
+        "lift_type",
+        "communal_lift_kind",
+        "external_approach_and_entrances_communal_lift_type",
+        "entrance_communal_lift_type",
+    ]);
+    if (canonicalCommunalLiftType) {
+        mergedData.communal_lift_type = canonicalCommunalLiftType;
+    }
+
+    if (typeof mergedData.communal_lifts_option !== "string") {
+        if (mergedData.communal_lift_present === false) {
+            mergedData.communal_lifts_option = "No";
+        } else if (
+            String(mergedData.communal_lift_type || "")
+                .trim()
+                .toLowerCase()
+                .includes("platform")
+        ) {
+            mergedData.communal_lifts_option = "Yes - Platform";
+        } else if (
+            mergedData.communal_lift_present === true ||
+            String(mergedData.communal_lift_type || "")
+                .trim()
+                .toLowerCase()
+                .includes("pass")
+        ) {
+            mergedData.communal_lifts_option = "Yes - Passenger";
+        }
+    }
+
+    const categories = categoriesPresent.length > 0 ? categoriesPresent : ["general"];
+    const results = Object.fromEntries(
+        categories.map((category) => [
+            category,
+            {
+                valid: true,
+                reason: "Normalized from section-based JSON response",
+                data: mergedData,
+                confidence: {},
+            } satisfies ImageAnalysisResult,
+        ]),
+    );
+
+    return {
+        results,
+        safety: defaultSafety,
+    };
+};
+
 export const analyzeAllCategoryPhotos = async (categoryPhotos: Record<string, string[]>): Promise<BatchAnalysisResult | null> => {
     try {
         const images: Array<{ mime_type: string, data: string, category: string }> = [];
@@ -141,110 +548,15 @@ export const analyzeAllCategoryPhotos = async (categoryPhotos: Record<string, st
 
         if (images.length === 0) return null;
 
-        const prompt = `
-            Analyze these ${images.length} images. Each image corresponds to a specific category.
-            Image Order: ${categoriesPresent.join(', ')}.
-
-            For EACH image/category pair, perform validation and extraction.
-            IMPORTANT: Use standard building elements (e.g., standard door width ~76-80cm, standard step riser ~17-18cm) to ESTIMATE measurements in centimeters (cm).
-
-            1. Kitchen:
-               - valid: Is it a kitchen?
-               - turning_circle: 1500mm turning circle visible? (true/false)
-               - turning_circle_170x140: 1700x1400mm ellipse visible? (true/false)
-               - accessible_layout: Units accessible? (true/false)
-               - separate_from_living: Separate room? (true/false)
-               - safety_hazards: Any visible hazards? (e.g. trailing wires, clutter)
-
-            2. Bathroom:
-               - valid: Is it a bathroom/toilet?
-               - bathing_type: 'Level Access Shower', 'Shower Cubicle', 'Over-Bath Shower', 'Bath Only'
-               - toilet_type: 'Standard', 'Raised Height', 'Wash/Dry (Smart)'
-               - turning_circle: 1500mm visible? (true/false)
-               - has_bath: boolean
-               - has_shower: boolean
-               - walls: 'Solid', 'Stud', 'Unknown'
-               - length_estimate_cm: Estimated room length in cm using standard fittings (toilet ~70cm, bath ~170cm) as scale references
-               - width_estimate_cm: Estimated room width in cm
-               - lateral_space_estimate_cm: Estimated space from toilet midline to nearest side wall in cm (transfer space)
-               - has_separate_toilet: Is this a toilet-only room (no bath/shower)? (true/false)
-               - safety_hazards: e.g. lack of grab rails, slippery floor
-
-            3. Entrance:
-               - valid: Is it an entrance?
-               - entrance_level: 'Ground Floor', 'Upper Floor', 'Basement'
-               - communal_entrance: Is this a communal/shared block entrance (multiple flats use it)? (true/false)
-               - step_count: number (steps at this entrance)
-               - communal_step_count: If communal_entrance=true, how many steps at the communal door? (number, else 0)
-               - property_front_door_step_count: Steps at the individual property front door if different from communal (number)
-               - step_type: 'No steps', 'Few steps', 'Steep'
-               - door_width_visual: 'Wide', 'Standard', 'Narrow'
-               - estimated_door_width_cm: Estimated clear width of the door in cm (e.g., 76)
-               - threshold_height: 'Flush', 'Low', 'High'
-               - second_exit_indicator: Does it look like a back door / secondary exit? (true/false)
-               - lift_present: Is a lift visible? (true/false)
-               - ramp_present: Is a ramp visible? (true/false)
-               - ramp_type: If ramp_present=true, 'Straight', 'L-shaped', 'U-shaped', else null
-               - stop_assessment_flag: Set to true IF (entrance_level is 'Upper Floor' OR 'Basement') AND (lift_present is false AND ramp_present is false). Or if step_count > 4.
-               - stop_reason: If flagged, explain why (e.g., "Upper floor property with no lift", "More than 4 steps at entrance").
-
-            4. Stairs:
-               - valid: Is it a staircase?
-               - has_stairs: true
-               - stair_type: 'Straight', 'Quarter Turn', 'Half Turn', 'Spiral'
-               - handrails: 'None', 'Left', 'Right', 'Both'
-               - stair_lift_present: boolean
-               - estimated_stair_width_cm: Estimated clear width of the stairs in cm. Use standard riser height/tread depth as reference.
-               - estimated_clearance_at_bottom_cm: Estimated distance from bottom step to nearest door/obstruction in cm.
-               - safety_hazards: e.g. loose carpet, no handrail
-               - stop_assessment_flag: Set to true IF (stair_type is 'Straight' AND estimated_stair_width_cm <= 69.9) OR (stair_type != 'Straight' AND estimated_stair_width_cm <= 74.9) OR (estimated_clearance_at_bottom_cm < 70).
-               - stop_reason: If flagged, explain why (e.g., "Straight stairs too narrow (<70cm)", "Insufficient clearance at bottom of stairs").
-
-            5. Hallway:
-               - valid: Is it a hallway?
-               - width_visual: 'Wide', 'Standard', 'Narrow'
-               - width_head_on_estimate_cm: Estimated corridor width for straight/head-on approach in cm (use standard door ~76cm as reference)
-               - width_turn_estimate_cm: Estimated corridor width at the narrowest turn point in cm
-               - obstructions: 'None', 'Radiator', 'Furniture', 'Boxed pipes'
-               - door_clearance: 'Good', 'Restricted'
-               - wheelchair_storage_visible: Is there a storage cupboard or area near the entrance suitable for wheelchair/scooter? (true/false)
-               - wheelchair_storage_estimate_length_cm: If visible, estimated length of storage space in cm (else null)
-               - wheelchair_storage_estimate_width_cm: If visible, estimated width of storage space in cm (else null)
-               - safety_hazards: e.g. clutter, trip hazards
-               - internal_steps_present: Are there internal steps (split level) visible in the hallway? (true/false)
-               - stop_assessment_flag: Set to true IF internal_steps_present is true.
-               - stop_reason: If flagged, "Internal split level steps detected".
-
-            6. Garden:
-               - valid: Is it a garden/external?
-               - access_type: 'Level', 'Ramped', 'Stepped'
-               - step_count: number
-               - surface: 'Paved', 'Grass', 'Gravel'
-               - second_exit_suggested: Does this look like a secondary escape route? (true/false)
-
-            RETURN A SINGLE JSON OBJECT with this structure:
-            {
-                "results": {
-                    "kitchen": { "valid": boolean, "reason": "...", "data": { ...extracted fields... } },
-                    "bathroom": { "valid": boolean, "reason": "...", "data": { ...extracted fields... } },
-                    ... for all provided categories
-                },
-                "safety": {
-                    "second_exit_suggested": boolean (true if garden or entrance suggests second exit),
-                    "suggested_hazards": "Comma separated string of all identified hazards from all rooms"
-                }
-            }
-        `;
-
         const requestBody = {
-            prompt,
+            categories: categoriesPresent,
             images: images.map(img => ({
                 mime_type: img.mime_type,
                 data: img.data
             }))
         };
 
-        const response = await fetch('/api/gemini/analyze', {
+        const response = await fetch('/api/gemini/floor-images', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),
@@ -273,7 +585,8 @@ export const analyzeAllCategoryPhotos = async (categoryPhotos: Record<string, st
             }
         }
 
-        return cleanJson as BatchAnalysisResult;
+        const parsed = normalizeBatchResponse(cleanJson, categoriesPresent);
+        return parsed;
 
     } catch (error) {
         console.error('Error in batch analysis:', error);
@@ -311,7 +624,7 @@ export const analyzeCategoryPhoto = async (file: File, categoryId: string): Prom
             }]
         };
 
-        const response = await fetch('/api/gemini/analyze', {
+        const response = await fetch('/api/gemini/floor-images', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),

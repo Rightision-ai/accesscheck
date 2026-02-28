@@ -1,11 +1,18 @@
 export interface AiReport {
-    AccessibilityScore: string;
-    Grade: string;
+    Confidence: "HIGH" | "MEDIUM" | "LOW" | string;
+    ConfidenceScore?: string;
     InferredAnswers: Record<string, string>;
     Summary: {
         Strengths: string;
         Weaknesses: string;
         Recommendation: string;
+    };
+    ReportData?: Record<string, any>;
+    analysisData?: Record<string, any>;
+    wizardData?: {
+      mobility?: string;
+      bathing?: string;
+      toileting?: string;
     };
 }
 

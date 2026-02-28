@@ -21,6 +21,10 @@ import ActivityTimeline from "./ActivityTimeline";
 import { COEFFICIENTS } from "@/lib/hooks/useScoringEngine";
 import { Case } from "@/types/dashboard";
 import { cn } from "@/lib/utils/cn";
+import {
+  buildFinalReportPrompt,
+  deriveInferredAnswersFromAssessment,
+} from "@/lib/gemini/prompts";
 
 const getScoreColor = (score: string | number): string => {
   const s = typeof score === "string" ? parseFloat(score) : score;
@@ -87,7 +91,7 @@ const PhotoModal: React.FC<PhotoModalProps> = ({ photo, onClose }) => {
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-5"
+      className="fixed inset-0 bg-black/90 z-9999 flex items-center justify-center p-5"
     >
       <button
         onClick={onClose}
@@ -297,10 +301,115 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
     ...aiReport.InferredAnswers,
   });
 
-  // Get current score and grade
-  const currentScore =
-    aiReport.AccessibilityScore || `${caseData.aiScore || 0}%`;
-  const currentGrade = aiReport.Grade || "N/A";
+  const confidenceScore =
+    aiReport.ConfidenceScore ||
+    (aiReport.Confidence === "HIGH"
+      ? "90%"
+      : aiReport.Confidence === "LOW"
+        ? "55%"
+        : "75%");
+  const confidenceNumeric = Math.max(
+    0,
+    Math.min(100, parseFloat(String(confidenceScore).replace("%", "")) || 75),
+  );
+  const confidenceLevel =
+    aiReport.Confidence ||
+    (confidenceNumeric >= 80 ? "HIGH" : confidenceNumeric >= 60 ? "MEDIUM" : "LOW");
+
+  const parseJsonPayload = (raw: unknown): Record<string, any> | null => {
+    if (!raw) return null;
+    if (typeof raw === "object") return raw as Record<string, any>;
+    if (typeof raw !== "string") return null;
+    let cleaned = raw;
+    if (cleaned.includes("```json")) {
+      cleaned = cleaned.replace(/```json\n?/, "").replace(/```/, "");
+    } else if (cleaned.includes("```")) {
+      cleaned = cleaned.replace(/```\n?/, "").replace(/```/, "");
+    }
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      const firstBrace = cleaned.indexOf("{");
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        try {
+          return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+  };
+
+  const regenerateAiReport = async (
+    answers: Record<string, any>,
+    observationsInput: any[],
+  ) => {
+    const inferredAnswers = deriveInferredAnswersFromAssessment(
+      {
+        ...(caseData.mlData?.wizardData || {}),
+        mobility: answers.mobility,
+        bathing: answers.bathing,
+        toileting: answers.toileting,
+      },
+      caseData.mlData?.wizardData?.aiSuggestions || aiReport?.analysisData?.aiSuggestions || {},
+    );
+
+    const prompt = buildFinalReportPrompt({
+      wizardData: {
+        ...(caseData.mlData?.wizardData || {}),
+        mobility: answers.mobility,
+        bathing: answers.bathing,
+        toileting: answers.toileting,
+      },
+      inferredAnswers: {
+        ...inferredAnswers,
+        ...Object.fromEntries(
+          Object.entries(answers).filter(([key]) => key.startsWith("Q")),
+        ),
+      },
+      observations: observationsInput,
+      analysisData:
+        aiReport?.analysisData || {
+          aiSuggestions: caseData.mlData?.wizardData?.aiSuggestions || {},
+          floorPlan: caseData.mlData?.wizardData?.floorPlanAnalysis || {},
+        },
+    });
+
+    const response = await fetch("/api/gemini/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, images: [] }),
+    });
+    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || "AI analysis failed");
+    const parsed = parseJsonPayload(data.result);
+    if (!parsed) throw new Error("Could not parse AI response");
+    return {
+      Confidence: parsed.Confidence || "MEDIUM",
+      ConfidenceScore: parsed.ConfidenceScore || "75%",
+      Summary: parsed.Summary || { Strengths: "", Weaknesses: "", Recommendation: "" },
+      ReportData: parsed.ReportData || {},
+      analysisData:
+        aiReport?.analysisData || {
+          aiSuggestions: caseData.mlData?.wizardData?.aiSuggestions || {},
+          floorPlan: caseData.mlData?.wizardData?.floorPlanAnalysis || {},
+        },
+      InferredAnswers: {
+        ...inferredAnswers,
+        ...Object.fromEntries(
+          Object.entries(answers).filter(([key]) => key.startsWith("Q")),
+        ),
+      },
+      wizardData: {
+        mobility: answers.mobility,
+        bathing: answers.bathing,
+        toileting: answers.toileting,
+      },
+    };
+  };
 
   const handleSaveObservation = async (observation: any) => {
     const updatedObservations = [...observations, observation];
@@ -309,31 +418,10 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
     console.log("Sending observation for re-scoring...");
 
     try {
-      const response = await fetch("/api/gemini/rescore", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          wizardData: {
-            mobility: editedValues.mobility,
-            bathing: editedValues.bathing,
-            toileting: editedValues.toileting,
-          },
-          inferredAnswers: editedValues,
-          observations: updatedObservations,
-        }),
-      });
-
-      console.log("Re-scoring response received");
-      if (!response.ok) throw new Error(`API Error: ${response.status}`);
-      const data = await response.json();
-      console.log("Re-scoring result:", data);
-      if (!data.success || !data.result)
-        throw new Error(data.error || "Could not parse AI response");
-
-      const newReport = data.result;
+      const newReport = await regenerateAiReport(editedValues, updatedObservations);
       const updatedCase = {
         ...caseData,
-        aiScore: parseFloat(newReport.AccessibilityScore),
+        aiScore: null,
         observations: updatedObservations,
         mlData: {
           ...caseData.mlData,
@@ -352,7 +440,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
 
       onUpdateCase(updatedCase);
     } catch (error) {
-      console.error("Re-scoring error:", error);
+      console.error("AI report regeneration error:", error);
     } finally {
       setIsRescoring(false);
     }
@@ -365,31 +453,10 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
     console.log("Sending override for re-scoring...");
 
     try {
-      const response = await fetch("/api/gemini/rescore", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          wizardData: {
-            mobility: updatedAnswers.mobility,
-            bathing: updatedAnswers.bathing,
-            toileting: updatedAnswers.toileting,
-          },
-          inferredAnswers: updatedAnswers,
-          observations: observations,
-        }),
-      });
-
-      console.log("Re-scoring response received");
-      if (!response.ok) throw new Error(`API Error: ${response.status}`);
-      const data = await response.json();
-      console.log("Re-scoring result:", data);
-      if (!data.success || !data.result)
-        throw new Error(data.error || "Could not parse AI response");
-
-      const newReport = data.result;
+      const newReport = await regenerateAiReport(updatedAnswers, observations);
       const updatedCase = {
         ...caseData,
-        aiScore: parseFloat(newReport.AccessibilityScore),
+        aiScore: null,
         mlData: {
           ...caseData.mlData,
           aiReport: {
@@ -407,7 +474,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
 
       onUpdateCase(updatedCase);
     } catch (error) {
-      console.error("Re-scoring error:", error);
+      console.error("AI report regeneration error:", error);
     } finally {
       setIsRescoring(false);
     }
@@ -644,12 +711,12 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
             boxShadow: "0 4px 20px rgba(0,0,0,0.02)",
           }}
         >
-          {/* Left Side: KPIs (Score & Confidence) */}
+          {/* Left Side: KPIs (Confidence) */}
           <div style={{ display: "flex", gap: "20px", flex: "0 0 auto" }}>
-            {/* Score Card */}
+            {/* Confidence Score Card */}
             <div
               style={{
-                background: `linear-gradient(135deg, ${getScoreColor(currentScore)} 0%, ${getScoreColorDark(currentScore)} 100%)`,
+                background: `linear-gradient(135deg, ${getScoreColor(confidenceNumeric)} 0%, ${getScoreColorDark(confidenceNumeric)} 100%)`,
                 borderRadius: "20px",
                 padding: "24px",
                 color: "#fff",
@@ -659,7 +726,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
                 justifyContent: "center",
                 width: "160px",
                 height: "160px",
-                boxShadow: `0 8px 24px ${getScoreColor(currentScore)}40`,
+                boxShadow: `0 8px 24px ${getScoreColor(confidenceNumeric)}40`,
                 position: "relative",
                 overflow: "hidden",
               }}
@@ -674,7 +741,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
                   marginBottom: "8px",
                 }}
               >
-                Score
+                Confidence
               </div>
               {isRescoring ? (
                 <Loader className="animate-spin" size={32} />
@@ -687,7 +754,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
                       lineHeight: 1,
                     }}
                   >
-                    {Math.round(parseFloat(currentScore))}
+                    {Math.round(confidenceNumeric)}
                   </div>
                   <div
                     style={{
@@ -700,7 +767,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
                       backdropFilter: "blur(4px)",
                     }}
                   >
-                    Grade: {currentGrade}
+                    Level: {confidenceLevel}
                   </div>
                 </>
               )}
@@ -756,24 +823,24 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
                   lineHeight: 1,
                 }}
               >
-                {currentScore}
+                {confidenceScore}
               </div>
               <div
                 style={{
                   fontSize: "12px",
                   fontWeight: "700",
                   color:
-                    parseFloat(String(currentScore)) >= 80
+                    confidenceNumeric >= 80
                       ? "#10b981"
-                      : parseFloat(String(currentScore)) >= 50
+                      : confidenceNumeric >= 50
                         ? "#f59e0b"
                         : "#ef4444",
                   marginTop: "4px",
                 }}
               >
-                {parseFloat(String(currentScore)) >= 80
+                {confidenceNumeric >= 80
                   ? "High Accuracy"
-                  : parseFloat(String(currentScore)) >= 50
+                  : confidenceNumeric >= 50
                     ? "Medium Accuracy"
                     : "Low Accuracy"}
               </div>
@@ -1121,7 +1188,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
       </div>
 
       {/* Fixed Footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-border py-5 px-6 z-[100] shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-border py-5 px-6 z-100 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
         <div className="max-w-[1200px] mx-auto flex justify-between items-center flex-wrap gap-4">
           <div className="flex gap-6 items-center flex-wrap">
             <div>
