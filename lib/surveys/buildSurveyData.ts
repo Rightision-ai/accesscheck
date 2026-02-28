@@ -9,6 +9,12 @@ function num(v: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
+/** Converts a value in cm to mm for DB storage. Returns null if input is null/undefined/empty/invalid. */
+function numCmToMm(v: unknown): number | null {
+  const n = num(v);
+  return n === null ? null : Math.round(n * 10);
+}
+
 function bool(v: unknown): boolean | null {
   if (v === true || v === "Y" || v === "Yes") return true;
   if (v === false || v === "N" || v === "No") return false;
@@ -297,7 +303,7 @@ export function buildSurveyData(
           aiSuggestions.communal_front_door_threshold_height_cm ??
           null,
       ) || null,
-    communal_door_opening_width: num(
+    communal_door_opening_width: numCmToMm(
       get(
         "communalDoorWidth",
         rawAhr.external_access?.communal_front_door?.width_cm?.value ??
@@ -349,21 +355,21 @@ export function buildSurveyData(
           aiSuggestions.communal_lift_present,
       ),
     ),
-    communal_lift_dim_width: num(
+    communal_lift_dim_width: numCmToMm(
       get(
         "communalLiftWidth",
         rawAhr.external_access?.lift_details?.internal_dimensions_cm?.width ??
           aiSuggestions.communal_lift_internal_width_cm,
       ),
     ),
-    communal_lift_dim_depth: num(
+    communal_lift_dim_depth: numCmToMm(
       get(
         "communalLiftDepth",
         rawAhr.external_access?.lift_details?.internal_dimensions_cm?.depth ??
           aiSuggestions.communal_lift_internal_depth_cm,
       ),
     ),
-    communal_lift_door_width: num(
+    communal_lift_door_width: numCmToMm(
       get(
         "communalLiftDoorWidth",
         rawAhr.external_access?.lift_details?.door_clear_opening_cm?.value ??
@@ -403,7 +409,7 @@ export function buildSurveyData(
           aiSuggestions.property_front_door_threshold_band ??
           null,
       ) || null,
-    property_door_opening_width: num(
+    property_door_opening_width: numCmToMm(
       get(
         "propertyDoorWidth",
         rawAhr.external_access?.property_front_door?.width_cm?.value ??
@@ -496,7 +502,7 @@ export function buildSurveyData(
           wizardData.internalStairs === "Yes",
       ),
     ),
-    stair_width_cm: num(
+    stair_width_cm: numCmToMm(
       get(
         "stairsWidth",
         rawAhr.vertical_circulation?.internal_stairs?.min_width_cm?.value ??
@@ -545,7 +551,7 @@ export function buildSurveyData(
         "secondExitThreshold",
         aiSuggestions.second_exit_threshold_band ?? null,
       ) || null,
-    second_exit_door_width: num(
+    second_exit_door_width: numCmToMm(
       get(
         "secondExitWidth",
         rawAhr.context_amenities?.second_exit?.opening_width_cm ??
@@ -621,7 +627,7 @@ export function buildSurveyData(
     ),
 
     // ── Section F – Hallway ──
-    hallway_width_head_on_cm: num(
+    hallway_width_head_on_cm: numCmToMm(
       get(
         "hallwayMinWidthHeadOn",
         rawAhr.internal_circulation?.hallway?.approach_type === "HEAD_ON"
@@ -629,7 +635,7 @@ export function buildSurveyData(
           : wizardData.hallwayWidthHeadOn || null,
       ),
     ),
-    hallway_width_turn_cm: num(
+    hallway_width_turn_cm: numCmToMm(
       get(
         "hallwayMinWidthTurn",
         rawAhr.internal_circulation?.hallway?.approach_type === "TURN_APPROACH"
