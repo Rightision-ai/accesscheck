@@ -9,10 +9,15 @@ function num(v: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
-/** Converts a value in cm to mm for DB storage. Returns null if input is null/undefined/empty/invalid. */
+/**
+ * Converts a value to mm for DB storage.
+ * - Values < 500 are treated as cm and multiplied by 10 (e.g. 80 → 800).
+ * - Values >= 500 are treated as already mm (e.g. 800 from report re-save).
+ */
 function numCmToMm(v: unknown): number | null {
   const n = num(v);
-  return n === null ? null : Math.round(n * 10);
+  if (n === null) return null;
+  return n >= 500 ? Math.round(n) : Math.round(n * 10);
 }
 
 function bool(v: unknown): boolean | null {
