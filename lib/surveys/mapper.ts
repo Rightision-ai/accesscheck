@@ -68,9 +68,7 @@ export function mapSurveyToCase(s: any): Case {
     status: s.status || "Draft",
     source: "AI Assessment",
     date: s.created_at,
-    thumbnail:
-      s.thumbnail_url ||
-      "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=400&q=80",
+    thumbnail: s.thumbnail_url || "",
     evidence:
       s.raw_ai_data?.evidence ||
       s.raw_ai_data?.photos ||
