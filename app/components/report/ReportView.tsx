@@ -1623,20 +1623,7 @@ const ReportView: React.FC<ReportViewProps> = ({
               }
               summary={(caseData.mlData as any).riskAssessment.summary}
             />
-
-            {/* COMPLIANCE SUMMARY (Enterprise Feature) */}
-            {(caseData.mlData as any)?.riskAssessment && (
-              <ComplianceSummary
-                grade={(
-                  caseData.mlData as any
-                ).riskAssessment.overallGrade.replace("GRADE_", "")}
-                risks={(caseData.mlData as any).riskAssessment.riskFactors}
-                confidence={
-                  (caseData.mlData as any).aiReport?.Confidence || "MEDIUM"
-                }
-                summary={(caseData.mlData as any).riskAssessment.summary}
-              />
-            )}
+          )}
 
             <SectionBlock title="SECTION A" number="">
               <div

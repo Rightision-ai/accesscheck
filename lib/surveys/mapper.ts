@@ -65,6 +65,16 @@ export function mapSurveyToCase(s: any): Case {
       : null);
   const accessibilityGrade: AccessibilityGrade | null =
     grade && VALID_GRADES.has(grade) ? (grade as AccessibilityGrade) : null;
+  const clonedRawAiData: Record<string, any> = s.raw_ai_data
+    ? (JSON.parse(JSON.stringify(s.raw_ai_data)) as Record<string, any>)
+    : {};
+  const mlData: Case["mlData"] = {
+    ...clonedRawAiData,
+    imageCount: Number(clonedRawAiData.imageCount ?? 0),
+    wizardData: clonedRawAiData.wizardData ?? {},
+  };
+
+  mergeSurveyWidthsIntoMlData(mlData, s);
 
   return {
     id: s.id.toString(),
