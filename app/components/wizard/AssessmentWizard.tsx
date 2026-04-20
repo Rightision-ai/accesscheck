@@ -298,9 +298,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         status: "Draft",
         source: "Manual Entry",
         date: new Date().toISOString(),
-        thumbnail:
-          (formData.photos && formData.photos[0]) ||
-          "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=400&q=80",
+        thumbnail: (formData.photos && formData.photos[0]) || "",
         evidence: formData.photos || [],
         description: `AHR Assessment for ${formData.fullName || "Client"}`,
         observations: [],
@@ -1460,9 +1458,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
       status: "Review",
       source: "Manual Entry",
       date: new Date().toISOString(),
-      thumbnail:
-        (formData.photos && formData.photos[0]) ||
-        "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=400&q=80",
+      thumbnail: (formData.photos && formData.photos[0]) || "",
       evidence: formData.photos || [],
       description: `AHR Assessment for ${formData.fullName || "Client"}`,
       observations: [],

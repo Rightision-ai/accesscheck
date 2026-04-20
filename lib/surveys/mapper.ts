@@ -9,6 +9,54 @@ const VALID_GRADES: ReadonlySet<AccessibilityGrade> = new Set([
   "C",
 ]);
 
+/**
+ * Merges survey DB columns (stored in mm) into mlData so the report displays mm values.
+ * Survey columns override rawAhr/wizardData which may have legacy cm values.
+ */
+function mergeSurveyWidthsIntoMlData(mlData: Record<string, any>, s: any): void {
+  const rawAhr = mlData.rawAhr
+    ? (JSON.parse(JSON.stringify(mlData.rawAhr)) as Record<string, any>)
+    : {};
+  const wizardData = mlData.wizardData ? { ...mlData.wizardData } : {};
+
+  const mmFields: Array<{
+    surveyKey: keyof typeof s;
+    rawAhrPath?: string[];
+    wizardKey?: string;
+  }> = [
+    { surveyKey: "communal_door_opening_width", rawAhrPath: ["external_access", "communal_front_door", "width_cm", "value"], wizardKey: "communalDoorWidth" },
+    { surveyKey: "communal_lift_dim_width", rawAhrPath: ["external_access", "lift_details", "internal_dimensions_cm", "width"], wizardKey: "communalLiftWidth" },
+    { surveyKey: "communal_lift_dim_depth", rawAhrPath: ["external_access", "lift_details", "internal_dimensions_cm", "depth"], wizardKey: "communalLiftDepth" },
+    { surveyKey: "communal_lift_door_width", rawAhrPath: ["external_access", "lift_details", "door_clear_opening_cm", "value"], wizardKey: "communalLiftDoorWidth" },
+    { surveyKey: "property_door_opening_width", rawAhrPath: ["external_access", "property_front_door", "width_cm", "value"], wizardKey: "propertyDoorWidth" },
+    { surveyKey: "stair_width_cm", rawAhrPath: ["vertical_circulation", "internal_stairs", "min_width_cm", "value"], wizardKey: "stairWidth" },
+    { surveyKey: "second_exit_door_width", rawAhrPath: ["context_amenities", "second_exit", "opening_width_cm"] },
+    { surveyKey: "hallway_width_head_on_cm", wizardKey: "hallwayWidthHeadOn" },
+    { surveyKey: "hallway_width_turn_cm", wizardKey: "hallwayWidthTurn" },
+  ];
+
+  for (const { surveyKey, rawAhrPath, wizardKey } of mmFields) {
+    const val = s[surveyKey];
+    if (val == null) continue;
+
+    if (rawAhrPath) {
+      let obj: any = rawAhr;
+      for (let i = 0; i < rawAhrPath.length - 1; i++) {
+        const key = rawAhrPath[i];
+        if (!obj[key]) obj[key] = {};
+        obj = obj[key];
+      }
+      obj[rawAhrPath[rawAhrPath.length - 1]] = val;
+    }
+    if (wizardKey) {
+      wizardData[wizardKey] = String(val);
+    }
+  }
+
+  mlData.rawAhr = rawAhr;
+  mlData.wizardData = { ...wizardData };
+}
+
 export function mapSurveyToCase(s: any): Case {
   const grade =
     s.raw_ai_data?.accessibility?.grade ??
@@ -39,15 +87,13 @@ export function mapSurveyToCase(s: any): Case {
     status: s.status || "Draft",
     source: "AI Assessment",
     date: s.created_at,
-    thumbnail:
-      s.thumbnail_url ||
-      "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=400&q=80",
+    thumbnail: s.thumbnail_url || "",
     evidence:
       s.raw_ai_data?.evidence ||
       s.raw_ai_data?.photos ||
       s.raw_ai_data?.wizardData?.photos ||
       [],
     description: s.comments || "",
-    mlData: s.raw_ai_data || {},
+    mlData,
   };
 }

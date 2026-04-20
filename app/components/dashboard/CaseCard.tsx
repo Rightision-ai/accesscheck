@@ -9,6 +9,7 @@ import {
   Shield,
   Clock,
   ChevronRight,
+  ImageOff,
 } from "lucide-react";
 import { Case } from "@/types/dashboard";
 import { cn } from "@/lib/utils/cn";
@@ -56,10 +57,15 @@ const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick }) => {
 
   const statusConfig = getStatusConfig(caseData.status);
   const StatusIcon = statusConfig.icon;
-  const displayImage =
+  const rawDisplayImage =
     caseData.evidence && caseData.evidence.length > 0
       ? caseData.evidence[0]
       : caseData.thumbnail;
+  const displayImage =
+    typeof rawDisplayImage === "string" &&
+    rawDisplayImage.includes("images.unsplash.com/photo-1586023492125-27b2c045efd7")
+      ? ""
+      : rawDisplayImage;
 
   return (
     <motion.div
@@ -69,14 +75,20 @@ const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick }) => {
     >
       {/* Property Image */}
       <div className="relative h-[140px] overflow-hidden">
-        <img
-          src={
-            displayImage ||
-            "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=400&q=80"
-          }
-          alt={caseData.address}
-          className="w-full h-full object-cover"
-        />
+        {displayImage ? (
+          <img
+            src={displayImage}
+            alt={caseData.address}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-1 text-slate-400">
+              <ImageOff size={28} />
+              <span className="text-xs font-medium">No image</span>
+            </div>
+          </div>
+        )}
         <div
           className={cn(
             "absolute top-3 right-3 py-1.5 px-3 rounded-lg flex items-center gap-1.5 border backdrop-blur-md",
