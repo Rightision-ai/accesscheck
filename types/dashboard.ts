@@ -16,6 +16,8 @@ export interface AiReport {
     };
 }
 
+export type AccessibilityGrade = "A+" | "A-" | "B+" | "B-" | "C";
+
 export interface Case {
     id: string;
     applicantName: string;
@@ -25,6 +27,9 @@ export interface Case {
     phoneNumber?: string;
     assessmentDate: string;
     aiScore: number | null;
+    accessibilityGrade?: AccessibilityGrade | null;
+    accessibilityLabel?: string | null;
+    accessibilityReasons?: string[];
     status: string;
     source: string;
     date: string;

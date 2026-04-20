@@ -27,6 +27,8 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import AccessibilityBadge from "@/app/components/common/AccessibilityBadge";
+import { LEGEND } from "@/lib/accessibility/flowchart";
 
 interface CaseDetailViewProps {
   caseData: Case;
@@ -75,6 +77,45 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
   const { aiReport, wizardData } = caseData.mlData || {};
   const summary = aiReport?.Summary;
 
+  const confidenceScoreRaw = aiReport?.ConfidenceScore;
+  const parsedConfidence = confidenceScoreRaw
+    ? Number(String(confidenceScoreRaw).replace("%", "").trim())
+    : NaN;
+  const confidenceTier = aiReport?.Confidence;
+  const confidencePct = Number.isFinite(parsedConfidence)
+    ? Math.max(0, Math.min(100, Math.round(parsedConfidence)))
+    : confidenceTier === "HIGH"
+      ? 90
+      : confidenceTier === "MEDIUM"
+        ? 70
+        : confidenceTier === "LOW"
+          ? 50
+          : null;
+  const confidenceLabel =
+    confidencePct === null
+      ? "Unknown"
+      : confidencePct >= 85
+        ? "High Accuracy"
+        : confidencePct >= 60
+          ? "Medium Accuracy"
+          : "Low Accuracy";
+  const confidenceColor =
+    confidencePct === null
+      ? "#64748b"
+      : confidencePct >= 85
+        ? "#059669"
+        : confidencePct >= 60
+          ? "#f59e0b"
+          : "#dc2626";
+  const confidenceBg =
+    confidencePct === null
+      ? "#f1f5f9"
+      : confidencePct >= 85
+        ? "#ecfdf5"
+        : confidencePct >= 60
+          ? "#fffbeb"
+          : "#fef2f2";
+
   useEffect(() => {
     const postcode = wizardData?.postcode || caseData.postcode;
     if (!postcode) return;
@@ -95,23 +136,6 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
       .catch(() => {})
       .finally(() => setIsMapLoading(false));
   }, [caseData.postcode, wizardData?.postcode, wizardData?.street]);
-  const confidenceRaw =
-    (caseData.mlData as any)?.aiReport?.Confidence || "MEDIUM";
-  const confidencePct =
-    confidenceRaw === "HIGH" ? 92 : confidenceRaw === "MEDIUM" ? 75 : 50;
-  const confidenceLabel =
-    confidenceRaw === "HIGH"
-      ? "High Accuracy"
-      : confidenceRaw === "MEDIUM"
-        ? "Medium Accuracy"
-        : "Low Accuracy";
-  const confidenceStyle =
-    confidenceRaw === "HIGH"
-      ? { iconBg: "#ecfdf5", color: "#10b981" }
-      : confidenceRaw === "MEDIUM"
-        ? { iconBg: "#fffbeb", color: "#d97706" }
-        : { iconBg: "#fef2f2", color: "#dc2626" };
-
   const isLocked = !!(
     caseData.mlData?.isLocked || caseData.status === "Completed"
   );
@@ -231,85 +255,132 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
         {activeTab === "details" && (
           <div className="flex flex-col gap-4">
             {/* Case Details */}
-            <div className="flex flex-col-reverse sm:flex-row-reverse gap-4 sm:gap-6 bg-white p-5 rounded-3xl border border-slate-200 ">
-              {/* Left column: full address and date (separator to the right of confidence) */}
-              <div className="flex-1 w-full md:w-auto flex flex-col justify-center min-w-0 sm:border-l sm:border-slate-200 sm:pl-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="flex gap-3 sm:gap-4 items-start">
-                    <div className="p-2 sm:p-2.5 rounded-lg bg-violet-100 text-violet-600 shrink-0">
-                      <Home size={18} className="sm:w-5 sm:h-5" />
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 bg-white p-5 rounded-3xl border border-slate-200 items-stretch">
+              {/* Confidence (left-most) */}
+              {confidencePct !== null && (
+                <div className="flex justify-center sm:justify-start shrink-0 sm:border-r sm:border-slate-200 sm:pr-6">
+                  <div
+                    className="rounded-[20px] p-4 sm:p-5 border flex flex-col items-center justify-center w-full sm:w-auto min-w-[140px]"
+                    style={{
+                      borderColor: confidenceColor + "40",
+                      background: confidenceBg,
+                    }}
+                  >
+                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      AI Confidence
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11px] sm:text-xs font-bold text-slate-500 mb-1 uppercase">
-                        Property Address
-                      </div>
-                      <div className="text-sm sm:text-base font-extrabold text-slate-900 leading-snug">
-                        {caseData.address}
-                        <br />
-                        <span className="text-xs sm:text-sm font-semibold opacity-70">
-                          {[caseData.city, caseData.postcode]
-                            .filter(Boolean)
-                            .join(", ") || "—"}
-                        </span>
-                      </div>
+                    <div
+                      className="text-3xl sm:text-4xl font-black leading-none mt-2"
+                      style={{ color: confidenceColor }}
+                    >
+                      {confidencePct}%
+                    </div>
+                    <div
+                      className="text-[11px] font-bold mt-2 text-center"
+                      style={{ color: confidenceColor }}
+                    >
+                      {confidenceLabel}
                     </div>
                   </div>
-                  <div className="flex gap-3 sm:gap-4 items-start">
-                    <div className="p-2 sm:p-2.5 rounded-lg bg-blue-100 text-blue-600 shrink-0">
-                      <Calendar size={18} className="sm:w-5 sm:h-5" />
+                </div>
+              )}
+
+              {/* Middle column: address stacked above date */}
+              <div className="flex-1 flex flex-col gap-4 sm:gap-5 min-w-0 justify-center">
+                <div className="flex gap-3 sm:gap-4 items-start">
+                  <div className="p-2 sm:p-2.5 rounded-lg bg-violet-100 text-violet-600 shrink-0">
+                    <Home size={18} className="sm:w-5 sm:h-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] sm:text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Property Address
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11px] sm:text-xs font-bold text-slate-500 mb-1 uppercase">
-                        Assessment Date
-                      </div>
-                      <div className="text-sm sm:text-base font-extrabold text-slate-900">
-                        {caseData.assessmentDate
-                          ? new Date(
-                              caseData.assessmentDate,
-                            ).toLocaleDateString("en-GB", {
+                    <div className="text-sm sm:text-base font-extrabold text-slate-900 leading-snug">
+                      {caseData.address}
+                      <br />
+                      <span className="text-xs sm:text-sm font-semibold opacity-70">
+                        {[caseData.city, caseData.postcode]
+                          .filter(Boolean)
+                          .join(", ") || "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-3 sm:gap-4 items-start">
+                  <div className="p-2 sm:p-2.5 rounded-lg bg-blue-100 text-blue-600 shrink-0">
+                    <Calendar size={18} className="sm:w-5 sm:h-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] sm:text-xs font-bold text-slate-500 mb-1 uppercase">
+                      Assessment Date
+                    </div>
+                    <div className="text-sm sm:text-base font-extrabold text-slate-900">
+                      {caseData.assessmentDate
+                        ? new Date(caseData.assessmentDate).toLocaleDateString(
+                            "en-GB",
+                            {
                               day: "numeric",
                               month: "short",
                               year: "numeric",
                               hour: "2-digit",
                               minute: "2-digit",
-                            })
-                          : "Not set"}
-                      </div>
-                      <div className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-0.5">
-                        Standard Field Survey
-                      </div>
+                            },
+                          )
+                        : "Not set"}
+                    </div>
+                    <div className="text-[11px] sm:text-xs font-semibold text-slate-500 mt-0.5">
+                      Standard Field Survey
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Right column: confidence score */}
-              <div className="flex justify-center sm:justify-end shrink-0">
-                <div className="bg-white rounded-[20px] p-4 sm:p-5 border border-slate-200 flex flex-col items-center justify-center min-h-[120px] sm:min-h-[130px] w-full sm:w-auto sm:min-w-[200px] max-w-[280px]">
+              {/* Right column: accessibility grade */}
+              {caseData.accessibilityGrade && (
+                <div className="flex justify-center sm:justify-end shrink-0 sm:border-l sm:border-slate-200 sm:pl-6">
                   <div
-                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center mb-2"
+                    className="bg-white rounded-[20px] p-4 sm:p-5 border flex flex-col items-center justify-center w-full sm:w-auto max-w-[360px]"
                     style={{
-                      background: confidenceStyle.iconBg,
-                      color: confidenceStyle.color,
+                      borderColor:
+                        LEGEND[caseData.accessibilityGrade].color + "40",
                     }}
                   >
-                    <CheckCircle size={32} />
-                  </div>
-                  <div className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
-                    Confidence
-                  </div>
-                  <div className="text-2xl sm:text-3xl font-black text-slate-900 leading-none">
-                    {confidencePct}%
-                  </div>
-                  <div
-                    className="text-xs font-bold mt-1"
-                    style={{ color: confidenceStyle.color }}
-                  >
-                    {confidenceLabel}
+                    <AccessibilityBadge
+                      grade={caseData.accessibilityGrade}
+                      size="md"
+                    />
+                    <div
+                      className="text-sm font-bold leading-tight text-center mt-2"
+                      style={{
+                        color: LEGEND[caseData.accessibilityGrade].color,
+                      }}
+                    >
+                      {LEGEND[caseData.accessibilityGrade].label}
+                    </div>
+                    <div className="text-[10px] text-slate-500 text-center mt-0.5 leading-tight">
+                      {LEGEND[caseData.accessibilityGrade].description}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
+
+            {caseData.accessibilityGrade &&
+              (caseData.accessibilityReasons?.length ?? 0) > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-200 p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Info size={18} className="text-violet-600" />
+                    <h2 className="text-base font-bold text-slate-900 m-0">
+                      Why this grade?
+                    </h2>
+                  </div>
+                  <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1 m-0">
+                    {caseData.accessibilityReasons!.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
             {/* AI Analysis Summary */}
             {summary ? (

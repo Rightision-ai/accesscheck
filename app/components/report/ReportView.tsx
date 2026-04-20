@@ -19,6 +19,8 @@ import {
 import { formatBritishDateTime } from "@/lib/utils/dateFormatter";
 import { Case } from "@/types/dashboard";
 import { ConfidenceBadge } from "../wizard/ConfidenceBadge";
+import { LEGEND, AccessibilityGrade } from "@/lib/accessibility/flowchart";
+import AccessibilityBadge from "@/app/components/common/AccessibilityBadge";
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
 
@@ -39,18 +41,17 @@ const AHR_MODIFIED = "#059669"; // Override Green
 // --- Premium Helper Components ---
 
 const AHR_Header = ({
-  address,
-  id,
   date,
-  uprn,
+  accessibilityGrade,
 }: {
   address: string;
   id: string;
   date: string;
   uprn?: string;
+  accessibilityGrade?: AccessibilityGrade | null;
 }) => (
   <div className="border-b-4 border-violet-900 pb-4 mb-6">
-    <div className="flex justify-between items-start">
+    <div className="flex justify-between items-start gap-4 flex-wrap">
       <div className="flex gap-4 items-center">
         <div className="w-16 h-16 bg-violet-900 rounded-xl flex items-center justify-center text-white">
           <Shield size={32} />
@@ -62,19 +63,14 @@ const AHR_Header = ({
           <p className="text-xs text-violet-600 font-medium m-0 uppercase">
             OFFICIAL ACCESSIBILITY SURVEY REPORT
           </p>
+          <p className="text-xs font-medium text-slate-500 mt-1">
+            Issued: {date}
+          </p>
         </div>
       </div>
-      <div className="text-right">
-        <div className="bg-slate-800 text-white py-3 px-5 rounded-lg">
-          <div className="text-[10px] font-medium opacity-80 uppercase">
-            UPRN / Case ID
-          </div>
-          <div className="text-lg font-black tracking-wider">{uprn || id}</div>
-        </div>
-        <p className="text-xs font-medium text-slate-500 mt-2">
-          Issued: {date}
-        </p>
-      </div>
+      {accessibilityGrade && (
+        <AccessibilityBadge grade={accessibilityGrade} size="md" />
+      )}
     </div>
   </div>
 );
@@ -1609,6 +1605,7 @@ const ReportView: React.FC<ReportViewProps> = ({
             id={caseData.id}
             date={caseData.assessmentDate || "2026-02-12"}
             uprn={rawAhr.meta_data?.uprn}
+            accessibilityGrade={caseData.accessibilityGrade}
           />
 
           {/* COMPLIANCE SUMMARY (Enterprise Feature) */}

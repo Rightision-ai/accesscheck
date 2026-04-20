@@ -172,6 +172,8 @@ Return JSON only in this shape:
     "bathroom_bath_only": false,
     "bathroom_next_to_separate_toilet": false,
     "bathroom_toilet_lateral_space_cm": 0,
+    "bathroom_bath_wheelchair_suitable": false,
+    "bathroom_floor_slippery": false,
 
     "door_opening_width_living_room_cm": 0,
     "door_opening_width_kitchen_cm": 0,

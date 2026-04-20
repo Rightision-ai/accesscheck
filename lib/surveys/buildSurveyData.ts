@@ -3,6 +3,9 @@
  * Used by both the API route and the server action.
  */
 
+import { classifyAccessibility, gradeToScore } from "@/lib/accessibility/flowchart";
+import { deriveAccessibilityInput } from "@/lib/accessibility/deriveInputs";
+
 function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
   const n = Number(v);
@@ -92,7 +95,7 @@ export function buildSurveyData(
           : undefined),
   );
 
-  return {
+  const row: Record<string, any> = {
     // ── Meta ──
     user_id: userId,
     inspector_name: wizardData.fullName || null,
@@ -885,4 +888,26 @@ export function buildSurveyData(
       ),
     ),
   };
+
+  // ── Accessibility classification (deterministic flowchart) ──
+  const accessibilityInput = deriveAccessibilityInput({
+    survey: row,
+    wizardData,
+    rawAhr,
+  });
+  const classification = classifyAccessibility(accessibilityInput);
+  row.overall_grade = classification.grade;
+  row.compliance_score = gradeToScore(classification.grade);
+  row.raw_ai_data = {
+    ...(row.raw_ai_data || {}),
+    accessibility: {
+      grade: classification.grade,
+      label: classification.label,
+      description: classification.description,
+      reasons: classification.reasons,
+      inputs: accessibilityInput,
+    },
+  };
+
+  return row;
 }
