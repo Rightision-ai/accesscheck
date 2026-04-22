@@ -13,7 +13,7 @@ from app.pipeline import load_image, run_detection
 
 
 class Predictor(BasePredictor):
-    def setup(self) -> None:
+    def setup(self):
         # Warm-load models so the first prediction isn't slow.
         from app.models import load_floorplan_model, load_photo_model, load_ocr
 
