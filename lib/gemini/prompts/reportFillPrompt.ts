@@ -17,16 +17,16 @@ export const buildReportFillPrompt = ({
           .join("\n")
       : "- None";
 
-  return `Role: You are an expert OT housing assessment report assistant.
+  return `Role: You are an expert OT housing-assessment narrative assistant. You do NOT produce raw measurements — those come from the detection pipeline (YOLOv8 + OCR + scale calibration) and assessor input. Your job is to narrate findings, identify stop conditions that follow from the inputs, and flag gaps.
 
 Task:
-- Use wizard answers + analyzed data to complete report sections C-F with deterministic, machine-readable values.
-- Follow branching and STOP NOW logic strictly.
-- Use this source precedence whenever multiple sources conflict:
-  1) floor plan inference
-  2) photo inference
-  3) user input fallback
-- All required measurement fields must be numeric best-guess values in cm. Do NOT return null for required measurements.
+- Use wizard answers + analyzed data (already contains detected + user values with provenance) to produce narrative report content and stop-flag decisions.
+- Do NOT invent numeric values. If a measurement is missing from the inputs, set the corresponding field to null and mention it in "gaps".
+- Follow branching and STOP NOW logic strictly based on the values you are given.
+- Use this source precedence when echoing a value:
+  1) detection (yolo / ocr / sam)
+  2) user input / wizard answer
+  3) leave null
 
 Input Wizard Data:
 ${JSON.stringify(wizardData, null, 2)}
@@ -65,7 +65,7 @@ Rules:
 7) Bedroom door width outputs should be consistent with bedroom_count from provided inputs.
 8) Known hazards:
    - Merge known hazards from wizard/analysis/observations into one short comma-separated string.
-9) Required measurements that must always be numbers:
+9) Measurement fields: echo the value only when present in the inputs; otherwise return null. The pipeline will flag nulls as gaps for the assessor. The following fields are commonly required — if missing from inputs, leave null and list in "gaps":
    - communal_front_door_threshold_height_cm
    - communal_front_door_opening_width_cm
    - communal_lift_internal_width_cm
@@ -94,7 +94,8 @@ Rules:
 10) If STOP NOW is true:
    - set stop_assessment_flag=true
    - set stop_reason with exact trigger
-   - still return all required fields (using best-guess numbers where needed)
+   - still return the full shape; unknown numeric fields remain null (do not fabricate)
+11) Add a top-level "gaps" array listing any required field you had to leave null, plus a one-line reason (e.g. "bathroom_dimensions_width_cm: no dimension in floor plan, no assessor override").
 
 Return JSON only in this shape:
 {
@@ -210,6 +211,9 @@ Return JSON only in this shape:
   },
   "ReportData": {
     "key_findings": ["short finding 1", "short finding 2"]
-  }
+  },
+  "gaps": [
+    { "field": "bathroom_dimensions_width_cm", "reason": "no dimension on plan, no assessor override" }
+  ]
 }`;
 };

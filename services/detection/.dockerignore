@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+.pytest_cache
+.mypy_cache
+.idea
+.vscode
+weights/*.pt
+weights/*.pth
+training/datasets/
+.git

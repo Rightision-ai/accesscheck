@@ -46,5 +46,6 @@ export interface Case {
         rawAhr?: any;
         userOverrides?: Record<string, any>;
         isLocked?: boolean;
+        floorPlanDetection?: any;
     };
 }

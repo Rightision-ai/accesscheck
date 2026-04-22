@@ -34,6 +34,116 @@ export type Database = {
   }
   public: {
     Tables: {
+      floor_plan_detections: {
+        Row: {
+          created_at: string | null
+          detection: Json
+          id: string
+          image_id: string | null
+          image_url: string
+          scale_confidence: number | null
+          scale_px_per_mm: number | null
+          survey_id: number
+          warnings: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          detection: Json
+          id?: string
+          image_id?: string | null
+          image_url: string
+          scale_confidence?: number | null
+          scale_px_per_mm?: number | null
+          survey_id: number
+          warnings?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          detection?: Json
+          id?: string
+          image_id?: string | null
+          image_url?: string
+          scale_confidence?: number | null
+          scale_px_per_mm?: number | null
+          survey_id?: number
+          warnings?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_plan_detections_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_annotations: {
+        Row: {
+          bbox: Json
+          color: string | null
+          confidence: number
+          created_at: string
+          criterion_id: string | null
+          evidence_id: string | null
+          id: string
+          image_kind: string
+          label: string
+          object_class: string
+          polygon: Json | null
+          source: string
+          survey_id: number
+          value_text: string | null
+        }
+        Insert: {
+          bbox: Json
+          color?: string | null
+          confidence: number
+          created_at?: string
+          criterion_id?: string | null
+          evidence_id?: string | null
+          id?: string
+          image_kind: string
+          label: string
+          object_class: string
+          polygon?: Json | null
+          source: string
+          survey_id: number
+          value_text?: string | null
+        }
+        Update: {
+          bbox?: Json
+          color?: string | null
+          confidence?: number
+          created_at?: string
+          criterion_id?: string | null
+          evidence_id?: string | null
+          id?: string
+          image_kind?: string
+          label?: string
+          object_class?: string
+          polygon?: Json | null
+          source?: string
+          survey_id?: number
+          value_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_annotations_evidence_id_fkey"
+            columns: ["evidence_id"]
+            isOneToOne: false
+            referencedRelation: "survey_evidences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_annotations_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       survey_evidences: {
         Row: {
           caption: string | null
@@ -100,6 +210,7 @@ export type Database = {
           access_other: boolean | null
           access_separate_toilet: boolean | null
           ai_confidence: number | null
+          ai_field_provenance: Json
           balcony_steps_count: number | null
           bathroom_dim_depth: number | null
           bathroom_dim_width: number | null
@@ -133,6 +244,7 @@ export type Database = {
           communal_ramp_al: number | null
           communal_ramp_bh: number | null
           communal_ramp_bl: number | null
+          communal_ramp_type: string | null
           compliance_score: number | null
           created_at: string | null
           door_number: string | null
@@ -197,6 +309,7 @@ export type Database = {
           property_ramp_al: number | null
           property_ramp_bh: number | null
           property_ramp_bl: number | null
+          property_ramp_type: string | null
           property_type: string | null
           raw_ai_data: Json | null
           second_exit_door_width: number | null
@@ -205,6 +318,7 @@ export type Database = {
           second_exit_ramp_bh: number | null
           second_exit_ramp_bl: number | null
           second_exit_ramp_platform: boolean | null
+          second_exit_ramp_type: string | null
           second_exit_steps_count: number | null
           second_exit_threshold_height: string | null
           second_exit_to_street: boolean | null
@@ -257,6 +371,7 @@ export type Database = {
           access_other?: boolean | null
           access_separate_toilet?: boolean | null
           ai_confidence?: number | null
+          ai_field_provenance?: Json
           balcony_steps_count?: number | null
           bathroom_dim_depth?: number | null
           bathroom_dim_width?: number | null
@@ -290,6 +405,7 @@ export type Database = {
           communal_ramp_al?: number | null
           communal_ramp_bh?: number | null
           communal_ramp_bl?: number | null
+          communal_ramp_type?: string | null
           compliance_score?: number | null
           created_at?: string | null
           door_number?: string | null
@@ -354,6 +470,7 @@ export type Database = {
           property_ramp_al?: number | null
           property_ramp_bh?: number | null
           property_ramp_bl?: number | null
+          property_ramp_type?: string | null
           property_type?: string | null
           raw_ai_data?: Json | null
           second_exit_door_width?: number | null
@@ -362,6 +479,7 @@ export type Database = {
           second_exit_ramp_bh?: number | null
           second_exit_ramp_bl?: number | null
           second_exit_ramp_platform?: boolean | null
+          second_exit_ramp_type?: string | null
           second_exit_steps_count?: number | null
           second_exit_threshold_height?: string | null
           second_exit_to_street?: boolean | null
@@ -414,6 +532,7 @@ export type Database = {
           access_other?: boolean | null
           access_separate_toilet?: boolean | null
           ai_confidence?: number | null
+          ai_field_provenance?: Json
           balcony_steps_count?: number | null
           bathroom_dim_depth?: number | null
           bathroom_dim_width?: number | null
@@ -447,6 +566,7 @@ export type Database = {
           communal_ramp_al?: number | null
           communal_ramp_bh?: number | null
           communal_ramp_bl?: number | null
+          communal_ramp_type?: string | null
           compliance_score?: number | null
           created_at?: string | null
           door_number?: string | null
@@ -511,6 +631,7 @@ export type Database = {
           property_ramp_al?: number | null
           property_ramp_bh?: number | null
           property_ramp_bl?: number | null
+          property_ramp_type?: string | null
           property_type?: string | null
           raw_ai_data?: Json | null
           second_exit_door_width?: number | null
@@ -519,6 +640,7 @@ export type Database = {
           second_exit_ramp_bh?: number | null
           second_exit_ramp_bl?: number | null
           second_exit_ramp_platform?: boolean | null
+          second_exit_ramp_type?: string | null
           second_exit_steps_count?: number | null
           second_exit_threshold_height?: string | null
           second_exit_to_street?: boolean | null

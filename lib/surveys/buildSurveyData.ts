@@ -5,6 +5,7 @@
 
 import { classifyAccessibility, gradeToScore } from "@/lib/accessibility/flowchart";
 import { deriveAccessibilityInput } from "@/lib/accessibility/deriveInputs";
+import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
 
 function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -903,6 +904,10 @@ export function buildSurveyData(
   const classification = classifyAccessibility(accessibilityInput);
   row.overall_grade = classification.grade;
   row.compliance_score = gradeToScore(classification.grade);
+
+  // ── LAHR band (rule-driven from business-rules.json, authoritative going forward) ──
+  const lahr = classifyLahr(row);
+
   row.raw_ai_data = {
     ...(row.raw_ai_data || {}),
     accessibility: {
@@ -912,7 +917,31 @@ export function buildSurveyData(
       reasons: classification.reasons,
       inputs: accessibilityInput,
     },
+    lahr: {
+      band: lahr.band,
+      gTriggered: lahr.gTriggered,
+      confidence: lahr.confidence,
+      criteria: lahr.criteria.map((c) => ({
+        id: c.id,
+        label: c.label,
+        status: c.status,
+        cappedBand: c.cappedBand,
+        triggered: c.triggeredRules,
+        rationale: c.rationale,
+      })),
+    },
   };
+
+  // Per-field provenance bag — wizard-populated values land here with a `user` source until
+  // detection-v2 surfaces YOLO/OCR provenance upstream.
+  const provenance: Record<string, { source: string; confidence: number }> = {};
+  for (const [key, val] of Object.entries(row)) {
+    if (val === null || val === undefined) continue;
+    if (overrides[key] !== undefined) {
+      provenance[key] = { source: "user", confidence: 1 };
+    }
+  }
+  row.ai_field_provenance = provenance;
 
   return row;
 }

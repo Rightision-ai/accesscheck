@@ -1,0 +1,185 @@
+{
+  "$source": "LAHR Good Practice Guide 2011, Appendix 1 (pp. 24-26)",
+  "description": "Design features used to determine the LAHR category. A property must comply with EVERY feature listed for a band to be awarded that band. Null means not applicable / no requirement.",
+  "unit_default": "mm",
+  "features": [
+    {
+      "id": "path_ramp_gradient",
+      "label": "Path / ramp gradients",
+      "per_band": {
+        "A": {
+          "short_ramp_max_gradient": "1:15",
+          "long_ramp_max_gradient": "1:20",
+          "short_ramp_threshold_cm": 500,
+          "requires_suitable_platform": true
+        },
+        "B": {
+          "short_ramp_max_gradient": "1:12",
+          "long_ramp_max_gradient": "1:15",
+          "short_ramp_threshold_cm": 500,
+          "requires_suitable_platform": true
+        },
+        "C": {
+          "short_ramp_max_gradient": "1:12",
+          "long_ramp_max_gradient": "1:15",
+          "short_ramp_threshold_cm": 500,
+          "requires_suitable_platform": true
+        },
+        "D": {
+          "short_ramp_max_gradient": "1:12",
+          "long_ramp_max_gradient": "1:15",
+          "short_ramp_threshold_cm": 500,
+          "requires_suitable_platform": true
+        },
+        "E": { "max_gradient": "1:10" },
+        "E+": { "max_gradient": "1:10" }
+      }
+    },
+    {
+      "id": "communal_lifts_count",
+      "label": "Number of communal lifts",
+      "per_band": {
+        "A": { "minimum_if_not_ground_floor": 2 },
+        "B": { "minimum_if_not_ground_floor": 1 },
+        "C": { "minimum_if_not_ground_floor": 1 },
+        "D": { "minimum_if_not_ground_floor": 1 },
+        "E": { "minimum_if_not_ground_floor": 1 },
+        "E+": { "minimum_if_not_ground_floor": 1 }
+      }
+    },
+    {
+      "id": "communal_entrance_clear_opening_width_mm",
+      "label": "Communal entrance clear opening width",
+      "per_band": { "A": 800, "B": 750, "C": 750, "D": 750, "E": null, "E+": null }
+    },
+    {
+      "id": "steps_to_property_door_max",
+      "label": "Steps to the property door",
+      "per_band": { "A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "E+": 4 }
+    },
+    {
+      "id": "internal_steps_excluding_stairs_max",
+      "label": "Internal steps (not stairs)",
+      "per_band": { "A": 0, "B": 0, "C": 0, "D": 0, "E": 0, "E+": 0 }
+    },
+    {
+      "id": "threshold_height_max_mm",
+      "label": "Height of threshold",
+      "per_band": {
+        "A": 15, "B": 15, "C": 15, "D": 15, "E": 100,
+        "E+": { "note": "thresholds more than 100 mm are considered a step" }
+      }
+    },
+    {
+      "id": "entrance_door_opening_width_mm",
+      "label": "Entrance door opening width",
+      "per_band": { "A": 800, "B": 775, "C": 775, "D": 775, "E": null, "E+": null }
+    },
+    {
+      "id": "internal_door_clear_opening_width_mm",
+      "label": "Internal door clear opening width",
+      "per_band": { "A": 775, "B": 750, "C": 750, "D": 750, "E": null, "E+": null }
+    },
+    {
+      "id": "corridor_width_mm",
+      "label": "Corridor widths",
+      "per_band": {
+        "A": { "min": 1200 },
+        "B": { "with_side_doorways": 1200, "straight_ahead_only": 900 },
+        "C": { "with_side_doorways": 1200, "straight_ahead_only": 900 },
+        "D": { "min": 900 },
+        "E": null,
+        "E+": null
+      }
+    },
+    {
+      "id": "two_storey_housing_vertical_circulation",
+      "label": "Two storey housing",
+      "per_band": {
+        "A": {
+          "requires": "Fully accessible with through-floor lift or platform stair lift",
+          "min_lift_dimensions_mm": { "width": 1080, "depth": 725 }
+        },
+        "B": {
+          "requires": "Access to all essential facilities (1 bedroom, bathroom, toilet, kitchen, living room). Additional rooms need not be accessible."
+        },
+        "C": { "requires": "Potential for stairs to be adapted with a stair lift" },
+        "D": { "requires": "Potential for stairs to be adapted with a stair lift" },
+        "E": null,
+        "E+": null
+      }
+    },
+    {
+      "id": "wheelchair_storage_mm",
+      "label": "Wheelchair storage, charging and transfer space",
+      "per_band": {
+        "A": { "within_house": true, "min_mm": { "length": 1600, "width": 1000 } },
+        "B": { "within_house": true, "min_mm": { "length": 1200, "width": 700 } },
+        "C": null, "D": null, "E": null, "E+": null
+      }
+    },
+    {
+      "id": "toilet_requirements",
+      "label": "Toilet",
+      "per_band": {
+        "A": {
+          "min_side_transfer_space_mm": 1000,
+          "toilet_on_entrance_level_required_if_bedrooms_gte": 3
+        },
+        "B": {
+          "min_side_transfer_space_mm": 1000,
+          "toilet_on_entrance_level_required_if_bedrooms_gte": 3
+        },
+        "C": {
+          "toilet_on_entrance_level_required_if_bedrooms_gte": 3
+        },
+        "D": null, "E": null, "E+": null
+      }
+    },
+    {
+      "id": "second_toilet_requirements",
+      "label": "Second toilet",
+      "per_band": {
+        "A": {
+          "required_when_persons_gte": 4,
+          "min_size_mm": { "length": 2000, "width": 1700 },
+          "min_side_transfer_space_mm": 1000
+        },
+        "B": {
+          "required_when_persons_gte": 4,
+          "min_size_mm_when_six_plus": { "length": 1700, "width": 1400 },
+          "min_side_transfer_space_mm": 1000
+        },
+        "C": {
+          "required_when_persons_gte": 6,
+          "min_size_mm": { "length": 1700, "width": 1400 }
+        },
+        "D": null, "E": null, "E+": null
+      }
+    },
+    {
+      "id": "bathroom_level_access_shower",
+      "label": "Bathroom — level access shower",
+      "per_band": {
+        "A": { "level_access_shower_required": true },
+        "B": { "level_access_shower_required": true },
+        "C": null, "D": null, "E": null, "E+": null
+      }
+    },
+    {
+      "id": "wheelchair_turning_space_mm",
+      "label": "Wheelchair turning space",
+      "per_band": {
+        "A": {
+          "in_bathroom_mm": { "x": 1500, "y": 1500 },
+          "in_kitchen_mm": { "x": 1500, "y": 1500 }
+        },
+        "B": {
+          "in_bathroom_mm": { "x": 1500, "y": 1500 },
+          "in_kitchen_mm": { "x": 1500, "y": 1500 }
+        },
+        "C": null, "D": null, "E": null, "E+": null
+      }
+    }
+  ]
+}

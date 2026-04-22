@@ -1,0 +1,17 @@
+# Ultralytics dataset config. After running prepare.py, update `path` to the output dir.
+path: /Users/alikawosi/Projects/Dev/Homingo/Code/homingo-ot-2/services/detection/data/cubicasa5k_yolo
+train: train/images
+val: val/images
+
+names:
+  0: living_room
+  1: kitchen
+  2: bathroom
+  3: wc
+  4: bedroom
+  5: hallway
+  6: stairs
+  7: lift
+  8: door
+  9: window
+  10: external_door

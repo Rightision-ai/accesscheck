@@ -23,7 +23,9 @@ import { registerAllRules } from "@/lib/compliance/ComplianceRules";
 import {
   analyzeFloorPlan,
   FloorPlanAnalysisResult,
+  renderAnnotatedFloorPlan,
 } from "@/lib/utils/FloorPlanUtils";
+import type { DetectionResponse } from "@/lib/detection/types";
 import {
   analyzeCategoryPhoto,
   analyzeAllCategoryPhotos,
@@ -66,7 +68,7 @@ import AnalysisStep from "./steps/AnalysisStep";
 import { Case } from "@/types/dashboard";
 import { cn } from "@/lib/utils/cn";
 
-const steps = [
+const STEPS = [
   { id: 1, title: "Client", icon: <User size={18} /> },
   { id: 2, title: "Identical Units", icon: <Copy size={18} /> },
   { id: 3, title: "Plan", icon: <Upload size={18} /> },
@@ -170,6 +172,8 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   >({});
   const [floorPlanAnalysis, setFloorPlanAnalysis] =
     useState<FloorPlanAnalysisResult | null>(null);
+  const [floorPlanDetection, setFloorPlanDetection] =
+    useState<DetectionResponse | null>(null);
   const [formData, setFormData] = useState<any>(initialFormData);
   const [aiSuggestions, setAiSuggestions] = useState<Record<string, any>>({});
   const [validationErrors, setValidationErrors] = useState<
@@ -179,6 +183,10 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     null,
   );
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const steps = STEPS;
+  const totalSteps = steps.length;
+  const analysisStepIndex = totalSteps;
 
   const normalizeFacilityToken = (raw: unknown): string | null => {
     const text = String(raw ?? "")
@@ -279,11 +287,32 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     handleUpdateField("floorPlan", null);
     handleUpdateField("floorPlanApproved", false);
     setFloorPlanAnalysis(null);
+    setFloorPlanDetection(null);
+  };
+
+  const buildFloorPlanDetectionPayload = async () => {
+    if (!floorPlanDetection) return null;
+    const src = formData.floorPlan;
+    if (!src || typeof src !== "string") return floorPlanDetection;
+    try {
+      const annotated = await renderAnnotatedFloorPlan(src, floorPlanDetection);
+      const path = `survey/${formData.id || "new"}/annotated-${Date.now()}.jpg`;
+      const annotatedUrl = await uploadBase64ToStorage(
+        annotated,
+        path,
+        "floor-plan-detections",
+      );
+      return { ...floorPlanDetection, annotated_image_url: annotatedUrl };
+    } catch (err) {
+      console.warn("Annotated floor plan upload failed:", err);
+      return floorPlanDetection;
+    }
   };
 
   const handleSaveDraft = async () => {
     setIsSavingDraft(true);
     try {
+      const detectionPayload = await buildFloorPlanDetectionPayload();
       const draftCase: Case = {
         id: formData.id || `H-${Math.floor(1000 + Math.random() * 9000)}`,
         applicantName: formData.fullName || "New Client",
@@ -307,6 +336,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
           floorPlanAvailable: !!formData.floorPlan,
           wizardData: formData,
           aiReport: formData.aiReport,
+          floorPlanDetection: detectionPayload,
         },
       };
 
@@ -375,12 +405,34 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
 
         // Analyse with original File object (Gemini needs the raw file here)
         try {
-          const result = await analyzeFloorPlan(file);
-          if (result) {
+          const detected = await analyzeFloorPlan(file);
+          const result = detected?.analysis ?? null;
+          if (detected && result) {
             setFloorPlanAnalysis(result);
+            setFloorPlanDetection(detected.raw);
             handleUpdateField("floorPlanApproved", result.is_floor_plan !== false);
-            if (result.bedroom_count)
-              handleUpdateField("bedrooms", result.bedroom_count.value);
+            if (result.bedroom_count?.value !== undefined)
+              handleUpdateField("bedrooms", Number(result.bedroom_count.value));
+            if (result.section_measurements) {
+              const m = result.section_measurements;
+              const setWidth = (field: string, cm: number | null | undefined) => {
+                if (cm !== null && cm !== undefined && Number.isFinite(Number(cm))) {
+                  handleUpdateField(field, String(cm));
+                }
+              };
+              setWidth("doorLivingWidth", m.door_opening_width_living_room_cm);
+              setWidth("doorKitchenWidth", m.door_opening_width_kitchen_cm);
+              setWidth("doorBed1Width", m.door_opening_width_bed_1_cm);
+              setWidth("doorBed2Width", m.door_opening_width_bed_2_cm);
+              setWidth("doorBed3Width", m.door_opening_width_bed_3_cm);
+              setWidth("doorBathroomWidth", m.door_opening_width_bathroom_cm);
+              setWidth("doorToiletWidth", m.door_opening_width_separate_toilet_cm);
+              setWidth("doorBalconyWidth", m.door_opening_width_balcony_cm);
+              setWidth("communalDoorWidth", m.communal_front_door_opening_width_cm);
+              setWidth("propertyDoorWidth", m.property_front_door_opening_width_cm);
+              setWidth("communalLiftDoorWidth", m.communal_lift_door_opening_width_cm);
+              setWidth("secondExitWidth", m.second_exit_door_opening_width_cm);
+            }
             if (result.entrance_level) {
               const normalizedEntrance = normalizeEntranceLevel(
                 result.entrance_level.value,
@@ -405,11 +457,14 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                 handleUpdateField("internalStairsType", normalizedStairGeometry);
               }
             }
-            // External access — set to "No" if not detected (definitive default from floor plan)
-            handleUpdateField("gardenAccess", result.external_access?.garden_present ? "Yes" : "No");
-            handleUpdateField("balconyPresent", result.external_access?.balcony_present ? "Yes" : "No");
-            handleUpdateField("parkingPresent", result.external_access?.parking_present ? "Yes" : "No");
-            handleUpdateField("secondExit", result.second_exit?.detected ? "Yes" : "No");
+            if (result.external_access) {
+              handleUpdateField("gardenAccess", result.external_access.garden_present ? "Yes" : "No");
+              handleUpdateField("balconyPresent", result.external_access.balcony_present ? "Yes" : "No");
+              handleUpdateField("parkingPresent", result.external_access.parking_present ? "Yes" : "No");
+            }
+            if (result.second_exit) {
+              handleUpdateField("secondExit", result.second_exit.detected ? "Yes" : "No");
+            }
             if (result.lift?.detected !== undefined) {
               const normalizedLift = normalizeCommunalLiftOption(result.lift.detected);
               if (normalizedLift) handleUpdateField("communalLifts", normalizedLift);
@@ -445,12 +500,16 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
             }
           } else {
             setFloorPlanAnalysis(null);
+            setFloorPlanDetection(null);
             handleUpdateField("floorPlanApproved", false);
+            toast.warning("Detection service unavailable — fill fields manually.");
           }
         } catch (err) {
           console.error("Floor plan analysis error:", err);
           setFloorPlanAnalysis(null);
+          setFloorPlanDetection(null);
           handleUpdateField("floorPlanApproved", false);
+          toast.warning("Detection service unavailable — fill fields manually.");
         }
         e.target.value = "";
         return;
@@ -1022,7 +1081,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     // Step 2 (Section B) has no required fields
     if (step === 3) return !formData.floorPlan && !formData.hasNoFloorPlan;
     if (step === 4)
-      return (formData.photos || []).length < 1 || !step3AnalysisComplete; // Require photos AND analysis
+      return (formData.photos || []).length < 1 || !step3AnalysisComplete;
     if (step === 5) return !formData.propertyType || !formData.entranceLevel;
     if (step === 6) return !formData.internalStairs;
     if (step === 7) return !formData.bathroomLocation;
@@ -1330,9 +1389,9 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                 aiSuggestions={aiSuggestions}
               />
             )}
-            {step === 9 && (
+            {step === analysisStepIndex && (
               <AnalysisStep
-                key="s9"
+                key="s-final"
                 formData={formData}
                 handleUpdateField={handleUpdateField}
                 isAnalyzing={isAnalyzing}
@@ -1414,14 +1473,16 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
             <button
               disabled={isNextDisabled()}
               onClick={() => {
-                if (step === 9) {
+                if (step === analysisStepIndex) {
                   handleSafeClose();
-                } else if (step === 8) {
+                  return;
+                }
+                if (step === 8) {
                   setStep(step + 1);
                   startAiAnalysis();
-                } else {
-                  setStep(step + 1);
+                  return;
                 }
+                setStep(step + 1);
               }}
               className={cn(
                 "py-2 px-3 sm:py-2.5 sm:px-5 rounded-lg sm:rounded-xl border-none font-bold text-xs sm:text-sm flex items-center gap-1 sm:gap-1.5 transition-all shrink-0",
@@ -1431,10 +1492,16 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
               )}
             >
               <span className="hidden sm:inline">
-                {step === 9 ? "Complete Assessment" : step === 8 ? "Generate AI Report" : "Continue"}
+                {step === analysisStepIndex
+                  ? "Complete Assessment"
+                  : step === 8
+                    ? "Generate AI Report"
+                    : "Continue"}
               </span>
-              <span className="sm:hidden">{step === 9 ? "Complete" : step === 8 ? "Report" : "Next"}</span>
-              {step < 9 && <ChevronRight size={18} className="sm:w-5 sm:h-5 shrink-0" />}
+              <span className="sm:hidden">
+                {step === analysisStepIndex ? "Complete" : step === 8 ? "Report" : "Next"}
+              </span>
+              {step < analysisStepIndex && <ChevronRight size={18} className="sm:w-5 sm:h-5 shrink-0" />}
             </button>
           </div>
         </div>
@@ -1442,8 +1509,8 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     </div>
   );
 
-  function handleSafeClose() {
-    // Logic to complete and close
+  async function handleSafeClose() {
+    const detectionPayload = await buildFloorPlanDetectionPayload();
     const completedCase: Case = {
       id: formData.id || `H-${Math.floor(1000 + Math.random() * 9000)}`,
       applicantName: formData.fullName || "New Client",
@@ -1467,6 +1534,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         floorPlanAvailable: !!formData.floorPlan,
         wizardData: formData,
         aiReport: formData.aiReport,
+        floorPlanDetection: detectionPayload,
       },
     };
 

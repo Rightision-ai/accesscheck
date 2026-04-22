@@ -134,6 +134,38 @@ export async function POST(req: NextRequest) {
           // Non-fatal: survey was saved, just evidence records failed
         }
       }
+
+      // Model-produced floor plan detection: archive the raw DetectionResponse
+      // alongside an annotated image already uploaded client-side to the
+      // floor-plan-detections bucket. Non-fatal on failure.
+      const detection = caseData.mlData?.floorPlanDetection;
+      const annotatedUrl =
+        typeof detection?.annotated_image_url === "string"
+          ? detection.annotated_image_url
+          : null;
+      if (detection && annotatedUrl) {
+        try {
+          await supabase
+            .from("floor_plan_detections")
+            .delete()
+            .eq("survey_id", surveyId);
+
+          const { error: detectionInsertError } = await supabase
+            .from("floor_plan_detections")
+            .insert({
+              survey_id: surveyId,
+              image_url: annotatedUrl,
+              image_id: detection.image_id ?? null,
+              detection,
+              scale_px_per_mm: detection.scale_px_per_mm ?? null,
+              scale_confidence: detection.scale_confidence ?? null,
+              warnings: detection.warnings ?? [],
+            });
+          if (detectionInsertError) throw detectionInsertError;
+        } catch (detectErr) {
+          console.error("Error saving floor plan detection:", detectErr);
+        }
+      }
     }
 
     revalidatePath("/");

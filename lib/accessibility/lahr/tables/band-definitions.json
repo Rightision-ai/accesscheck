@@ -1,0 +1,81 @@
+{
+  "$source": "LAHR Good Practice Guide 2011, pp. 18-20",
+  "description": "The seven LAHR bands. A property is awarded the lowest band it qualifies for across all sections.",
+  "bands": [
+    {
+      "id": "A",
+      "label": "Wheelchair Accessible Throughout",
+      "description": "Meets the design standards from the Wheelchair Housing Design Guide (Thorpe & Habinteg, 2nd Ed. 2006). Extra space and full access to all rooms and facilities. Parking features excluded to allow categorisation above ground floor.",
+      "standard": "Wheelchair Housing Design Guide (2nd Ed. 2006)",
+      "color": "#059669",
+      "order": 1
+    },
+    {
+      "id": "B",
+      "label": "Wheelchair Accessible Essential Rooms",
+      "description": "Complies with the Wheelchair Housing Design Guidance in the Housing Corporation Scheme Development Standards. Wheelchair access to essential facilities (1 bedroom, bathroom, toilet, living room, kitchen). Other rooms may not be accessible.",
+      "standard": "Housing Corporation Scheme Development Standards",
+      "color": "#10b981",
+      "order": 2
+    },
+    {
+      "id": "C",
+      "label": "Lifetime Homes",
+      "description": "Meets the space standards of Lifetime Homes (Joseph Rowntree Foundation). Level approach/entrance, wider doorways. Captures new general-needs housing built to Lifetime Homes standards. May have internal stairs wide enough for future stair-lift provision.",
+      "standard": "Lifetime Homes (Joseph Rowntree Foundation)",
+      "color": "#22c55e",
+      "order": 3
+    },
+    {
+      "id": "D",
+      "label": "Easy Access",
+      "description": "Compatible with Mobility Standard Housing (1974), Housing Corporation Scheme Development Standards (pre-1999) and Part M of Building Regulations (2000). Level approach, wider doorways, more space than general needs. May have internal stairs with stair-lift potential.",
+      "standard": "Mobility Standard Housing / Part M Building Regs 2000",
+      "color": "#84cc16",
+      "order": 4
+    },
+    {
+      "id": "E",
+      "label": "Step-free",
+      "description": "No published access design guidance. General-needs housing with level approach/entrance into the property and throughout. Internal stairs may accommodate future stair-lift provision.",
+      "standard": null,
+      "color": "#f59e0b",
+      "order": 5
+    },
+    {
+      "id": "E+",
+      "label": "Minimal Steps",
+      "description": "No published access design guidance. No more than four steps to access the front door. Likely ground-floor properties or flats in a lifted block with a small number of communal or property front-door steps.",
+      "standard": null,
+      "color": "#ea580c",
+      "order": 6
+    },
+    {
+      "id": "F",
+      "label": "General Needs",
+      "description": "General-needs housing that does not meet any of the above criteria. More than four steps, or ramp access steeper than 1:10 to reach the front door.",
+      "standard": null,
+      "color": "#dc2626",
+      "order": 7
+    },
+    {
+      "id": "G",
+      "label": "Not Assessed",
+      "description": "Data incomplete — the property cannot be categorised until missing fields are filled in. Returned when any validation rule in the G-series is triggered (e.g. blank postcode, missing door widths, missing ramp type).",
+      "standard": null,
+      "color": "#64748b",
+      "order": 99,
+      "is_sentinel": true
+    }
+  ],
+  "ordering_rule": "When aggregating, the 'lowest' band (closest to F) wins across sections. G always overrides the final result if any G rule is triggered.",
+  "overall_property_categorisation": {
+    "$source": "p. 28",
+    "steps": [
+      "Within each section, take the lowest value as the Section Category.",
+      "Compare the highest value of Main Access Category and Second Exit Category (if the property has a second exit with street access) to get the Easiest Access Category.",
+      "Compare the Easiest Access Category with the remaining section categories; the lowest wins and becomes the Overall Property Category.",
+      "If any G rule is activated, the Overall Property Category is returned as G — Not Assessed."
+    ]
+  }
+}

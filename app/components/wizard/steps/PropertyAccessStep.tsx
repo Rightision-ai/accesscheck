@@ -115,7 +115,7 @@ const PropertyAccessStep: React.FC<WizardStepProps> = ({
                 aiSuggestions?.communal_lift_type,
               ) || null
             }
-            confidence={floorPlanAnalysis?.lift.confidence}
+            confidence={floorPlanAnalysis?.lift?.confidence}
             userValue={formData.communalLifts}
             options={["No", "Yes - Passenger", "Yes - Platform"]}
             onConfirm={(val) => handleUpdateField("communalLifts", val)}

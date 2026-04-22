@@ -13,14 +13,16 @@ export const buildFloorPlanPrompt = (): string => `
             - **Communal Areas**: Does the plan show a shared communal entrance/lobby? Is there a communal lift? How many lifts?
             - **Facilities per floor**: List rooms for each floor (access_level, above, below).
             
-            **2. Detailed Measurements & Features (Estimate/Read):**
-            - **Door Widths**: Look for dimension lines on doors (e.g., '800', '762'). Estimate if not explicit.
-            - **Ramps**: Check for ramp symbols or labels.
-            - **Stair Details**: Count steps if visible. Check for handrails.
-            - **Thresholds**: Any step at the entrance?
-            - **Lift Internal Dimensions**: If a lift exists, estimate internal width/depth and door opening width.
-            - **Section E Facilities**: Infer room distribution by level (access, above, below).
-            - **Adaptability**: Based on clear dimensions/layout, infer if the property can be adapted and why.
+            **2. Detailed Measurements & Features (READ-ONLY — DO NOT ESTIMATE):**
+            - **Door Widths**: Only return a value if an explicit dimension annotation is present on the door (e.g. "800", "762 mm"). If no dimension text is visible on that door, return null. Do NOT guess from visual proportions.
+            - **Ramps**: Only flag if a ramp symbol, ramp label, or hatched incline marking is explicitly drawn.
+            - **Stair Details**: Count steps only if individual treads are drawn. Handrails only if annotated or shown as parallel lines along the stair.
+            - **Thresholds**: Only flag a threshold step if one is explicitly drawn or labelled.
+            - **Lift Internal Dimensions**: Only return values if dimension text is present inside the lift symbol. Otherwise null.
+            - **Section E Facilities**: Infer room distribution per floor from drawn room labels only.
+            - **Adaptability**: Narrate feasibility based on observed layout; do not invent dimensions to justify a verdict.
+
+            **Rule:** Measurement fields without an explicit source annotation on the drawing MUST be null. The downstream pipeline (YOLOv8-seg + OCR + scale calibration) produces authoritative measurements; your role is to read labels, identify room types, and narrate — not to estimate.
 
             **3. Spatial Annotations (Bounding Boxes):**
             - Identify key accessibility features: Main Entrance Door, Internal Stairs, Ramps, Lifts, Second Exit.
