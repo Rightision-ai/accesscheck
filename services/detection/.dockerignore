@@ -11,3 +11,7 @@ weights/*.pt
 weights/*.pth
 training/datasets/
 .git
+training/
+data/
+runs/
+.DS_Store
