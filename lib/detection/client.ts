@@ -83,7 +83,3 @@ export async function fileToPayload(file: File): Promise<ImagePayload> {
     image_id: file.name,
   };
 }
-
-export function isDetectionV2Enabled(): boolean {
-  return process.env.NEXT_PUBLIC_DETECTION_V2 === "true";
-}

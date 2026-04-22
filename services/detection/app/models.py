@@ -74,12 +74,14 @@ def load_sam_predictor():
 
 def load_ocr():
     global _ocr_engine
+    if os.getenv("HOMINGO_DISABLE_OCR", "").lower() in {"1", "true", "yes"}:
+        return None
     if _ocr_engine is None:
         try:
-            from paddleocr import PaddleOCR
+            from rapidocr_onnxruntime import RapidOCR
 
-            _ocr_engine = PaddleOCR(use_angle_cls=True, lang="en", show_log=False)
+            _ocr_engine = RapidOCR()
         except Exception as exc:
-            log.error("paddleocr_load_failed", error=str(exc))
+            log.error("rapidocr_load_failed", error=str(exc))
             _ocr_engine = None
     return _ocr_engine

@@ -27,8 +27,9 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import AccessibilityBadge from "@/app/components/common/AccessibilityBadge";
-import { LEGEND } from "@/lib/accessibility/flowchart";
+import LahrBandBadge from "@/app/components/common/LahrBandBadge";
+import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
+import { LAHR_BAND_BY_ID } from "@/lib/accessibility/lahr/types";
 
 interface CaseDetailViewProps {
   caseData: Case;
@@ -76,6 +77,13 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
   const [evidenceIndex, setEvidenceIndex] = useState(0);
   const { aiReport, wizardData } = caseData.mlData || {};
   const summary = aiReport?.Summary;
+  const lahrSurveySource =
+    (caseData.mlData as any)?.surveyRow ?? wizardData ?? null;
+  const lahrEvaluation = lahrSurveySource
+    ? classifyLahr(lahrSurveySource)
+    : null;
+  const lahrBand = lahrEvaluation?.band ?? null;
+  const lahrBandDef = lahrBand ? LAHR_BAND_BY_ID[lahrBand] : null;
 
   const confidenceScoreRaw = aiReport?.ConfidenceScore;
   const parsedConfidence = confidenceScoreRaw
@@ -336,36 +344,28 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
               </div>
 
               {/* Right column: accessibility grade */}
-              {caseData.accessibilityGrade && (
+              {lahrBand && lahrBandDef && (
                 <div className="flex justify-center sm:justify-end shrink-0 sm:border-l sm:border-slate-200 sm:pl-6">
                   <div
                     className="bg-white rounded-[20px] p-4 sm:p-5 border flex flex-col items-center justify-center w-full sm:w-auto max-w-[360px]"
-                    style={{
-                      borderColor:
-                        LEGEND[caseData.accessibilityGrade].color + "40",
-                    }}
+                    style={{ borderColor: lahrBandDef.color + "40" }}
                   >
-                    <AccessibilityBadge
-                      grade={caseData.accessibilityGrade}
-                      size="md"
-                    />
+                    <LahrBandBadge band={lahrBand} size="md" />
                     <div
                       className="text-sm font-bold leading-tight text-center mt-2"
-                      style={{
-                        color: LEGEND[caseData.accessibilityGrade].color,
-                      }}
+                      style={{ color: lahrBandDef.color }}
                     >
-                      {LEGEND[caseData.accessibilityGrade].label}
+                      {lahrBandDef.label}
                     </div>
                     <div className="text-[10px] text-slate-500 text-center mt-0.5 leading-tight">
-                      {LEGEND[caseData.accessibilityGrade].description}
+                      {lahrBandDef.description}
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {caseData.accessibilityGrade &&
+            {lahrBand &&
               (caseData.accessibilityReasons?.length ?? 0) > 0 && (
                 <div className="bg-white rounded-2xl border border-slate-200 p-5">
                   <div className="flex items-center gap-2 mb-3">

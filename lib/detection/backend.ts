@@ -99,7 +99,3 @@ async function callReplicate(input: DetectInput): Promise<DetectionResponse> {
 export async function runDetection(input: DetectInput): Promise<DetectionResponse> {
   return provider() === "replicate" ? callReplicate(input) : callFastApi(input);
 }
-
-export function isDetectionV2Enabled(): boolean {
-  return process.env.NEXT_PUBLIC_DETECTION_V2 === "true";
-}

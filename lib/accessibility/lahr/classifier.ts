@@ -112,18 +112,10 @@ export function classifyLahr(survey: Partial<SurveyRow> | null | undefined): Lah
   const env = buildRuleEnv(survey);
   const results = SECTIONS.map((s) => evaluateSection(s, env));
 
+  // G-rules are informational only: surfaced as recommendations in the UI but
+  // never forced to cap the overall band.
   const gResult = results.find((r) => r.id === G_SECTION_ID);
   const gTriggered = !!(gResult && gResult.triggeredRules.length > 0);
-
-  if (gTriggered) {
-    return {
-      band: "G",
-      criteria: results,
-      hardFails: results.filter((r) => r.status === "fail"),
-      gTriggered: true,
-      confidence: 0,
-    };
-  }
 
   const nonGResults = results.filter((r) => r.id !== G_SECTION_ID);
 
@@ -156,13 +148,13 @@ export function classifyLahr(survey: Partial<SurveyRow> | null | undefined): Lah
     overall = lowerOf(overall, highestAllowedBand(r.cappedBand));
   }
 
-  const confidence = results.every((r) => r.status !== "unknown") ? 1 : 0.5;
+  const confidence = nonGResults.every((r) => r.status !== "unknown") ? 1 : 0.5;
 
   return {
     band: overall,
     criteria: results,
     hardFails: results.filter((r) => r.status === "fail"),
-    gTriggered: false,
+    gTriggered,
     confidence,
   };
 }

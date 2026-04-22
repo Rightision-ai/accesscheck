@@ -23,7 +23,9 @@ import { registerAllRules } from "@/lib/compliance/ComplianceRules";
 import {
   analyzeFloorPlan,
   FloorPlanAnalysisResult,
+  renderAnnotatedFloorPlan,
 } from "@/lib/utils/FloorPlanUtils";
+import type { DetectionResponse } from "@/lib/detection/types";
 import {
   analyzeCategoryPhoto,
   analyzeAllCategoryPhotos,
@@ -62,18 +64,11 @@ import FacilitiesStep from "./steps/FacilitiesStep";
 import SafetyHazardsStep from "./steps/SafetyHazardsStep";
 import SmartCaptureStep from "./steps/SmartCaptureStep";
 import AnalysisStep from "./steps/AnalysisStep";
-import DynamicQuestionStep from "./steps/DynamicQuestionStep";
-
-// Detection v2 wiring
-import { isDetectionV2Enabled } from "@/lib/detection/client";
-import type { DetectionState } from "@/lib/detection/types";
-import { initWizardState } from "@/lib/wizard/questionEngine";
-import type { WizardState, AnswerValue } from "@/lib/wizard/questionGraph";
 
 import { Case } from "@/types/dashboard";
 import { cn } from "@/lib/utils/cn";
 
-const V1_STEPS = [
+const STEPS = [
   { id: 1, title: "Client", icon: <User size={18} /> },
   { id: 2, title: "Identical Units", icon: <Copy size={18} /> },
   { id: 3, title: "Plan", icon: <Upload size={18} /> },
@@ -83,16 +78,6 @@ const V1_STEPS = [
   { id: 7, title: "Facilities", icon: <ChefHat size={18} /> },
   { id: 8, title: "Safety", icon: <ShieldAlert size={18} /> },
   { id: 9, title: "Analysis", icon: <Smartphone size={18} /> },
-];
-
-// Detection-v2: steps 5-8 collapse into one dynamic step driven by the question graph.
-const V2_STEPS = [
-  { id: 1, title: "Client", icon: <User size={18} /> },
-  { id: 2, title: "Identical Units", icon: <Copy size={18} /> },
-  { id: 3, title: "Plan", icon: <Upload size={18} /> },
-  { id: 4, title: "Capture", icon: <Camera size={18} /> },
-  { id: 5, title: "Follow-ups", icon: <Home size={18} /> },
-  { id: 6, title: "Analysis", icon: <Smartphone size={18} /> },
 ];
 
 interface AssessmentWizardProps {
@@ -187,6 +172,8 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   >({});
   const [floorPlanAnalysis, setFloorPlanAnalysis] =
     useState<FloorPlanAnalysisResult | null>(null);
+  const [floorPlanDetection, setFloorPlanDetection] =
+    useState<DetectionResponse | null>(null);
   const [formData, setFormData] = useState<any>(initialFormData);
   const [aiSuggestions, setAiSuggestions] = useState<Record<string, any>>({});
   const [validationErrors, setValidationErrors] = useState<
@@ -197,19 +184,9 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   );
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Detection v2: feature-flagged parallel path. Off-by-default via NEXT_PUBLIC_DETECTION_V2.
-  const v2Enabled = isDetectionV2Enabled();
-  const steps = v2Enabled ? V2_STEPS : V1_STEPS;
+  const steps = STEPS;
   const totalSteps = steps.length;
-  const analysisStepIndex = totalSteps; // last step is always Analysis
-  const [detectionState, setDetectionState] = useState<DetectionState>({
-    floorPlans: [],
-    photos: [],
-  });
-  const [wizardState, setWizardState] = useState<WizardState>(() =>
-    initWizardState({ detection: { floorPlans: [], photos: [] } }),
-  );
-  const [isDetecting, setIsDetecting] = useState(false);
+  const analysisStepIndex = totalSteps;
 
   const normalizeFacilityToken = (raw: unknown): string | null => {
     const text = String(raw ?? "")
@@ -298,8 +275,6 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         setFormData(initialFormData);
         setStep(1);
       }
-      setDetectionState({ floorPlans: [], photos: [] });
-      setWizardState(initWizardState({ detection: { floorPlans: [], photos: [] } }));
       registerAllRules();
     }
   }, [isOpen, initialData]);
@@ -312,11 +287,32 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     handleUpdateField("floorPlan", null);
     handleUpdateField("floorPlanApproved", false);
     setFloorPlanAnalysis(null);
+    setFloorPlanDetection(null);
+  };
+
+  const buildFloorPlanDetectionPayload = async () => {
+    if (!floorPlanDetection) return null;
+    const src = formData.floorPlan;
+    if (!src || typeof src !== "string") return floorPlanDetection;
+    try {
+      const annotated = await renderAnnotatedFloorPlan(src, floorPlanDetection);
+      const path = `survey/${formData.id || "new"}/annotated-${Date.now()}.jpg`;
+      const annotatedUrl = await uploadBase64ToStorage(
+        annotated,
+        path,
+        "floor-plan-detections",
+      );
+      return { ...floorPlanDetection, annotated_image_url: annotatedUrl };
+    } catch (err) {
+      console.warn("Annotated floor plan upload failed:", err);
+      return floorPlanDetection;
+    }
   };
 
   const handleSaveDraft = async () => {
     setIsSavingDraft(true);
     try {
+      const detectionPayload = await buildFloorPlanDetectionPayload();
       const draftCase: Case = {
         id: formData.id || `H-${Math.floor(1000 + Math.random() * 9000)}`,
         applicantName: formData.fullName || "New Client",
@@ -340,6 +336,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
           floorPlanAvailable: !!formData.floorPlan,
           wizardData: formData,
           aiReport: formData.aiReport,
+          floorPlanDetection: detectionPayload,
         },
       };
 
@@ -408,12 +405,34 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
 
         // Analyse with original File object (Gemini needs the raw file here)
         try {
-          const result = await analyzeFloorPlan(file);
-          if (result) {
+          const detected = await analyzeFloorPlan(file);
+          const result = detected?.analysis ?? null;
+          if (detected && result) {
             setFloorPlanAnalysis(result);
+            setFloorPlanDetection(detected.raw);
             handleUpdateField("floorPlanApproved", result.is_floor_plan !== false);
-            if (result.bedroom_count)
-              handleUpdateField("bedrooms", result.bedroom_count.value);
+            if (result.bedroom_count?.value !== undefined)
+              handleUpdateField("bedrooms", Number(result.bedroom_count.value));
+            if (result.section_measurements) {
+              const m = result.section_measurements;
+              const setWidth = (field: string, cm: number | null | undefined) => {
+                if (cm !== null && cm !== undefined && Number.isFinite(Number(cm))) {
+                  handleUpdateField(field, String(cm));
+                }
+              };
+              setWidth("doorLivingWidth", m.door_opening_width_living_room_cm);
+              setWidth("doorKitchenWidth", m.door_opening_width_kitchen_cm);
+              setWidth("doorBed1Width", m.door_opening_width_bed_1_cm);
+              setWidth("doorBed2Width", m.door_opening_width_bed_2_cm);
+              setWidth("doorBed3Width", m.door_opening_width_bed_3_cm);
+              setWidth("doorBathroomWidth", m.door_opening_width_bathroom_cm);
+              setWidth("doorToiletWidth", m.door_opening_width_separate_toilet_cm);
+              setWidth("doorBalconyWidth", m.door_opening_width_balcony_cm);
+              setWidth("communalDoorWidth", m.communal_front_door_opening_width_cm);
+              setWidth("propertyDoorWidth", m.property_front_door_opening_width_cm);
+              setWidth("communalLiftDoorWidth", m.communal_lift_door_opening_width_cm);
+              setWidth("secondExitWidth", m.second_exit_door_opening_width_cm);
+            }
             if (result.entrance_level) {
               const normalizedEntrance = normalizeEntranceLevel(
                 result.entrance_level.value,
@@ -438,11 +457,14 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                 handleUpdateField("internalStairsType", normalizedStairGeometry);
               }
             }
-            // External access — set to "No" if not detected (definitive default from floor plan)
-            handleUpdateField("gardenAccess", result.external_access?.garden_present ? "Yes" : "No");
-            handleUpdateField("balconyPresent", result.external_access?.balcony_present ? "Yes" : "No");
-            handleUpdateField("parkingPresent", result.external_access?.parking_present ? "Yes" : "No");
-            handleUpdateField("secondExit", result.second_exit?.detected ? "Yes" : "No");
+            if (result.external_access) {
+              handleUpdateField("gardenAccess", result.external_access.garden_present ? "Yes" : "No");
+              handleUpdateField("balconyPresent", result.external_access.balcony_present ? "Yes" : "No");
+              handleUpdateField("parkingPresent", result.external_access.parking_present ? "Yes" : "No");
+            }
+            if (result.second_exit) {
+              handleUpdateField("secondExit", result.second_exit.detected ? "Yes" : "No");
+            }
             if (result.lift?.detected !== undefined) {
               const normalizedLift = normalizeCommunalLiftOption(result.lift.detected);
               if (normalizedLift) handleUpdateField("communalLifts", normalizedLift);
@@ -478,12 +500,16 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
             }
           } else {
             setFloorPlanAnalysis(null);
+            setFloorPlanDetection(null);
             handleUpdateField("floorPlanApproved", false);
+            toast.warning("Detection service unavailable — fill fields manually.");
           }
         } catch (err) {
           console.error("Floor plan analysis error:", err);
           setFloorPlanAnalysis(null);
+          setFloorPlanDetection(null);
           handleUpdateField("floorPlanApproved", false);
+          toast.warning("Detection service unavailable — fill fields manually.");
         }
         e.target.value = "";
         return;
@@ -1039,65 +1065,6 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     }
   };
 
-  // Detection v2: run CV stack against already-uploaded floor-plan + photo URLs.
-  // Fires when user advances from Smart Capture to follow-ups.
-  const runV2Detection = async () => {
-    if (!v2Enabled) return;
-    const planUrl: string | undefined = formData.floorPlan || undefined;
-    const categoryPhotos: Record<string, string[]> = formData.categoryPhotos || {};
-    const photoUrls = Object.values(categoryPhotos).flat().filter(Boolean);
-    setIsDetecting(true);
-    try {
-      const { detectByUrl } = await import("@/lib/detection/client");
-      const [planResult, photoResults] = await Promise.all([
-        planUrl
-          ? detectByUrl("floor_plan", planUrl, "floor-plan").catch(() => null)
-          : Promise.resolve(null),
-        Promise.all(
-          photoUrls.map((u, i) =>
-            detectByUrl("photo", u, `photo-${i}`).catch(() => null),
-          ),
-        ),
-      ]);
-      const next: DetectionState = {
-        floorPlans: planResult ? [planResult] : [],
-        photos: photoResults.filter((r): r is NonNullable<typeof r> => !!r),
-      };
-      setDetectionState(next);
-      setWizardState(
-        initWizardState({
-          detection: next,
-          known: {
-            property_type: formData.propertyType || null,
-            entrance_floor_level: formData.floorLevelNumber
-              ? Number(formData.floorLevelNumber)
-              : null,
-            has_internal_stairs:
-              formData.internalStairs === "Yes"
-                ? true
-                : formData.internalStairs === "No"
-                  ? false
-                  : null,
-          },
-        }),
-      );
-    } catch (err) {
-      console.error("Detection v2 error:", err);
-      toast.error("Detection service unavailable. Continuing in manual mode.");
-    } finally {
-      setIsDetecting(false);
-    }
-  };
-
-  const handleDynamicComplete = (fields: Record<string, AnswerValue>) => {
-    Object.entries(fields).forEach(([key, val]) => {
-      if (val === null || val === undefined) return;
-      handleUpdateField(key, val);
-    });
-    setStep(analysisStepIndex);
-    startAiAnalysis();
-  };
-
   const handleStep3PhotosChanged = (
     _updatedCategoryPhotos: Record<string, string[]>,
   ) => {
@@ -1108,18 +1075,16 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   };
 
   const isNextDisabled = () => {
-    if (isProcessing || isAnalyzing || isDetecting) return true;
+    if (isProcessing || isAnalyzing) return true;
     if (step === 1)
       return !formData.fullName || !formData.street || !formData.postcode;
     // Step 2 (Section B) has no required fields
     if (step === 3) return !formData.floorPlan && !formData.hasNoFloorPlan;
     if (step === 4)
       return (formData.photos || []).length < 1 || !step3AnalysisComplete;
-    // v2 flow uses DynamicQuestionStep's internal buttons for step 5 — hide global next.
-    if (v2Enabled && step === 5) return true;
-    if (!v2Enabled && step === 5) return !formData.propertyType || !formData.entranceLevel;
-    if (!v2Enabled && step === 6) return !formData.internalStairs;
-    if (!v2Enabled && step === 7) return !formData.bathroomLocation;
+    if (step === 5) return !formData.propertyType || !formData.entranceLevel;
+    if (step === 6) return !formData.internalStairs;
+    if (step === 7) return !formData.bathroomLocation;
     return false;
   };
 
@@ -1388,7 +1353,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                 onPhotosChanged={handleStep3PhotosChanged}
               />
             )}
-            {!v2Enabled && step === 5 && (
+            {step === 5 && (
               <PropertyAccessStep
                 key="s5"
                 formData={formData}
@@ -1397,7 +1362,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                 aiSuggestions={aiSuggestions}
               />
             )}
-            {!v2Enabled && step === 6 && (
+            {step === 6 && (
               <InternalCirculationStep
                 key="s6"
                 formData={formData}
@@ -1406,7 +1371,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                 aiSuggestions={aiSuggestions}
               />
             )}
-            {!v2Enabled && step === 7 && (
+            {step === 7 && (
               <FacilitiesStep
                 key="s7"
                 formData={formData}
@@ -1415,21 +1380,13 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                 aiSuggestions={aiSuggestions}
               />
             )}
-            {!v2Enabled && step === 8 && (
+            {step === 8 && (
               <SafetyHazardsStep
                 key="s8"
                 formData={formData}
                 handleUpdateField={handleUpdateField}
                 floorPlanAnalysis={floorPlanAnalysis}
                 aiSuggestions={aiSuggestions}
-              />
-            )}
-            {v2Enabled && step === 5 && (
-              <DynamicQuestionStep
-                key="s5-dynamic"
-                state={wizardState}
-                onStateChange={setWizardState}
-                onComplete={handleDynamicComplete}
               />
             )}
             {step === analysisStepIndex && (
@@ -1520,18 +1477,9 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                   handleSafeClose();
                   return;
                 }
-                // v1: step 8 → analysis triggers Gemini report-fill.
-                if (!v2Enabled && step === 8) {
+                if (step === 8) {
                   setStep(step + 1);
                   startAiAnalysis();
-                  return;
-                }
-                // v2: step 4 → detection runs then advance to follow-ups.
-                if (v2Enabled && step === 4) {
-                  void (async () => {
-                    await runV2Detection();
-                    setStep(step + 1);
-                  })();
                   return;
                 }
                 setStep(step + 1);
@@ -1546,14 +1494,12 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
               <span className="hidden sm:inline">
                 {step === analysisStepIndex
                   ? "Complete Assessment"
-                  : !v2Enabled && step === 8
+                  : step === 8
                     ? "Generate AI Report"
-                    : v2Enabled && step === 4 && isDetecting
-                      ? "Detecting..."
-                      : "Continue"}
+                    : "Continue"}
               </span>
               <span className="sm:hidden">
-                {step === analysisStepIndex ? "Complete" : !v2Enabled && step === 8 ? "Report" : "Next"}
+                {step === analysisStepIndex ? "Complete" : step === 8 ? "Report" : "Next"}
               </span>
               {step < analysisStepIndex && <ChevronRight size={18} className="sm:w-5 sm:h-5 shrink-0" />}
             </button>
@@ -1563,8 +1509,8 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     </div>
   );
 
-  function handleSafeClose() {
-    // Logic to complete and close
+  async function handleSafeClose() {
+    const detectionPayload = await buildFloorPlanDetectionPayload();
     const completedCase: Case = {
       id: formData.id || `H-${Math.floor(1000 + Math.random() * 9000)}`,
       applicantName: formData.fullName || "New Client",
@@ -1588,6 +1534,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         floorPlanAvailable: !!formData.floorPlan,
         wizardData: formData,
         aiReport: formData.aiReport,
+        floorPlanDetection: detectionPayload,
       },
     };
 

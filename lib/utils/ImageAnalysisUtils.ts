@@ -523,73 +523,49 @@ const normalizeBatchResponse = (
     };
 };
 
-export const analyzeAllCategoryPhotos = async (categoryPhotos: Record<string, string[]>): Promise<BatchAnalysisResult | null> => {
+export const analyzeAllCategoryPhotos = async (
+    categoryPhotos: Record<string, string[]>,
+): Promise<BatchAnalysisResult | null> => {
     try {
-        const images: Array<{ mime_type: string, data: string, category: string }> = [];
+        const images: Array<{ mime_type: string; data: string }> = [];
         const categoriesPresent: string[] = [];
 
-        // Collect first photo from each category.
-        // Photos may be Supabase public URLs or legacy base64 strings — handle both.
         await Promise.all(
             Object.entries(categoryPhotos).map(async ([category, photos]) => {
                 if (!photos || photos.length === 0) return;
                 const source = photos[0];
-                // Resolve URL → base64 if needed, then compress
-                const base64Source = source.startsWith('data:') ? source : await urlToBase64(source);
+                const base64Source = source.startsWith("data:")
+                    ? source
+                    : await urlToBase64(source);
                 if (!base64Source) return;
                 const compressed = await compressBase64Image(base64Source);
                 const match = compressed.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
                 if (match) {
-                    images.push({ mime_type: match[1], data: match[2], category });
+                    images.push({ mime_type: match[1], data: match[2] });
                     categoriesPresent.push(category);
                 }
-            })
+            }),
         );
 
         if (images.length === 0) return null;
 
-        const requestBody = {
-            categories: categoriesPresent,
-            images: images.map(img => ({
-                mime_type: img.mime_type,
-                data: img.data
-            }))
-        };
-
-        const response = await fetch('/api/gemini/floor-images', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
+        const response = await fetch("/api/gemini/floor-images", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ images, categories: categoriesPresent }),
         });
 
         if (!response.ok) {
-            console.error('Gemini Batch Analysis Failed:', response.statusText);
+            console.error("Gemini photo analysis failed:", response.statusText);
             return null;
         }
 
-        const data = await response.json();
-        let cleanJson = data.result;
+        const payload = await response.json();
+        if (!payload.success || !payload.result) return null;
 
-        // Clean up JSON if it's a string
-        if (typeof cleanJson === 'string') {
-            if (cleanJson.includes('```json')) {
-                cleanJson = cleanJson.replace(/```json\n?/, '').replace(/```/, '');
-            } else if (cleanJson.includes('```')) {
-                cleanJson = cleanJson.replace(/```\n?/, '').replace(/```/, '');
-            }
-            try {
-                cleanJson = JSON.parse(cleanJson);
-            } catch (e) {
-                console.error("Failed to parse AI response JSON", e);
-                return null;
-            }
-        }
-
-        const parsed = normalizeBatchResponse(cleanJson, categoriesPresent);
-        return parsed;
-
+        return normalizeBatchResponse(payload.result, categoriesPresent);
     } catch (error) {
-        console.error('Error in batch analysis:', error);
+        console.warn("Gemini photo analysis error:", error);
         return null;
     }
 };

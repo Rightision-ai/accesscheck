@@ -43,3 +43,8 @@ next-env.d.ts
 references
 .cursor
 .claude
+
+# local python virtualenvs
+services/detection/.venv/
+services/detection/data/cubicasa5k/
+services/detection/data/cubicasa5k_yolo/

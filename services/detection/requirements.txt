@@ -6,8 +6,7 @@ python-multipart==0.0.12
 # CV stack
 ultralytics==8.3.30           # YOLOv8-seg
 segment-anything==1.0         # SAM (install via git in Dockerfile for GPU build)
-paddleocr==2.8.1
-paddlepaddle==2.6.2           # CPU default; use paddlepaddle-gpu in CUDA Dockerfile
+rapidocr-onnxruntime==1.4.4   # ONNX-based PaddleOCR replacement — stable on macOS/arm64
 
 # Image + numerics
 numpy==1.26.4

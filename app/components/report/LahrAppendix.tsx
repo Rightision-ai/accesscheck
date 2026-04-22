@@ -86,12 +86,29 @@ export default function LahrAppendix({
         <LahrBandBadge band={evaluation.band} size="md" showLabel showDescription />
       </div>
 
-      {evaluation.gTriggered && (
-        <div className="rounded border border-slate-300 bg-slate-50 p-3 text-xs text-slate-700">
-          <strong>Not assessed</strong> — one or more G-rules triggered. Fill
-          the missing fields to get a band.
-        </div>
-      )}
+      {evaluation.gTriggered && (() => {
+        const gResult = evaluation.criteria.find((c) => c.id === "g_rules");
+        if (!gResult || gResult.triggeredRules.length === 0) return null;
+        return (
+          <section className="rounded border border-amber-200 bg-amber-50 p-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-800">
+              Recommendations for better assessment
+            </h3>
+            <p className="mt-1 text-[11px] text-amber-700">
+              The following items were flagged as missing or unclear. Capturing
+              them in a future survey will sharpen the band.
+            </p>
+            <ul className="mt-2 space-y-1 text-[11px] text-amber-900">
+              {gResult.triggeredRules.map((r) => (
+                <li key={r.n} className="flex gap-2">
+                  <span className="font-semibold">#{r.n}</span>
+                  <span>{r.description}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })()}
 
       <section className="space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -108,9 +125,11 @@ export default function LahrAppendix({
               </tr>
             </thead>
             <tbody>
-              {evaluation.criteria.map((c) => (
-                <CriterionRow key={c.id} criterion={c} />
-              ))}
+              {evaluation.criteria
+                .filter((c) => c.id !== "g_rules")
+                .map((c) => (
+                  <CriterionRow key={c.id} criterion={c} />
+                ))}
             </tbody>
           </table>
         </div>
@@ -230,11 +249,11 @@ function CriterionRow({ criterion }: { criterion: CriterionResult }) {
 function LahrBandsLegend({ band }: { band: LahrBandId }) {
   const ids: LahrBandId[] = ["A", "B", "C", "D", "E", "E+", "F", "G"];
   return (
-    <details className="text-[11px] text-slate-600">
-      <summary className="cursor-pointer select-none font-semibold text-slate-700">
+    <section className="text-[11px] text-slate-600">
+      <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-700">
         LAHR band legend
-      </summary>
-      <ul className="mt-2 space-y-1">
+      </h3>
+      <ul className="space-y-1">
         {ids.map((id) => {
           const def = LAHR_BAND_BY_ID[id];
           const active = id === band;
@@ -255,6 +274,6 @@ function LahrBandsLegend({ band }: { band: LahrBandId }) {
           );
         })}
       </ul>
-    </details>
+    </section>
   );
 }

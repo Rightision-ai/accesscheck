@@ -87,20 +87,19 @@ def run_ocr(image: np.ndarray) -> list[TextBox]:
     ocr = load_ocr()
     if ocr is None:
         return []
-    raw = ocr.ocr(image, cls=True)
+    # RapidOCR returns (list[[box, text, conf]] | None, elapse)
+    result, _ = ocr(image)
     out: list[TextBox] = []
-    # PaddleOCR returns [[[box, (text, conf)], ...]] for a single image
-    for page in raw or []:
-        for item in page or []:
-            box, (text, conf) = item
-            kind, value = classify_text(text)
-            out.append(
-                TextBox(
-                    text=text,
-                    kind=kind,
-                    box=[[float(x), float(y)] for x, y in box],
-                    confidence=float(conf),
-                    value_mm=value,
-                )
+    for item in result or []:
+        box, text, conf = item
+        kind, value = classify_text(text)
+        out.append(
+            TextBox(
+                text=text,
+                kind=kind,
+                box=[[float(x), float(y)] for x, y in box],
+                confidence=float(conf),
+                value_mm=value,
             )
+        )
     return out

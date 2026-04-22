@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runDetection, isDetectionV2Enabled } from "@/lib/detection/backend";
+import { runDetection } from "@/lib/detection/backend";
 
 export const maxDuration = 60;
 
@@ -10,13 +10,6 @@ type Incoming = {
 };
 
 export async function POST(req: NextRequest) {
-  if (!isDetectionV2Enabled()) {
-    return NextResponse.json(
-      { error: "Detection v2 is disabled. Set NEXT_PUBLIC_DETECTION_V2=true." },
-      { status: 503 },
-    );
-  }
-
   let body: Incoming;
   try {
     body = (await req.json()) as Incoming;

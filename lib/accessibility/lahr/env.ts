@@ -24,23 +24,31 @@ function rampLengthCm(al: number | null | undefined, bl: number | null | undefin
   return (al ?? 0) + (bl ?? 0);
 }
 
-function entryLevelLabel(v: string | null | undefined): string | undefined {
-  if (!v) return undefined;
-  const s = v.toLowerCase();
+function entryLevelLabel(v: unknown): string | undefined {
+  if (v === null || v === undefined || v === "") return undefined;
+  const raw = String(v);
+  const s = raw.toLowerCase();
   if (s.startsWith("ground")) return "Ground";
   if (s.startsWith("basement")) return "Basement";
   if (s.startsWith("upper") || s === "other" || s.startsWith("first") || s.includes("floor")) return "Other";
-  return v;
+  return raw;
 }
 
-function thresholdLabel(v: string | null | undefined): string | undefined {
-  if (!v) return undefined;
-  const s = v.toLowerCase();
+function thresholdLabel(v: unknown): string | undefined {
+  if (v === null || v === undefined || v === "") return undefined;
+  if (typeof v === "number" && Number.isFinite(v)) {
+    if (v <= 0) return "Level";
+    if (v < 1.5) return "LessThan1_5";
+    if (v <= 10) return "10_to_1_5";
+    return "MoreThan10";
+  }
+  const raw = String(v);
+  const s = raw.toLowerCase();
   if (s === "level" || s === "0" || s === "<0" || s === "flat") return "Level";
   if (s.includes("<1.5") || s === "lessthan1_5") return "LessThan1_5";
   if (s.includes("1.5") && s.includes("10")) return "10_to_1_5";
   if (s.includes(">10") || s === "morethan10") return "MoreThan10";
-  return v;
+  return raw;
 }
 
 type StopFlags = Partial<{

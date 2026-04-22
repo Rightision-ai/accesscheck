@@ -8,7 +8,8 @@ function isBase64DataUrl(s: unknown): s is string {
 
 export async function uploadBase64ToStorage(
   dataUrl: string,
-  path: string
+  path: string,
+  bucket: string = "evidences",
 ): Promise<string> {
   const supabase = createClient();
   const match = dataUrl.match(/^data:(image\/[a-z]+);base64,(.+)$/);
@@ -22,7 +23,7 @@ export async function uploadBase64ToStorage(
   }
 
   const { data, error } = await supabase.storage
-    .from("evidences")
+    .from(bucket)
     .upload(path, byteNumbers, {
       contentType: mimeType,
       upsert: true,
@@ -32,7 +33,7 @@ export async function uploadBase64ToStorage(
 
   const {
     data: { publicUrl },
-  } = supabase.storage.from("evidences").getPublicUrl(data.path);
+  } = supabase.storage.from(bucket).getPublicUrl(data.path);
   return publicUrl;
 }
 

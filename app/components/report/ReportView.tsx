@@ -19,9 +19,10 @@ import {
 import { formatBritishDateTime } from "@/lib/utils/dateFormatter";
 import { Case } from "@/types/dashboard";
 import { ConfidenceBadge } from "../wizard/ConfidenceBadge";
-import { LEGEND, AccessibilityGrade } from "@/lib/accessibility/flowchart";
-import AccessibilityBadge from "@/app/components/common/AccessibilityBadge";
+import LahrBandBadge from "@/app/components/common/LahrBandBadge";
 import LahrAppendix from "./LahrAppendix";
+import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
+import type { LahrBandId } from "@/lib/accessibility/lahr/types";
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
 
@@ -43,13 +44,13 @@ const AHR_MODIFIED = "#059669"; // Override Green
 
 const AHR_Header = ({
   date,
-  accessibilityGrade,
+  lahrBand,
 }: {
   address: string;
   id: string;
   date: string;
   uprn?: string;
-  accessibilityGrade?: AccessibilityGrade | null;
+  lahrBand?: LahrBandId | null;
 }) => (
   <div className="border-b-4 border-violet-900 pb-4 mb-6">
     <div className="flex justify-between items-start gap-4 flex-wrap">
@@ -69,9 +70,7 @@ const AHR_Header = ({
           </p>
         </div>
       </div>
-      {accessibilityGrade && (
-        <AccessibilityBadge grade={accessibilityGrade} size="md" />
-      )}
+      {lahrBand && <LahrBandBadge band={lahrBand} size="md" />}
     </div>
   </div>
 );
@@ -1226,6 +1225,11 @@ const ReportView: React.FC<ReportViewProps> = ({
 
   const rawAhr = caseData.mlData?.rawAhr || {};
   const wizardData = caseData.mlData?.wizardData || {};
+  const lahrSurveySource =
+    (caseData.mlData as any)?.surveyRow ?? wizardData ?? null;
+  const lahrEvaluation = lahrSurveySource
+    ? classifyLahr(lahrSurveySource)
+    : null;
   const analyzedAiSuggestions =
     wizardData.aiSuggestions ||
     caseData.mlData?.aiReport?.analysisData?.aiSuggestions ||
@@ -1609,20 +1613,8 @@ const ReportView: React.FC<ReportViewProps> = ({
             id={caseData.id}
             date={caseData.assessmentDate || "2026-02-12"}
             uprn={rawAhr.meta_data?.uprn}
-            accessibilityGrade={caseData.accessibilityGrade}
+            lahrBand={lahrEvaluation?.band ?? null}
           />
-
-          {/* LAHR BAND (data-driven from business-rules.json). Hidden if no survey data. */}
-          {(caseData.mlData as any)?.wizardData ? (
-            <div className="mb-6">
-              <LahrAppendix
-                survey={(caseData.mlData as any).surveyRow ?? (caseData.mlData as any).wizardData}
-                annotations={(caseData.mlData as any).surveyAnnotations ?? []}
-                floorPlanUrl={(caseData.mlData as any).wizardData?.floorPlan}
-                evidenceUrls={caseData.evidence ?? []}
-              />
-            </div>
-          ) : null}
 
           {/* COMPLIANCE SUMMARY (Enterprise Feature) */}
           {(caseData.mlData as any)?.riskAssessment && (
@@ -9770,6 +9762,24 @@ const ReportView: React.FC<ReportViewProps> = ({
               </div>
             ));
           })()}
+
+          {/* --- FINAL PAGE: LAHR APPENDIX --- */}
+          {lahrSurveySource ? (
+            <div
+              className="ahr-page"
+              style={{
+                background: "#fff",
+                padding: "50px 70px",
+                borderRadius: "24px",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.04)",
+              }}
+            >
+              <LahrAppendix
+                survey={lahrSurveySource}
+                annotations={(caseData.mlData as any)?.surveyAnnotations ?? []}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 
