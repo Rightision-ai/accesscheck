@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
 import {
@@ -7,6 +8,7 @@ import {
 } from "@/lib/accessibility/cost-estimation/planner";
 import {
   clearCostEstimation,
+  loadCostEstimation,
   persistCostEstimation,
 } from "@/lib/accessibility/cost-estimation/repository";
 import {
@@ -28,12 +30,17 @@ import type { Database } from "@/types/supabase";
 type SurveyRow = Database["public"]["Tables"]["surveys"]["Row"];
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-2.5-pro";
+// Pro produces richer narratives. Safe to use here because the route is now async — POST
+// returns 202 immediately and the Gemini call runs in the background via `after()`, so the
+// 30-60s response time no longer triggers gateway timeouts. Override via GEMINI_COST_MODEL.
+const GEMINI_MODEL = process.env.GEMINI_COST_MODEL || "gemini-2.5-pro";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-const MAX_PHOTO_INPUTS = 5;
+const MAX_PHOTO_INPUTS = 3;
 const DIFFICULTIES: Difficulty[] = ["minor", "moderate", "major"];
 
-export const maxDuration = 60;
+// Vercel ceiling. On Hobby this clamps to 60; Pro Fluid Compute honours up to 300. The Gemini
+// 2.5 Pro call alone runs ~30s, plus 5–10s of image fetches from Supabase.
+export const maxDuration = 300;
 
 type GeminiPart =
   | { text: string }
@@ -71,160 +78,224 @@ type GeminiPayload = {
   confidence?: number;
 };
 
+type JobStatus = {
+  status: "pending" | "ready" | "failed";
+  startedAt: string;
+  finishedAt?: string;
+  error?: string;
+  step?: string;
+  model?: string;
+};
+
+/**
+ * POST kicks off cost-estimation work and returns 202 immediately. The Gemini call + persistence
+ * runs in the background via Next 16's `after()`, which on Vercel Pro Fluid keeps the function
+ * alive after the HTTP response. This sidesteps the 60s gateway timeout that was producing 504s.
+ *
+ * The client polls GET /api/gemini/cost-estimation?surveyId=N for the result.
+ */
 export async function POST(req: NextRequest) {
-  const startedAt = Date.now();
-  const log = (step: string, extra?: Record<string, unknown>) => {
-    console.log(`[cost-estimation] ${step}`, { tMs: Date.now() - startedAt, ...extra });
-  };
+  const body = await req.json().catch(() => ({}));
+  const surveyId = typeof body?.surveyId === "number" ? body.surveyId : Number(body?.surveyId);
+  if (!surveyId || !Number.isFinite(surveyId)) {
+    return NextResponse.json({ error: "surveyId is required" }, { status: 400 });
+  }
 
-  let surveyId: number | null = null;
-  let step = "parse_body";
-  try {
-    const body = await req.json().catch(() => ({}));
-    surveyId = typeof body?.surveyId === "number" ? body.surveyId : Number(body?.surveyId);
-    if (!surveyId || !Number.isFinite(surveyId)) {
-      return NextResponse.json({ error: "surveyId is required" }, { status: 400 });
-    }
-    log(step, { surveyId });
+  const supabase = await createClient();
 
-    step = "load_survey";
-    const supabase = await createClient();
-    const { data: survey, error: surveyErr } = await supabase
-      .from("surveys")
-      .select("*")
-      .eq("id", surveyId)
-      .single();
-    if (surveyErr || !survey) {
-      console.error("[cost-estimation] load_survey failed:", surveyErr);
-      return NextResponse.json(
-        { error: "Survey not found", details: surveyErr?.message ?? null, step },
-        { status: 404 },
-      );
-    }
-    log(step);
-
-    step = "classify_lahr";
-    const evaluation = classifyLahr(survey);
-    log(step, { band: evaluation.band });
-
-    if (evaluation.band === "A") {
-      step = "clear_estimation_band_a";
-      await clearCostEstimation(supabase, surveyId);
-      log(step);
-      return NextResponse.json({ applicable: false, currentBand: "A" });
-    }
-
-    if (!GEMINI_API_KEY) {
-      return NextResponse.json(
-        { error: "Cost estimation requires GEMINI_API_KEY to be configured.", step },
-        { status: 503 },
-      );
-    }
-
-    step = "load_evidence";
-    const { data: evidences, error: evidErr } = await supabase
-      .from("survey_evidences")
-      .select("id, file_url, mime_type, section")
-      .eq("survey_id", surveyId);
-    if (evidErr) console.warn("[cost-estimation] evidence load warning:", evidErr.message);
-    const evidenceList = (evidences ?? []).slice(0, MAX_PHOTO_INPUTS);
-    const imageParts = await Promise.all(
-      evidenceList.map((e) => toInlinePart(e.file_url, e.mime_type)),
+  const { data: survey, error: surveyErr } = await supabase
+    .from("surveys")
+    .select("*")
+    .eq("id", surveyId)
+    .single();
+  if (surveyErr || !survey) {
+    return NextResponse.json(
+      { error: "Survey not found", details: surveyErr?.message ?? null },
+      { status: 404 },
     );
-    const validImageParts = imageParts.filter((p): p is Exclude<typeof p, null> => p !== null);
-    log(step, { evidenceCount: evidenceList.length, validImages: validImageParts.length });
+  }
 
-    step = "call_gemini";
-    let gemini: GeminiPayload;
+  const evaluation = classifyLahr(survey);
+  if (evaluation.band === "A") {
+    await clearCostEstimation(supabase, surveyId);
+    await writeJobStatus(supabase, surveyId, null);
+    return NextResponse.json({ applicable: false, currentBand: "A" });
+  }
+
+  if (!GEMINI_API_KEY) {
+    return NextResponse.json(
+      { error: "Cost estimation requires GEMINI_API_KEY to be configured." },
+      { status: 503 },
+    );
+  }
+
+  // Mark as pending synchronously so the next poll knows work is in flight.
+  const startedAt = new Date().toISOString();
+  await writeJobStatus(supabase, surveyId, {
+    status: "pending",
+    startedAt,
+    model: GEMINI_MODEL,
+  });
+
+  // Background work — runs after the response is sent.
+  after(async () => {
+    const t0 = Date.now();
+    const log = (step: string, extra?: Record<string, unknown>) => {
+      console.log(`[cost-estimation:bg] ${step}`, { tMs: Date.now() - t0, surveyId, ...extra });
+    };
+    let step = "load_evidence";
     try {
-      gemini = await callGemini({
+      const { data: evidences, error: evidErr } = await supabase
+        .from("survey_evidences")
+        .select("id, file_url, mime_type, section")
+        .eq("survey_id", surveyId);
+      if (evidErr) console.warn("[cost-estimation:bg] evidence load warning:", evidErr.message);
+      const evidenceList = (evidences ?? []).slice(0, MAX_PHOTO_INPUTS);
+      const imageParts = await Promise.all(
+        evidenceList.map((e) => toInlinePart(e.file_url, e.mime_type)),
+      );
+      const validImageParts = imageParts.filter((p): p is Exclude<typeof p, null> => p !== null);
+      log(step, { evidenceCount: evidenceList.length, validImages: validImageParts.length });
+
+      step = "call_gemini";
+      const gemini = await callGemini({
         currentBand: evaluation.band,
         triggeredRules: collectTriggeredRules(evaluation),
         imageParts: validImageParts,
       });
+      log(step, {
+        tierCount: gemini.tiers?.length ?? 0,
+        adaptationsTotal:
+          gemini.tiers?.reduce((s, t) => s + (t.adaptations?.length ?? 0), 0) ?? 0,
+      });
+
+      step = "build_tiers";
+      const tiers: TierPlan[] = DFG_BUDGET_TIERS.map((b) => {
+        const geminiTier = gemini.tiers?.find((t) => Number(t?.budget_gbp) === b);
+        return buildTier({ budget: b, geminiTier, survey });
+      });
+      log(step, {
+        tiers: tiers.map((t) => ({
+          budget: t.budgetGbp,
+          adaptations: t.adaptations.length,
+          cost: t.totalCostGbp,
+          band: t.potentialBand,
+        })),
+      });
+
+      const at30k = tiers.find((t) => t.budgetGbp === DFG_MAX_BUDGET);
+      const reachesBandAAt30k = at30k?.potentialBand === "A";
+      const estimation: CostEstimation = {
+        currentBand: evaluation.band,
+        tiers,
+        reachesBandAAt30k,
+        rationaleIfNotBandA: reachesBandAAt30k
+          ? undefined
+          : gemini.rationale_if_not_band_a ??
+            `Within £${DFG_MAX_BUDGET.toLocaleString()} this property reaches band ${
+              tiers[tiers.length - 1].potentialBand
+            }. Reaching band A would require further work beyond what visible evidence supports.`,
+        overallNarrative:
+          gemini.overall_narrative ??
+          `Current Accessible Housing Rules band is ${evaluation.band}. The plan above bundles bespoke adaptations to lift the property toward a higher band within each DFG tier.`,
+        confidence: clamp01(gemini.confidence ?? (validImageParts.length > 0 ? 0.65 : 0.45)),
+        generatedAt: new Date().toISOString(),
+        geminiModel: GEMINI_MODEL,
+        budgetCapGbp: DFG_MAX_BUDGET,
+      };
+
+      step = "persist_estimation";
+      await persistCostEstimation(supabase, surveyId, estimation);
+      log(step);
+
+      await writeJobStatus(supabase, surveyId, {
+        status: "ready",
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        model: GEMINI_MODEL,
+      });
     } catch (err) {
-      const message = (err as Error).message;
-      console.error("[cost-estimation] call_gemini failed:", message);
-      return NextResponse.json(
-        {
-          error: "Cost estimation unavailable — the planning model failed to respond. Please retry.",
-          details: message.slice(0, 500),
-          model: GEMINI_MODEL,
-          step,
-        },
-        { status: 502 },
-      );
-    }
-    log(step, {
-      tierCount: gemini.tiers?.length ?? 0,
-      adaptationsTotal: gemini.tiers?.reduce((s, t) => s + (t.adaptations?.length ?? 0), 0) ?? 0,
-    });
-
-    step = "build_tiers";
-    const seenBudgets = (gemini.tiers ?? []).map((t) => Number(t?.budget_gbp));
-    const seenAdaptCounts = (gemini.tiers ?? []).map((t) => t?.adaptations?.length ?? 0);
-    log("gemini_tiers_shape", {
-      seenBudgets,
-      seenAdaptCounts,
-      expectedBudgets: DFG_BUDGET_TIERS,
-    });
-    const tiers: TierPlan[] = DFG_BUDGET_TIERS.map((b) => {
-      // Tolerant match: model may stringify budget_gbp ("15000") or pad ("£15,000" sanitised).
-      const geminiTier = gemini.tiers?.find((t) => Number(t?.budget_gbp) === b);
-      return buildTier({ budget: b, geminiTier, survey });
-    });
-    log(step, {
-      tiers: tiers.map((t) => ({
-        budget: t.budgetGbp,
-        adaptations: t.adaptations.length,
-        cost: t.totalCostGbp,
-        band: t.potentialBand,
-      })),
-    });
-
-    const at30k = tiers.find((t) => t.budgetGbp === DFG_MAX_BUDGET);
-    const reachesBandAAt30k = at30k?.potentialBand === "A";
-
-    const estimation: CostEstimation = {
-      currentBand: evaluation.band,
-      tiers,
-      reachesBandAAt30k,
-      rationaleIfNotBandA: reachesBandAAt30k
-        ? undefined
-        : gemini.rationale_if_not_band_a ??
-          `Within £${DFG_MAX_BUDGET.toLocaleString()} this property reaches band ${
-            tiers[tiers.length - 1].potentialBand
-          }. Reaching band A would require further work beyond what visible evidence supports.`,
-      overallNarrative:
-        gemini.overall_narrative ??
-        `Current Accessible Housing Rules band is ${evaluation.band}. The plan above bundles bespoke adaptations to lift the property toward a higher band within each DFG tier.`,
-      confidence: clamp01(gemini.confidence ?? (validImageParts.length > 0 ? 0.65 : 0.45)),
-      generatedAt: new Date().toISOString(),
-      geminiModel: GEMINI_MODEL,
-      budgetCapGbp: DFG_MAX_BUDGET,
-    };
-
-    step = "persist_estimation";
-    await persistCostEstimation(supabase, surveyId, estimation);
-    log(step);
-
-    return NextResponse.json({ applicable: true, estimation });
-  } catch (err) {
-    const e = err as Error;
-    console.error(`[cost-estimation] uncaught at step="${step}":`, {
-      message: e?.message,
-      stack: e?.stack,
-      surveyId,
-    });
-    return NextResponse.json(
-      {
-        error: "Cost estimation failed unexpectedly.",
-        details: e?.message ?? String(err),
+      const e = err as Error;
+      console.error(`[cost-estimation:bg] failed at step="${step}":`, {
+        message: e?.message,
+        stack: e?.stack,
+        surveyId,
+      });
+      await writeJobStatus(supabase, surveyId, {
+        status: "failed",
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        error: (e?.message ?? String(err)).slice(0, 500),
         step,
-      },
-      { status: 500 },
-    );
+        model: GEMINI_MODEL,
+      });
+    }
+  });
+
+  return NextResponse.json({ status: "pending", surveyId, startedAt }, { status: 202 });
+}
+
+/**
+ * GET returns the current job status and the loaded estimation if ready. The client polls this
+ * after kicking off a POST.
+ */
+export async function GET(req: NextRequest) {
+  const surveyId = Number(req.nextUrl.searchParams.get("surveyId"));
+  if (!surveyId || !Number.isFinite(surveyId)) {
+    return NextResponse.json({ error: "surveyId is required" }, { status: 400 });
   }
+  const supabase = await createClient();
+  const job = await readJobStatus(supabase, surveyId);
+  const estimation = await loadCostEstimation(supabase, surveyId);
+
+  if (estimation && (!job || job.status === "ready")) {
+    return NextResponse.json({ status: "ready", estimation, job });
+  }
+  if (job?.status === "failed") {
+    return NextResponse.json({ status: "failed", error: job.error, step: job.step, job });
+  }
+  if (job?.status === "pending") {
+    return NextResponse.json({ status: "pending", job });
+  }
+  return NextResponse.json({ status: "missing" });
+}
+
+async function writeJobStatus(
+  supabase: SupabaseClient<Database>,
+  surveyId: number,
+  job: JobStatus | null,
+): Promise<void> {
+  // Read current raw_ai_data, merge the marker in, write back. JSONB-safe and migration-free.
+  const { data, error } = await supabase
+    .from("surveys")
+    .select("raw_ai_data")
+    .eq("id", surveyId)
+    .single();
+  if (error || !data) return;
+  const raw = (data.raw_ai_data ?? {}) as Record<string, unknown>;
+  if (job === null) {
+    delete raw.cost_estimation_status;
+  } else {
+    raw.cost_estimation_status = job;
+  }
+  await supabase
+    .from("surveys")
+    .update({ raw_ai_data: raw as Database["public"]["Tables"]["surveys"]["Update"]["raw_ai_data"] })
+    .eq("id", surveyId);
+}
+
+async function readJobStatus(
+  supabase: SupabaseClient<Database>,
+  surveyId: number,
+): Promise<JobStatus | null> {
+  const { data } = await supabase
+    .from("surveys")
+    .select("raw_ai_data")
+    .eq("id", surveyId)
+    .single();
+  const raw = (data?.raw_ai_data ?? {}) as Record<string, unknown>;
+  const job = raw.cost_estimation_status as JobStatus | undefined;
+  return job ?? null;
 }
 
 function buildTier(args: {
@@ -377,9 +448,9 @@ async function callGemini(args: {
       contents: [{ parts }],
       generationConfig: {
         temperature: 0.2,
-        // Bumped from 8K — the prompt asks for three tiers of bespoke prose, which can hit ~12K
-        // tokens. Truncation at 8K was producing unterminated arrays that broke JSON.parse.
-        maxOutputTokens: 32768,
+        // Three tiers of bespoke prose hit ~12K tokens. 16K leaves headroom without inflating
+        // generation time on Vercel.
+        maxOutputTokens: 16384,
         responseMimeType: "application/json",
       },
     }),

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { LAHR_BAND_BY_ID, type LahrBandId } from "@/lib/accessibility/lahr/types";
 import LahrBandBadge from "@/app/components/common/LahrBandBadge";
 import type {
@@ -8,6 +9,7 @@ import type {
   DfgBudgetGbp,
   TierPlan,
 } from "@/lib/accessibility/cost-estimation/types";
+import { pollCostEstimation } from "@/lib/accessibility/cost-estimation/client";
 
 type Props = {
   surveyId: number;
@@ -56,16 +58,18 @@ export default function CostEstimationAppendix({
         body: JSON.stringify({ surveyId }),
       });
       const payload = await res.json();
-      if (!res.ok) {
+      if (!res.ok && res.status !== 202) {
         const baseMessage = payload?.error ?? "Re-estimate failed";
         const detail = payload?.details ? ` (${payload.details})` : "";
         throw new Error(`${baseMessage}${detail}`);
       }
       if (payload?.applicable === false) {
         setEstimation(null);
-      } else {
-        setEstimation(payload.estimation as CostEstimation);
+        return;
       }
+      // Background pattern: poll until ready/failed. ~2 minutes max.
+      const finalEstimation = await pollCostEstimation(surveyId);
+      setEstimation(finalEstimation);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -147,8 +151,10 @@ export default function CostEstimationAppendix({
         </div>
       )}
 
-      {!estimation ? (
-        <EmptyState isLoading={isRefreshing} />
+      {isRefreshing ? (
+        <EmptyState isLoading={true} />
+      ) : !estimation ? (
+        <EmptyState isLoading={false} />
       ) : (
         (() => {
           const populatedTiers = estimation.tiers.filter((t) => t.adaptations.length > 0);
@@ -184,9 +190,10 @@ export default function CostEstimationAppendix({
 function EmptyState({ isLoading }: { isLoading: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded border border-dashed border-slate-200 py-10 text-[12px] text-slate-500">
+      {isLoading && <Loader2 size={20} className="animate-spin text-violet-500" />}
       <span>
         {isLoading
-          ? "Generating the DFG adoption plan — this takes 20–40 seconds."
+          ? "Generating the DFG adoption plan — this can take 30–60 seconds."
           : "Adoption plan not generated yet."}
       </span>
       {!isLoading && (
