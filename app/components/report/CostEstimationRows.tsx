@@ -17,6 +17,7 @@ import type {
   CostEstimation,
   TierPlan,
 } from "@/lib/accessibility/cost-estimation/types";
+import { pollCostEstimation } from "@/lib/accessibility/cost-estimation/client";
 
 type Props = {
   surveyId: number;
@@ -58,9 +59,15 @@ export default function CostEstimationRows({
         body: JSON.stringify({ surveyId }),
       });
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload?.error ?? "Re-estimate failed");
-      if (payload?.applicable === false) setEstimation(null);
-      else setEstimation(payload.estimation as CostEstimation);
+      if (!res.ok && res.status !== 202) {
+        throw new Error(payload?.error ?? "Re-estimate failed");
+      }
+      if (payload?.applicable === false) {
+        setEstimation(null);
+        return;
+      }
+      const finalEstimation = await pollCostEstimation(surveyId);
+      setEstimation(finalEstimation);
     } catch (err) {
       setError((err as Error).message);
     } finally {

@@ -8,6 +8,7 @@ import type {
   DfgBudgetGbp,
   TierPlan,
 } from "@/lib/accessibility/cost-estimation/types";
+import { pollCostEstimation } from "@/lib/accessibility/cost-estimation/client";
 
 type Props = {
   surveyId: number;
@@ -56,16 +57,18 @@ export default function CostEstimationAppendix({
         body: JSON.stringify({ surveyId }),
       });
       const payload = await res.json();
-      if (!res.ok) {
+      if (!res.ok && res.status !== 202) {
         const baseMessage = payload?.error ?? "Re-estimate failed";
         const detail = payload?.details ? ` (${payload.details})` : "";
         throw new Error(`${baseMessage}${detail}`);
       }
       if (payload?.applicable === false) {
         setEstimation(null);
-      } else {
-        setEstimation(payload.estimation as CostEstimation);
+        return;
       }
+      // Background pattern: poll until ready/failed. ~2 minutes max.
+      const finalEstimation = await pollCostEstimation(surveyId);
+      setEstimation(finalEstimation);
     } catch (err) {
       setError((err as Error).message);
     } finally {
