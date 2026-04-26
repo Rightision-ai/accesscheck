@@ -72,6 +72,11 @@ export function mapSurveyToCase(s: any): Case {
     ...clonedRawAiData,
     imageCount: Number(clonedRawAiData.imageCount ?? 0),
     wizardData: clonedRawAiData.wizardData ?? {},
+    surveyUpdatedAt:
+      (s as { updated_at?: string | null }).updated_at ?? null,
+    // The persisted survey row is the only shape `classifyLahr` understands —
+    // wizardData uses camelCase keys and won't drive any rules.
+    surveyRow: s,
   };
 
   mergeSurveyWidthsIntoMlData(mlData, s);

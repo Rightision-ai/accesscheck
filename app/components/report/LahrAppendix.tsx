@@ -8,7 +8,6 @@ import {
   type LahrBandId,
 } from "@/lib/accessibility/lahr/types";
 import type { Database } from "@/types/supabase";
-import LahrBandBadge from "@/app/components/common/LahrBandBadge";
 import AnnotatedImage, { type Annotation } from "./AnnotatedImage";
 
 type SurveyRow = Database["public"]["Tables"]["surveys"]["Row"];
@@ -73,19 +72,6 @@ export default function LahrAppendix({
 
   return (
     <div className="space-y-6 rounded-lg border border-slate-200 bg-white p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-4">
-        <div>
-          <h2 className="text-xs font-black uppercase tracking-wider text-violet-900">
-            LAHR Appendix
-          </h2>
-          <p className="text-[11px] text-slate-500">
-            Derived from the LAHR Good Practice Guide 2011. Band is the lowest
-            qualifying category across sections (p. 28).
-          </p>
-        </div>
-        <LahrBandBadge band={evaluation.band} size="md" showLabel showDescription />
-      </div>
-
       {evaluation.gTriggered && (() => {
         const gResult = evaluation.criteria.find((c) => c.id === "g_rules");
         if (!gResult || gResult.triggeredRules.length === 0) return null;
@@ -251,7 +237,7 @@ function LahrBandsLegend({ band }: { band: LahrBandId }) {
   return (
     <section className="text-[11px] text-slate-600">
       <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-700">
-        LAHR band legend
+        Accessible Housing Rules band legend
       </h3>
       <ul className="space-y-1">
         {ids.map((id) => {

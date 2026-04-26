@@ -3,6 +3,7 @@ import { getUser } from '@/lib/auth/actions';
 import { redirect } from 'next/navigation';
 import ReportViewClient from './ReportViewClient';
 import { mapSurveyToCase } from '@/lib/surveys/mapper';
+import { loadCostEstimation } from '@/lib/accessibility/cost-estimation/repository';
 
 export default async function ReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,6 +23,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
   }
 
   const caseData = mapSurveyToCase(survey);
+  const costEstimation = await loadCostEstimation(supabase, Number(id));
 
-  return <ReportViewClient caseData={caseData} />;
+  return <ReportViewClient caseData={caseData} costEstimation={costEstimation} />;
 }

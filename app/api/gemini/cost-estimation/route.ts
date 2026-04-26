@@ -1,0 +1,494 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
+import {
+  aggregateDifficulty,
+  projectBandAfter,
+} from "@/lib/accessibility/cost-estimation/planner";
+import {
+  clearCostEstimation,
+  persistCostEstimation,
+} from "@/lib/accessibility/cost-estimation/repository";
+import {
+  buildCostEstimationPrompt,
+  collectTriggeredRules,
+} from "@/lib/gemini/prompts/costEstimationPrompt";
+import {
+  DFG_BUDGET_TIERS,
+  DFG_MAX_BUDGET,
+  type CostEstimation,
+  type Difficulty,
+  type DfgBudgetGbp,
+  type RemediationInstance,
+  type TierPlan,
+} from "@/lib/accessibility/cost-estimation/types";
+import { rankOf, type LahrBandId } from "@/lib/accessibility/lahr/types";
+import type { Database } from "@/types/supabase";
+
+type SurveyRow = Database["public"]["Tables"]["surveys"]["Row"];
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = "gemini-2.5-pro";
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const MAX_PHOTO_INPUTS = 5;
+const DIFFICULTIES: Difficulty[] = ["minor", "moderate", "major"];
+
+export const maxDuration = 60;
+
+type GeminiPart =
+  | { text: string }
+  | { inline_data: { mime_type: string; data: string } };
+
+type GeminiAdaptation = {
+  label?: string;
+  addresses_rules?: number[];
+  cost_gbp?: number;
+  duration_days?: number;
+  difficulty?: Difficulty;
+  trades?: string[];
+  preconditions?: string;
+  narrative?: string;
+  visual_evidence_confidence?: number;
+  field_patches?: Record<string, unknown>;
+};
+
+type GeminiTier = {
+  budget_gbp?: number;
+  total_cost_gbp?: number;
+  total_duration_days?: number;
+  overall_difficulty?: Difficulty;
+  potential_band_estimate?: LahrBandId;
+  adaptations?: GeminiAdaptation[];
+  dropped_candidates?: { label?: string; reason?: string }[];
+};
+
+type GeminiPayload = {
+  current_band?: LahrBandId;
+  overall_narrative?: string;
+  tiers?: GeminiTier[];
+  reaches_band_a_at_30k?: boolean;
+  rationale_if_not_band_a?: string;
+  confidence?: number;
+};
+
+export async function POST(req: NextRequest) {
+  const startedAt = Date.now();
+  const log = (step: string, extra?: Record<string, unknown>) => {
+    console.log(`[cost-estimation] ${step}`, { tMs: Date.now() - startedAt, ...extra });
+  };
+
+  let surveyId: number | null = null;
+  let step = "parse_body";
+  try {
+    const body = await req.json().catch(() => ({}));
+    surveyId = typeof body?.surveyId === "number" ? body.surveyId : Number(body?.surveyId);
+    if (!surveyId || !Number.isFinite(surveyId)) {
+      return NextResponse.json({ error: "surveyId is required" }, { status: 400 });
+    }
+    log(step, { surveyId });
+
+    step = "load_survey";
+    const supabase = await createClient();
+    const { data: survey, error: surveyErr } = await supabase
+      .from("surveys")
+      .select("*")
+      .eq("id", surveyId)
+      .single();
+    if (surveyErr || !survey) {
+      console.error("[cost-estimation] load_survey failed:", surveyErr);
+      return NextResponse.json(
+        { error: "Survey not found", details: surveyErr?.message ?? null, step },
+        { status: 404 },
+      );
+    }
+    log(step);
+
+    step = "classify_lahr";
+    const evaluation = classifyLahr(survey);
+    log(step, { band: evaluation.band });
+
+    if (evaluation.band === "A") {
+      step = "clear_estimation_band_a";
+      await clearCostEstimation(supabase, surveyId);
+      log(step);
+      return NextResponse.json({ applicable: false, currentBand: "A" });
+    }
+
+    if (!GEMINI_API_KEY) {
+      return NextResponse.json(
+        { error: "Cost estimation requires GEMINI_API_KEY to be configured.", step },
+        { status: 503 },
+      );
+    }
+
+    step = "load_evidence";
+    const { data: evidences, error: evidErr } = await supabase
+      .from("survey_evidences")
+      .select("id, file_url, mime_type, section")
+      .eq("survey_id", surveyId);
+    if (evidErr) console.warn("[cost-estimation] evidence load warning:", evidErr.message);
+    const evidenceList = (evidences ?? []).slice(0, MAX_PHOTO_INPUTS);
+    const imageParts = await Promise.all(
+      evidenceList.map((e) => toInlinePart(e.file_url, e.mime_type)),
+    );
+    const validImageParts = imageParts.filter((p): p is Exclude<typeof p, null> => p !== null);
+    log(step, { evidenceCount: evidenceList.length, validImages: validImageParts.length });
+
+    step = "call_gemini";
+    let gemini: GeminiPayload;
+    try {
+      gemini = await callGemini({
+        currentBand: evaluation.band,
+        triggeredRules: collectTriggeredRules(evaluation),
+        imageParts: validImageParts,
+      });
+    } catch (err) {
+      const message = (err as Error).message;
+      console.error("[cost-estimation] call_gemini failed:", message);
+      return NextResponse.json(
+        {
+          error: "Cost estimation unavailable — the planning model failed to respond. Please retry.",
+          details: message.slice(0, 500),
+          model: GEMINI_MODEL,
+          step,
+        },
+        { status: 502 },
+      );
+    }
+    log(step, {
+      tierCount: gemini.tiers?.length ?? 0,
+      adaptationsTotal: gemini.tiers?.reduce((s, t) => s + (t.adaptations?.length ?? 0), 0) ?? 0,
+    });
+
+    step = "build_tiers";
+    const seenBudgets = (gemini.tiers ?? []).map((t) => Number(t?.budget_gbp));
+    const seenAdaptCounts = (gemini.tiers ?? []).map((t) => t?.adaptations?.length ?? 0);
+    log("gemini_tiers_shape", {
+      seenBudgets,
+      seenAdaptCounts,
+      expectedBudgets: DFG_BUDGET_TIERS,
+    });
+    const tiers: TierPlan[] = DFG_BUDGET_TIERS.map((b) => {
+      // Tolerant match: model may stringify budget_gbp ("15000") or pad ("£15,000" sanitised).
+      const geminiTier = gemini.tiers?.find((t) => Number(t?.budget_gbp) === b);
+      return buildTier({ budget: b, geminiTier, survey });
+    });
+    log(step, {
+      tiers: tiers.map((t) => ({
+        budget: t.budgetGbp,
+        adaptations: t.adaptations.length,
+        cost: t.totalCostGbp,
+        band: t.potentialBand,
+      })),
+    });
+
+    const at30k = tiers.find((t) => t.budgetGbp === DFG_MAX_BUDGET);
+    const reachesBandAAt30k = at30k?.potentialBand === "A";
+
+    const estimation: CostEstimation = {
+      currentBand: evaluation.band,
+      tiers,
+      reachesBandAAt30k,
+      rationaleIfNotBandA: reachesBandAAt30k
+        ? undefined
+        : gemini.rationale_if_not_band_a ??
+          `Within £${DFG_MAX_BUDGET.toLocaleString()} this property reaches band ${
+            tiers[tiers.length - 1].potentialBand
+          }. Reaching band A would require further work beyond what visible evidence supports.`,
+      overallNarrative:
+        gemini.overall_narrative ??
+        `Current Accessible Housing Rules band is ${evaluation.band}. The plan above bundles bespoke adaptations to lift the property toward a higher band within each DFG tier.`,
+      confidence: clamp01(gemini.confidence ?? (validImageParts.length > 0 ? 0.65 : 0.45)),
+      generatedAt: new Date().toISOString(),
+      geminiModel: GEMINI_MODEL,
+      budgetCapGbp: DFG_MAX_BUDGET,
+    };
+
+    step = "persist_estimation";
+    await persistCostEstimation(supabase, surveyId, estimation);
+    log(step);
+
+    return NextResponse.json({ applicable: true, estimation });
+  } catch (err) {
+    const e = err as Error;
+    console.error(`[cost-estimation] uncaught at step="${step}":`, {
+      message: e?.message,
+      stack: e?.stack,
+      surveyId,
+    });
+    return NextResponse.json(
+      {
+        error: "Cost estimation failed unexpectedly.",
+        details: e?.message ?? String(err),
+        step,
+      },
+      { status: 500 },
+    );
+  }
+}
+
+function buildTier(args: {
+  budget: DfgBudgetGbp;
+  geminiTier: GeminiTier | undefined;
+  survey: Partial<SurveyRow>;
+}): TierPlan {
+  const { budget, geminiTier, survey } = args;
+  const fallback = (potentialBand: LahrBandId): TierPlan => ({
+    budgetGbp: budget,
+    totalCostGbp: 0,
+    totalDurationDays: 0,
+    overallDifficulty: "minor",
+    potentialBand,
+    adaptations: [],
+    droppedCandidates: [],
+  });
+
+  const currentBand = classifyLahr(survey).band;
+  if (!geminiTier?.adaptations?.length) {
+    console.warn(`[cost-estimation] buildTier(${budget}): no geminiTier match — using fallback`, {
+      hadGeminiTier: !!geminiTier,
+      adaptationCount: geminiTier?.adaptations?.length ?? 0,
+    });
+    return fallback(currentBand);
+  }
+
+  const adaptations: RemediationInstance[] = [];
+  let runningCost = 0;
+  let droppedForBudget = 0;
+  let droppedForLabel = 0;
+  for (const a of geminiTier.adaptations) {
+    if (!a.label) { droppedForLabel++; continue; }
+    const cost = sanitiseCost(a.cost_gbp);
+    if (runningCost + cost > budget) { droppedForBudget++; continue; } // Enforce the tier cap regardless of model arithmetic.
+    runningCost += cost;
+
+    adaptations.push({
+      label: String(a.label).slice(0, 200),
+      addressesRules: Array.isArray(a.addresses_rules)
+        ? a.addresses_rules.filter((n) => Number.isFinite(n)).map((n) => Math.trunc(n))
+        : [],
+      costGbp: cost,
+      durationDays: sanitiseDuration(a.duration_days),
+      difficulty: DIFFICULTIES.includes(a.difficulty as Difficulty)
+        ? (a.difficulty as Difficulty)
+        : "minor",
+      trades: Array.isArray(a.trades)
+        ? a.trades.filter((t): t is string => typeof t === "string").slice(0, 8)
+        : [],
+      narrative: typeof a.narrative === "string" ? a.narrative.slice(0, 600) : undefined,
+      preconditions: typeof a.preconditions === "string" ? a.preconditions.slice(0, 400) : undefined,
+      visualEvidenceConfidence:
+        typeof a.visual_evidence_confidence === "number"
+          ? clamp01(a.visual_evidence_confidence)
+          : undefined,
+      fieldPatches: a.field_patches && typeof a.field_patches === "object" ? a.field_patches : {},
+    });
+  }
+
+  const projectedBand = projectBandAfter(survey, adaptations);
+
+  console.log(`[cost-estimation] buildTier(${budget}):`, {
+    proposed: geminiTier.adaptations.length,
+    accepted: adaptations.length,
+    droppedForLabel,
+    droppedForBudget,
+    runningCost,
+    currentBand,
+    projectedBand,
+  });
+
+  // If the projected band somehow regressed below the current band, treat as a no-op tier.
+  if (rankOf(projectedBand) > rankOf(currentBand)) {
+    console.warn(`[cost-estimation] buildTier(${budget}): projected band regressed — using fallback`, {
+      currentBand,
+      projectedBand,
+    });
+    return fallback(currentBand);
+  }
+
+  const dropped = Array.isArray(geminiTier.dropped_candidates)
+    ? geminiTier.dropped_candidates
+        .filter((d): d is { label: string; reason?: string } => typeof d?.label === "string")
+        .map((d) => ({
+          label: d.label.slice(0, 200),
+          reason: typeof d.reason === "string" ? d.reason.slice(0, 400) : "Dropped by estimator.",
+        }))
+    : [];
+
+  return {
+    budgetGbp: budget,
+    totalCostGbp: runningCost,
+    totalDurationDays: adaptations.reduce((s, a) => s + a.durationDays, 0),
+    overallDifficulty: aggregateDifficulty(adaptations),
+    potentialBand: projectedBand,
+    adaptations,
+    droppedCandidates: dropped,
+  };
+}
+
+function sanitiseCost(value: unknown): number {
+  const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
+  return Math.max(0, Math.round(n));
+}
+
+function sanitiseDuration(value: unknown): number {
+  const n = typeof value === "number" && Number.isFinite(value) ? value : 1;
+  return Math.max(1, Math.round(n));
+}
+
+function clamp01(value: unknown): number {
+  const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
+  return Math.max(0, Math.min(1, n));
+}
+
+async function toInlinePart(
+  url: string | null | undefined,
+  mime: string | null | undefined,
+): Promise<{ inline_data: { mime_type: string; data: string } } | null> {
+  if (!url || !mime?.startsWith("image/")) return null;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.byteLength > 4 * 1024 * 1024) return null;
+    return { inline_data: { mime_type: mime, data: buf.toString("base64") } };
+  } catch {
+    return null;
+  }
+}
+
+async function callGemini(args: {
+  currentBand: LahrBandId;
+  triggeredRules: ReturnType<typeof collectTriggeredRules>;
+  imageParts: { inline_data: { mime_type: string; data: string } }[];
+}): Promise<GeminiPayload> {
+  const prompt = buildCostEstimationPrompt({
+    currentBand: args.currentBand,
+    triggeredRules: args.triggeredRules,
+    budgets: DFG_BUDGET_TIERS,
+  });
+
+  const parts: GeminiPart[] = [{ text: prompt }, ...args.imageParts];
+
+  const res = await fetchWithRetry(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts }],
+      generationConfig: {
+        temperature: 0.2,
+        // Bumped from 8K — the prompt asks for three tiers of bespoke prose, which can hit ~12K
+        // tokens. Truncation at 8K was producing unterminated arrays that broke JSON.parse.
+        maxOutputTokens: 32768,
+        responseMimeType: "application/json",
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Gemini ${res.status}: ${errorText.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+  const finishReason: string | undefined = data?.candidates?.[0]?.finishReason;
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error(
+      `Gemini returned no JSON object${finishReason ? ` (finishReason=${finishReason})` : ""}`,
+    );
+  }
+  const raw = jsonMatch[0];
+  try {
+    return JSON.parse(raw) as GeminiPayload;
+  } catch (parseErr) {
+    const repaired = repairJson(raw);
+    try {
+      return JSON.parse(repaired) as GeminiPayload;
+    } catch {
+      const reason = (parseErr as Error).message;
+      throw new Error(
+        `Gemini returned malformed JSON (${reason})${finishReason ? `; finishReason=${finishReason}` : ""}; length=${raw.length}`,
+      );
+    }
+  }
+}
+
+/**
+ * Best-effort repair for the JSON malformations Gemini produces despite responseMimeType:
+ * trailing commas, unterminated strings at truncation points, and missing closing brackets when
+ * the response was cut off. Not a general-purpose JSON repairer — scoped to what we observe.
+ */
+function repairJson(text: string): string {
+  let s = text.trim();
+  s = s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
+
+  const stack: string[] = [];
+  let inString = false;
+  let escape = false;
+  let lastSafeIndex = -1; // last index after a complete key:value or element
+
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (escape) { escape = false; continue; }
+    if (c === "\\") { escape = true; continue; }
+    if (c === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (c === "{" || c === "[") {
+      stack.push(c);
+    } else if (c === "}" || c === "]") {
+      stack.pop();
+      lastSafeIndex = i;
+    } else if (c === "," && stack.length > 0) {
+      lastSafeIndex = i - 1;
+    }
+  }
+
+  // If we ended inside a string, truncate back to the last safe element/comma boundary so we
+  // discard the partial token entirely instead of trying to close it.
+  if (inString && lastSafeIndex >= 0) {
+    s = s.slice(0, lastSafeIndex + 1);
+    // Recompute bracket stack against the truncated source.
+    stack.length = 0;
+    inString = false;
+    escape = false;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (escape) { escape = false; continue; }
+      if (c === "\\") { escape = true; continue; }
+      if (c === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (c === "{" || c === "[") stack.push(c);
+      else if (c === "}" || c === "]") stack.pop();
+    }
+  }
+
+  // Drop trailing commas before close brackets, then close any still-open containers.
+  s = s.replace(/,(\s*[}\]])/g, "$1");
+  while (stack.length) {
+    const open = stack.pop();
+    s += open === "{" ? "}" : "]";
+  }
+  return s;
+}
+
+async function fetchWithRetry(url: string, init: RequestInit, retries = 3): Promise<Response> {
+  let lastErr: unknown;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.status === 429) {
+        const wait = Math.pow(2, i) * 1000 + Math.random() * 500;
+        await new Promise((r) => setTimeout(r, wait));
+        continue;
+      }
+      return res;
+    } catch (err) {
+      lastErr = err;
+      const wait = Math.pow(2, i) * 1000;
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("Gemini fetch failed");
+}

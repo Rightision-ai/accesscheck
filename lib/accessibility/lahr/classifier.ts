@@ -42,7 +42,18 @@ const LENGTH_VAR_BY_SECTION: Record<string, string | undefined> = {
   second_exit: "SecondExitRampLength",
 };
 
-function evaluateSection(section: Section, env: RuleEnv): CriterionResult {
+function isDebugEnabled(): boolean {
+  if (typeof window !== "undefined") {
+    try {
+      return new URLSearchParams(window.location.search).get("debug") === "lahr";
+    } catch {
+      return false;
+    }
+  }
+  return process.env.LAHR_DEBUG === "1";
+}
+
+function evaluateSection(section: Section, env: RuleEnv, debug: boolean): CriterionResult {
   let sectionEnv = env;
   const lengthVar = LENGTH_VAR_BY_SECTION[section.id];
   if (lengthVar) {
@@ -71,6 +82,13 @@ function evaluateSection(section: Section, env: RuleEnv): CriterionResult {
     if (cappedBand === null || rankOf(rule.cap_band) > rankOf(cappedBand)) {
       cappedBand = rule.cap_band;
     }
+  }
+
+  if (debug) {
+    console.log(
+      `[lahr] section=${section.id} cap=${cappedBand ?? "—"} triggered=${triggered.length}`,
+      { rules: triggered.map((t) => `#${t.n} → ${t.capBand}`) },
+    );
   }
 
   const status: CriterionResult["status"] =
@@ -109,8 +127,17 @@ function highestAllowedBand(cappedBand: LahrBandId | null): LahrBandId {
 }
 
 export function classifyLahr(survey: Partial<SurveyRow> | null | undefined): LahrEvaluation {
+  const debug = isDebugEnabled();
   const env = buildRuleEnv(survey);
-  const results = SECTIONS.map((s) => evaluateSection(s, env));
+  if (debug) {
+    const populated = Object.fromEntries(
+      Object.entries(env).filter(([, v]) => v !== undefined && v !== null && v !== ""),
+    );
+    console.log("[lahr] env (non-empty keys):", populated);
+    const empty = Object.keys(env).filter((k) => env[k] === undefined);
+    console.log(`[lahr] env undefined: ${empty.length}/${Object.keys(env).length} keys`);
+  }
+  const results = SECTIONS.map((s) => evaluateSection(s, env, debug));
 
   // G-rules are informational only: surfaced as recommendations in the UI but
   // never forced to cap the overall band.
@@ -149,6 +176,12 @@ export function classifyLahr(survey: Partial<SurveyRow> | null | undefined): Lah
   }
 
   const confidence = nonGResults.every((r) => r.status !== "unknown") ? 1 : 0.5;
+
+  if (debug) {
+    console.log(
+      `[lahr] mainAccess=${mainAccess} secondExit=${secondExit ?? "—"} easiestAccess=${easiestAccess} → overall=${overall}`,
+    );
+  }
 
   return {
     band: overall,

@@ -47,5 +47,7 @@ export interface Case {
         userOverrides?: Record<string, any>;
         isLocked?: boolean;
         floorPlanDetection?: any;
+        surveyUpdatedAt?: string | null;
+        surveyRow?: any;
     };
 }

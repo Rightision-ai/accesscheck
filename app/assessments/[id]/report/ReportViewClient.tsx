@@ -6,8 +6,15 @@ import { useRouter } from 'next/navigation';
 import { saveSurveyClient } from '@/lib/surveys/client';
 import { Case } from '@/types/dashboard';
 import { toast } from 'sonner';
+import type { CostEstimation } from '@/lib/accessibility/cost-estimation/types';
 
-export default function ReportViewClient({ caseData }: { caseData: Case }) {
+export default function ReportViewClient({
+  caseData,
+  costEstimation,
+}: {
+  caseData: Case;
+  costEstimation?: CostEstimation | null;
+}) {
   const router = useRouter();
 
   const handleUpdateCase = async (updatedCase: Case) => {
@@ -28,6 +35,7 @@ export default function ReportViewClient({ caseData }: { caseData: Case }) {
   return (
     <ReportView
       caseData={caseData}
+      costEstimation={costEstimation}
       onBack={() => router.push('/')}
       onUpdateCase={handleUpdateCase}
     />

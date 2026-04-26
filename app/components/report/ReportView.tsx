@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Download,
   Printer,
@@ -21,13 +21,17 @@ import { Case } from "@/types/dashboard";
 import { ConfidenceBadge } from "../wizard/ConfidenceBadge";
 import LahrBandBadge from "@/app/components/common/LahrBandBadge";
 import LahrAppendix from "./LahrAppendix";
+import CostEstimationAppendix from "./CostEstimationAppendix";
 import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
+import { buildSurveyData } from "@/lib/surveys/buildSurveyData";
 import type { LahrBandId } from "@/lib/accessibility/lahr/types";
+import type { CostEstimation } from "@/lib/accessibility/cost-estimation/types";
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
 
 interface ReportViewProps {
   caseData: Case;
+  costEstimation?: CostEstimation | null;
   onBack: () => void;
   onUpdateCase: (updatedCase: Case) => void;
 }
@@ -54,13 +58,11 @@ const AHR_Header = ({
 }) => (
   <div className="border-b-4 border-violet-900 pb-4 mb-6">
     <div className="flex justify-between items-start gap-4 flex-wrap">
-      <div className="flex gap-4 items-center">
-        <div className="w-16 h-16 bg-violet-900 rounded-xl flex items-center justify-center text-white">
-          <Shield size={32} />
-        </div>
+      <div className="flex gap-4 rounded-xl items-center">
+        <img src="/logo.png" alt="Homingo" className="w-16 h-16 rounded-xl" />
         <div>
           <h1 className="text-2xl font-black text-slate-800 m-0 tracking-tight">
-            London AHR
+            Accessibility Housing Register
           </h1>
           <p className="text-xs text-violet-600 font-medium m-0 uppercase">
             OFFICIAL ACCESSIBILITY SURVEY REPORT
@@ -243,7 +245,7 @@ const ProfessionalSeal = () => (
         borderRadius: "12px",
       }}
     >
-      AHR LONDON
+      Homingo
       <br />
       CERTIFIED
       <br />
@@ -1185,6 +1187,7 @@ const FacilitiesCheck = ({
 
 const ReportView: React.FC<ReportViewProps> = ({
   caseData,
+  costEstimation = null,
   onBack,
   onUpdateCase,
 }) => {
@@ -1225,11 +1228,45 @@ const ReportView: React.FC<ReportViewProps> = ({
 
   const rawAhr = caseData.mlData?.rawAhr || {};
   const wizardData = caseData.mlData?.wizardData || {};
-  const lahrSurveySource =
-    (caseData.mlData as any)?.surveyRow ?? wizardData ?? null;
+  // Live row reflects unsaved edits; assessed row is the snapshot the band was last computed from.
+  // The user must click "Re-assess" to promote live → assessed.
+  const liveSurveyRow = useMemo(
+    () => buildSurveyData(wizardData, overrides, rawAhr, caseData, ""),
+    [wizardData, overrides, rawAhr, caseData],
+  );
+  const initialAssessedRow = useMemo(
+    () =>
+      (caseData.mlData as any)?.surveyRow ??
+      buildSurveyData(
+        wizardData,
+        caseData.mlData?.userOverrides || {},
+        rawAhr,
+        caseData,
+        "",
+      ),
+    // Only seed once per case load — overrides changes must not reset this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [caseData.id],
+  );
+  const [assessedSurveyRow, setAssessedSurveyRow] = useState<Record<
+    string,
+    any
+  > | null>(initialAssessedRow);
+  const lahrSurveySource = assessedSurveyRow ?? wizardData ?? null;
   const lahrEvaluation = lahrSurveySource
     ? classifyLahr(lahrSurveySource)
     : null;
+  const isAssessmentStale = useMemo(() => {
+    if (!assessedSurveyRow) return false;
+    try {
+      return (
+        JSON.stringify(liveSurveyRow) !== JSON.stringify(assessedSurveyRow)
+      );
+    } catch {
+      return false;
+    }
+  }, [liveSurveyRow, assessedSurveyRow]);
+  const reassessBand = () => setAssessedSurveyRow(liveSurveyRow);
   const analyzedAiSuggestions =
     wizardData.aiSuggestions ||
     caseData.mlData?.aiReport?.analysisData?.aiSuggestions ||
@@ -1356,49 +1393,123 @@ const ReportView: React.FC<ReportViewProps> = ({
     });
     const pdfWidth = 210;
     const pdfHeight = 297;
-    // A4 at 96 DPI is approx 794x1123
+    // A4 at 96 DPI is approx 794 × 1123 px.
     const pixelWidth = 794;
     const pixelHeight = 1123;
+    const scale = 2;
+
+    let isFirstPdfPage = true;
 
     for (let i = 0; i < pages.length; i++) {
-      if (i > 0) pdf.addPage();
       const page = pages[i] as HTMLElement;
 
-      // Clone to offscreen A4 container to ensure consistent rendering
       const tempContainer = document.createElement("div");
       tempContainer.style.position = "absolute";
       tempContainer.style.left = "-9999px";
       tempContainer.style.top = "0";
       tempContainer.style.width = `${pixelWidth}px`;
-      tempContainer.style.minHeight = `${pixelHeight}px`;
       document.body.appendChild(tempContainer);
 
       const clone = page.cloneNode(true) as HTMLElement;
       clone.style.width = "100%";
-      clone.style.minHeight = `${pixelHeight}px`;
       clone.style.margin = "0";
-      clone.style.padding = "40px"; // Ensure padding
+      clone.style.padding = "40px";
       clone.style.boxShadow = "none";
       clone.style.borderRadius = "0";
       clone.style.background = "#fff";
 
+      // Strip interactive/pdf-only-hidden elements from the clone before rasterising.
+      clone.querySelectorAll(".pdf-hide").forEach((el) => el.remove());
+
       tempContainer.appendChild(clone);
 
       try {
+        // Measure natural height; allow the page to be taller than A4 and split later.
+        const naturalHeight = Math.max(clone.scrollHeight, pixelHeight);
+
+        // Record break-unsafe zones (elements marked .pdf-avoid-break) BEFORE rasterising.
+        // Positions are converted to canvas-pixel space (× scale).
+        const cloneRect = clone.getBoundingClientRect();
+        const breakZones: { top: number; bottom: number }[] = Array.from(
+          clone.querySelectorAll(".pdf-avoid-break"),
+        )
+          .map((el) => {
+            const r = (el as HTMLElement).getBoundingClientRect();
+            return {
+              top: Math.max(0, (r.top - cloneRect.top) * scale),
+              bottom: (r.bottom - cloneRect.top) * scale,
+            };
+          })
+          .filter((z) => z.bottom > z.top)
+          .sort((a, b) => a.top - b.top);
+
         const canvas = await html2canvas(clone, {
-          scale: 2,
+          scale,
           useCORS: true,
           allowTaint: true,
           backgroundColor: "#ffffff",
           logging: false,
           width: pixelWidth,
-          height: pixelHeight,
+          height: naturalHeight,
           windowWidth: pixelWidth,
-          windowHeight: pixelHeight,
+          windowHeight: naturalHeight,
         });
 
-        const imgData = canvas.toDataURL("image/jpeg", 0.95);
-        pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+        const tileHeightPx = pixelHeight * scale;
+
+        // Move a proposed slice boundary up to the top of any .pdf-avoid-break zone
+        // it would otherwise bisect.
+        const safeCutPoint = (proposed: number, minAdvance: number): number => {
+          let cut = proposed;
+          for (const z of breakZones) {
+            if (cut > z.top && cut < z.bottom) cut = Math.floor(z.top);
+          }
+          return Math.max(minAdvance, cut);
+        };
+
+        let cursorY = 0;
+        while (cursorY < canvas.height) {
+          const proposedEnd = cursorY + tileHeightPx;
+          const end =
+            proposedEnd >= canvas.height
+              ? canvas.height
+              : safeCutPoint(
+                  proposedEnd,
+                  cursorY + Math.round(tileHeightPx * 0.35),
+                );
+          const sliceHeight = Math.min(end, canvas.height) - cursorY;
+          if (sliceHeight <= 0) break;
+
+          const tileCanvas = document.createElement("canvas");
+          tileCanvas.width = canvas.width;
+          tileCanvas.height = sliceHeight;
+          const ctx = tileCanvas.getContext("2d");
+          if (!ctx) {
+            cursorY += sliceHeight;
+            continue;
+          }
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, tileCanvas.width, tileCanvas.height);
+          ctx.drawImage(
+            canvas,
+            0,
+            cursorY,
+            canvas.width,
+            sliceHeight,
+            0,
+            0,
+            canvas.width,
+            sliceHeight,
+          );
+
+          const renderedHeight = (sliceHeight / tileHeightPx) * pdfHeight;
+          const imgData = tileCanvas.toDataURL("image/jpeg", 0.95);
+          if (!isFirstPdfPage) pdf.addPage();
+          pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, renderedHeight);
+          isFirstPdfPage = false;
+
+          cursorY += sliceHeight;
+        }
       } catch (e) {
         console.error("Page capture failed", e);
       } finally {
@@ -1485,22 +1596,29 @@ const ReportView: React.FC<ReportViewProps> = ({
         >
           <button
             onClick={handleSave}
-            disabled={isSaving || isLocked}
+            disabled={isSaving || isLocked || isAssessmentStale}
+            title={
+              isAssessmentStale
+                ? "Re-assess the band before saving — form inputs have changed."
+                : undefined
+            }
             style={{
               display: "flex",
               alignItems: "center",
               gap: "8px",
               border: "none",
-              background: isLocked ? "#94a3b8" : AHR_MODIFIED,
+              background:
+                isLocked || isAssessmentStale ? "#94a3b8" : AHR_MODIFIED,
               color: "#fff",
               padding: "12px 24px",
               borderRadius: "12px",
               fontWeight: "700",
-              cursor: isLocked ? "default" : "pointer",
-              boxShadow: isLocked
-                ? "none"
-                : "0 4px 15px rgba(5, 150, 105, 0.2)",
-              opacity: isSaving ? 0.7 : 1,
+              cursor: isLocked || isAssessmentStale ? "not-allowed" : "pointer",
+              boxShadow:
+                isLocked || isAssessmentStale
+                  ? "none"
+                  : "0 4px 15px rgba(5, 150, 105, 0.2)",
+              opacity: isSaving || isAssessmentStale ? 0.6 : 1,
             }}
           >
             {isSaving ? (
@@ -1514,20 +1632,28 @@ const ReportView: React.FC<ReportViewProps> = ({
           </button>
           <button
             onClick={handleDownloadPDF}
-            disabled={isDownloading}
+            disabled={isDownloading || isAssessmentStale}
+            title={
+              isAssessmentStale
+                ? "Re-assess the band before downloading — form inputs have changed."
+                : undefined
+            }
             style={{
               display: "flex",
               alignItems: "center",
               gap: "8px",
               border: "none",
-              background: AHR_VIOLET,
+              background: isAssessmentStale ? "#94a3b8" : AHR_VIOLET,
               color: "#fff",
               padding: "12px 24px",
               borderRadius: "12px",
               fontWeight: "700",
-              cursor: isDownloading ? "not-allowed" : "pointer",
-              boxShadow: "0 4px 15px rgba(124, 58, 237, 0.2)",
-              opacity: isDownloading ? 0.7 : 1,
+              cursor:
+                isDownloading || isAssessmentStale ? "not-allowed" : "pointer",
+              boxShadow: isAssessmentStale
+                ? "none"
+                : "0 4px 15px rgba(124, 58, 237, 0.2)",
+              opacity: isDownloading || isAssessmentStale ? 0.6 : 1,
             }}
           >
             <Download size={18} />{" "}
@@ -1535,19 +1661,27 @@ const ReportView: React.FC<ReportViewProps> = ({
           </button>
           <button
             onClick={handlePrintPDF}
-            disabled={isDownloading}
+            disabled={isDownloading || isAssessmentStale}
+            title={
+              isAssessmentStale
+                ? "Re-assess the band before printing — form inputs have changed."
+                : undefined
+            }
             style={{
               display: "flex",
               alignItems: "center",
               gap: "8px",
               border: "none",
-              background: "#fff",
+              background: isAssessmentStale ? "#e2e8f0" : "#fff",
               padding: "12px 24px",
               borderRadius: "12px",
               fontWeight: "700",
-              cursor: isDownloading ? "not-allowed" : "pointer",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
-              opacity: isDownloading ? 0.7 : 1,
+              cursor:
+                isDownloading || isAssessmentStale ? "not-allowed" : "pointer",
+              boxShadow: isAssessmentStale
+                ? "none"
+                : "0 2px 10px rgba(0,0,0,0.05)",
+              opacity: isDownloading || isAssessmentStale ? 0.6 : 1,
             }}
           >
             <Printer size={18} />{" "}
@@ -1555,6 +1689,56 @@ const ReportView: React.FC<ReportViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Sticky re-assess banner — visible above every page while scrolling. */}
+      {isAssessmentStale && (
+        <div
+          className="no-print"
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 50,
+            maxWidth: "1000px",
+            margin: "0 auto 12px",
+            padding: "10px 14px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            borderRadius: 10,
+            border: "1px solid #fcd34d",
+            background: "#fffbeb",
+            color: "#78350f",
+            fontSize: 13,
+            fontWeight: 600,
+            boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+          }}
+        >
+          <span>
+            Form inputs have changed. Re-assess the band to refresh the score
+            and the DFG adoption plan, then save, download, or print.
+          </span>
+          <button
+            type="button"
+            onClick={reassessBand}
+            style={{
+              flexShrink: 0,
+              padding: "8px 16px",
+              borderRadius: 8,
+              border: "1px solid #d97706",
+              background: "#f59e0b",
+              color: "#1c1917",
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+            }}
+          >
+            Re-assess band
+          </button>
+        </div>
+      )}
 
       {/* Modals */}
       <AHR_InputModal
@@ -1598,37 +1782,37 @@ const ReportView: React.FC<ReportViewProps> = ({
             gap: "20px",
           }}
         >
-        {/* --- PAGE 1: CORE DATA & ELIGIBILITY --- */}
-        <div
-          className="ahr-page"
-          style={{
-            background: "#fff",
-            padding: "30px 40px",
-            borderRadius: "24px",
-            boxShadow: "0 10px 40px rgba(0,0,0,0.04)",
-          }}
-        >
-          <AHR_Header
-            address={caseData.address}
-            id={caseData.id}
-            date={caseData.assessmentDate || "2026-02-12"}
-            uprn={rawAhr.meta_data?.uprn}
-            lahrBand={lahrEvaluation?.band ?? null}
-          />
-
-          {/* COMPLIANCE SUMMARY (Enterprise Feature) */}
-          {(caseData.mlData as any)?.riskAssessment && (
-            <ComplianceSummary
-              grade={(
-                caseData.mlData as any
-              ).riskAssessment.overallGrade.replace("GRADE_", "")}
-              risks={(caseData.mlData as any).riskAssessment.riskFactors}
-              confidence={
-                (caseData.mlData as any).aiReport?.Confidence || "MEDIUM"
-              }
-              summary={(caseData.mlData as any).riskAssessment.summary}
+          {/* --- PAGE 1: CORE DATA & ELIGIBILITY --- */}
+          <div
+            className="ahr-page"
+            style={{
+              background: "#fff",
+              padding: "30px 40px",
+              borderRadius: "24px",
+              boxShadow: "0 10px 40px rgba(0,0,0,0.04)",
+            }}
+          >
+            <AHR_Header
+              address={caseData.address}
+              id={caseData.id}
+              date={caseData.assessmentDate || "2026-02-12"}
+              uprn={rawAhr.meta_data?.uprn}
+              lahrBand={lahrEvaluation?.band ?? null}
             />
-          )}
+
+            {/* COMPLIANCE SUMMARY (Enterprise Feature) */}
+            {(caseData.mlData as any)?.riskAssessment && (
+              <ComplianceSummary
+                grade={(
+                  caseData.mlData as any
+                ).riskAssessment.overallGrade.replace("GRADE_", "")}
+                risks={(caseData.mlData as any).riskAssessment.riskFactors}
+                confidence={
+                  (caseData.mlData as any).aiReport?.Confidence || "MEDIUM"
+                }
+                summary={(caseData.mlData as any).riskAssessment.summary}
+              />
+            )}
 
             <SectionBlock title="SECTION A" number="">
               <div
@@ -9616,7 +9800,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       marginTop: "8px",
                     }}
                   >
-                    RHS / AHR Registered Professional
+                    Registered Professional
                   </div>
                 </div>
                 <ProfessionalSeal />
@@ -9763,7 +9947,7 @@ const ReportView: React.FC<ReportViewProps> = ({
             ));
           })()}
 
-          {/* --- FINAL PAGE: LAHR APPENDIX --- */}
+          {/* --- FINAL PAGE: ACCESSIBLE HOUSING RULES APPENDIX --- */}
           {lahrSurveySource ? (
             <div
               className="ahr-page"
@@ -9777,6 +9961,30 @@ const ReportView: React.FC<ReportViewProps> = ({
               <LahrAppendix
                 survey={lahrSurveySource}
                 annotations={(caseData.mlData as any)?.surveyAnnotations ?? []}
+              />
+            </div>
+          ) : null}
+
+          {/* --- DFG ADOPTION PLAN (cost + potential band) --- */}
+          {lahrEvaluation &&
+          lahrEvaluation.band !== "A" &&
+          Number.isFinite(Number(caseData.id)) ? (
+            <div
+              className="ahr-page"
+              style={{
+                background: "#fff",
+                padding: "50px 70px",
+                borderRadius: "24px",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.04)",
+                marginTop: 32,
+              }}
+            >
+              <CostEstimationAppendix
+                surveyId={Number(caseData.id)}
+                currentBand={lahrEvaluation.band}
+                estimation={costEstimation}
+                surveyUpdatedAt={caseData.mlData?.surveyUpdatedAt ?? null}
+                inputsDirty={isAssessmentStale}
               />
             </div>
           ) : null}

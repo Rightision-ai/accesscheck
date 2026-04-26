@@ -3,6 +3,7 @@ import { getUser } from "@/lib/auth/actions";
 import { redirect } from "next/navigation";
 import CaseDetailView from "./CaseDetailView";
 import { mapSurveyToCase } from "@/lib/surveys/mapper";
+import { loadCostEstimation } from "@/lib/accessibility/cost-estimation/repository";
 
 export default async function CasePage({
   params,
@@ -37,6 +38,7 @@ export default async function CasePage({
   }
 
   const caseData = mapSurveyToCase(survey);
+  const costEstimation = await loadCostEstimation(supabase, surveyId);
 
-  return <CaseDetailView caseData={caseData} />;
+  return <CaseDetailView caseData={caseData} costEstimation={costEstimation} />;
 }

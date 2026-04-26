@@ -29,10 +29,96 @@ import {
 import { cn } from "@/lib/utils/cn";
 import LahrBandBadge from "@/app/components/common/LahrBandBadge";
 import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
-import { LAHR_BAND_BY_ID } from "@/lib/accessibility/lahr/types";
+import CostEstimationRows from "@/app/components/report/CostEstimationRows";
+import type { CostEstimation } from "@/lib/accessibility/cost-estimation/types";
+import {
+  LAHR_BAND_BY_ID,
+  type LahrBandId,
+} from "@/lib/accessibility/lahr/types";
+
+/**
+ * Plain-English audience profile per band — what the home actually serves and where it falls
+ * short. Drives the "Suitable for / Not suitable for" panel in the Why-this-grade card.
+ */
+const BAND_SUITABILITY: Record<
+  LahrBandId,
+  { suitableFor: string[]; notSuitableFor: string[] }
+> = {
+  A: {
+    suitableFor: [
+      "Full-time wheelchair users (manual or powered)",
+      "Tenants needing carer transfers in every room",
+      "Long-term occupancy with progressive mobility needs",
+    ],
+    notSuitableFor: ["(none — this is the highest accessibility band)"],
+  },
+  B: {
+    suitableFor: [
+      "Wheelchair users who need access to essential rooms (1 bedroom, bathroom, toilet, kitchen, living room)",
+      "Tenants with carer support for non-essential rooms",
+    ],
+    notSuitableFor: [
+      "Tenants needing wheelchair access to every bedroom or upper floors without a lift",
+    ],
+  },
+  C: {
+    suitableFor: [
+      "Ambulant disabled tenants and older people",
+      "Wheelchair users for the ground floor; future-proofed for stair-lift retrofit",
+      "Households planning to age in place",
+    ],
+    notSuitableFor: [
+      "Full-time power-chair users requiring wheelchair-grade clearances throughout",
+    ],
+  },
+  D: {
+    suitableFor: [
+      "Older tenants with mild-to-moderate mobility limitations",
+      "Ambulant disabled tenants who can manage stairs with handrails",
+    ],
+    notSuitableFor: [
+      "Wheelchair users",
+      "Tenants who cannot negotiate even a small step at the entrance",
+    ],
+  },
+  E: {
+    suitableFor: [
+      "Ambulant tenants with limited mobility",
+      "Tenants who use a stick or frame on flat surfaces",
+    ],
+    notSuitableFor: [
+      "Wheelchair users",
+      "Tenants needing turning space in kitchen / bathroom",
+    ],
+  },
+  "E+": {
+    suitableFor: [
+      "Tenants with minor mobility issues who can manage up to four entrance steps",
+    ],
+    notSuitableFor: [
+      "Wheelchair users",
+      "Tenants who cannot climb steps unaided",
+    ],
+  },
+  F: {
+    suitableFor: ["Fully ambulant tenants with no mobility limitations"],
+    notSuitableFor: [
+      "Wheelchair users",
+      "Older or disabled tenants with reduced mobility",
+      "Tenants requiring level access at the front door",
+    ],
+  },
+  G: {
+    suitableFor: ["Cannot be determined — assessment data is incomplete"],
+    notSuitableFor: [
+      "Cannot be determined — fill in the missing fields to re-classify",
+    ],
+  },
+};
 
 interface CaseDetailViewProps {
   caseData: Case;
+  costEstimation?: CostEstimation | null;
 }
 
 function toBulletItems(text: string | undefined): string[] {
@@ -66,7 +152,10 @@ function SummaryBulletList({
   );
 }
 
-const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
+const CaseDetailView: React.FC<CaseDetailViewProps> = ({
+  caseData,
+  costEstimation = null,
+}) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"details" | "ahr">("details");
   const [propertyCoords, setPropertyCoords] = useState<{
@@ -365,21 +454,167 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
               )}
             </div>
 
-            {lahrBand &&
-              (caseData.accessibilityReasons?.length ?? 0) > 0 && (
-                <div className="bg-white rounded-2xl border border-slate-200 p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Info size={18} className="text-violet-600" />
-                    <h2 className="text-base font-bold text-slate-900 m-0">
-                      Why this grade?
-                    </h2>
-                  </div>
-                  <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1 m-0">
-                    {caseData.accessibilityReasons!.map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
+            {lahrBand && lahrBandDef && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-5">
+                <div className="flex items-center gap-2">
+                  <Info size={18} className="text-violet-600" />
+                  <h2 className="text-base font-bold text-slate-900 m-0">
+                    Why this grade?
+                  </h2>
                 </div>
+
+                {/* What this band means */}
+                <section className="space-y-1">
+                  <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    What this grade means
+                  </h3>
+                  <p
+                    className="text-sm font-bold leading-snug m-0"
+                    style={{ color: lahrBandDef.color }}
+                  >
+                    {lahrBandDef.label}
+                  </p>
+                  <p className="text-sm leading-relaxed text-slate-700 m-0">
+                    {lahrBandDef.description}
+                  </p>
+                  {lahrBandDef.standard && (
+                    <p className="text-[12px] text-slate-500 m-0">
+                      <span className="font-semibold">Satisfies:</span>{" "}
+                      {lahrBandDef.standard}
+                    </p>
+                  )}
+                </section>
+
+                {/* Suitable for / Not suitable for */}
+                <section className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <CheckCircle size={14} className="text-emerald-600" />
+                      <h3 className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 m-0">
+                        Suitable for
+                      </h3>
+                    </div>
+                    <ul className="list-disc pl-5 text-[13px] text-slate-700 space-y-1 m-0">
+                      {BAND_SUITABILITY[lahrBand].suitableFor.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="rounded-lg border border-rose-200 bg-rose-50/40 p-3">
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <X size={14} className="text-rose-600" />
+                      <h3 className="text-[11px] font-bold uppercase tracking-wider text-rose-800 m-0">
+                        Not suitable for
+                      </h3>
+                    </div>
+                    <ul className="list-disc pl-5 text-[13px] text-slate-700 space-y-1 m-0">
+                      {BAND_SUITABILITY[lahrBand].notSuitableFor.map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </section>
+
+                {/* What's currently capping this rating — pulled from triggered rules */}
+                {(() => {
+                  const cappingSections =
+                    lahrEvaluation?.criteria.filter(
+                      (c) => c.triggeredRules.length > 0 && c.id !== "g_rules",
+                    ) ?? [];
+                  const fallbackReasons = caseData.accessibilityReasons ?? [];
+                  if (
+                    cappingSections.length === 0 &&
+                    fallbackReasons.length === 0
+                  ) {
+                    return null;
+                  }
+                  return (
+                    <section className="space-y-2">
+                      <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        What's holding this grade back
+                      </h3>
+                      {cappingSections.length > 0 ? (
+                        <ul className="space-y-2 m-0">
+                          {cappingSections.map((c) => (
+                            <li
+                              key={c.id}
+                              className="rounded-md border border-slate-200 bg-slate-50/60 p-3"
+                            >
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <span className="text-[13px] font-semibold text-slate-800">
+                                  {c.label}
+                                </span>
+                                {c.cappedBand && (
+                                  <span
+                                    className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white"
+                                    style={{
+                                      backgroundColor:
+                                        LAHR_BAND_BY_ID[c.cappedBand].color,
+                                    }}
+                                  >
+                                    Caps at {c.cappedBand}
+                                  </span>
+                                )}
+                              </div>
+                              <ul className="list-disc pl-5 text-[12px] text-slate-600 space-y-0.5 m-0">
+                                {c.triggeredRules.slice(0, 3).map((r) => (
+                                  <li key={r.n}>{r.description}</li>
+                                ))}
+                                {c.triggeredRules.length > 3 && (
+                                  <li className="text-slate-400">
+                                    + {c.triggeredRules.length - 3} more rule
+                                    {c.triggeredRules.length - 3 === 1
+                                      ? ""
+                                      : "s"}
+                                  </li>
+                                )}
+                              </ul>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1 m-0">
+                          {fallbackReasons.map((r, i) => (
+                            <li key={i}>{r}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </section>
+                  );
+                })()}
+
+                {/* Pointer to the DFG plan for what could change */}
+                {lahrBand !== "A" && lahrBand !== "G" && (
+                  <section className="rounded-md border border-violet-200 bg-violet-50/50 p-3">
+                    <div className="flex items-start gap-2">
+                      <Info
+                        size={14}
+                        className="text-violet-600 mt-0.5 shrink-0"
+                      />
+                      <p className="text-[12px] leading-relaxed text-slate-700 m-0">
+                        <span className="font-semibold text-violet-900">
+                          Potential changes:
+                        </span>{" "}
+                        the DFG Adoption Plan below shows the bespoke
+                        adaptations that could lift this property's rating
+                        within the £15K, £20K, and £30K Disabled Facilities
+                        Grant tiers.
+                      </p>
+                    </div>
+                  </section>
+                )}
+              </div>
+            )}
+
+            {lahrBand &&
+              lahrBand !== "A" &&
+              Number.isFinite(Number(caseData.id)) && (
+                <CostEstimationRows
+                  surveyId={Number(caseData.id)}
+                  currentBand={lahrBand}
+                  estimation={costEstimation}
+                  surveyUpdatedAt={caseData.mlData?.surveyUpdatedAt ?? null}
+                />
               )}
 
             {/* AI Analysis Summary */}
@@ -486,8 +721,8 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({ caseData }) => {
                       className="w-full max-h-[320px] object-contain rounded-lg"
                     />
                     <p className="mt-2 text-[11px] text-center text-slate-500 font-semibold">
-                      Homingo AI Vision: Spatial Mapping Applied (M4
-                      Compliance Verified)
+                      Homingo AI Vision: Spatial Mapping Applied (M4 Compliance
+                      Verified)
                     </p>
                   </div>
                 ) : (

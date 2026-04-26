@@ -79,7 +79,7 @@ const LahrBandBadge: React.FC<LahrBandBadgeProps> = ({
                 backgroundColor: isActive ? color : "transparent",
                 border: isActive ? "none" : "2px solid #cbd5e1",
               }}
-              aria-label={isActive ? `LAHR band ${g}` : undefined}
+              aria-label={isActive ? `Accessible Housing Rules band ${g}` : undefined}
               title={isActive ? def?.label : g}
             >
               {g}
@@ -96,11 +96,11 @@ const LahrBandBadge: React.FC<LahrBandBadgeProps> = ({
           />
           <span
             className={cn(
-              "bg-white font-black text-slate-900 uppercase",
+              "bg-white font-black text-slate-900 uppercase whitespace-nowrap",
               sizing.label,
             )}
           >
-            ACCESSIBILITY
+            {def?.label ?? "Accessible Housing Rules"}
           </span>
           <span
             className={cn("shrink-0", sizing.connector)}
