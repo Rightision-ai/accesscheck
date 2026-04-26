@@ -154,8 +154,10 @@ export default function CostEstimationRows({
         </div>
       )}
 
-      {!estimation ? (
-        <EmptyState isLoading={isRefreshing} />
+      {isRefreshing ? (
+        <EmptyState isLoading={true} />
+      ) : !estimation ? (
+        <EmptyState isLoading={false} />
       ) : (
         (() => {
           const populatedTiers = estimation.tiers.filter(
@@ -193,7 +195,7 @@ function EmptyState({ isLoading }: { isLoading: boolean }) {
       {isLoading ? (
         <>
           <Loader2 size={18} className="animate-spin text-violet-500" />
-          <span>Generating adoption plan — this takes 20–40 seconds.</span>
+          <span>Generating adoption plan — this can take 30–60 seconds.</span>
         </>
       ) : (
         <span>Adoption plan not generated yet. Click Generate above.</span>

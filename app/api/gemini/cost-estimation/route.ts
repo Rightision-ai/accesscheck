@@ -30,10 +30,10 @@ import type { Database } from "@/types/supabase";
 type SurveyRow = Database["public"]["Tables"]["surveys"]["Row"];
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-// 2.5 Flash returns in 5-10s vs ~30s for Pro on this prompt — critical for fitting under
-// Vercel's serverless timeout. Quality is similar for structured planning / JSON output.
-// Override via GEMINI_COST_MODEL env var if you want to test Pro again.
-const GEMINI_MODEL = process.env.GEMINI_COST_MODEL || "gemini-2.5-flash";
+// Pro produces richer narratives. Safe to use here because the route is now async — POST
+// returns 202 immediately and the Gemini call runs in the background via `after()`, so the
+// 30-60s response time no longer triggers gateway timeouts. Override via GEMINI_COST_MODEL.
+const GEMINI_MODEL = process.env.GEMINI_COST_MODEL || "gemini-2.5-pro";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const MAX_PHOTO_INPUTS = 3;
 const DIFFICULTIES: Difficulty[] = ["minor", "moderate", "major"];
