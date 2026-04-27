@@ -85,7 +85,13 @@ export function buildRuleEnv(survey: MaybeSurvey): RuleEnv {
     WidthofStairs: s.stair_width_cm ?? undefined,
     WidthofStairs1: s.stair_width_cm ?? undefined,
     MoreThan70cm: yesNo(s.stair_70cm_clearance ?? null),
-    InternalSteps: s.internal_steps_count ?? undefined,
+    // LAHR rule 87 ("Any internal steps makes the property F") is about *non-stair* internal
+    // floor-level changes — the comparison table on p24-26 of the LAHR good practice guide
+    // separates "Internal steps (not stairs)" from stair count. We don't capture non-stair
+    // floor-level changes in the wizard or AI extraction, so we hard-code 0 here. The stair
+    // step count lives on `s.internal_steps_count` and drives the section-D STOP NOWs and
+    // rules 44-48 (which correctly account for stair lifts / through-floor lifts).
+    InternalSteps: 0,
 
     CommunalFrontDoor: yesNo(s.has_communal_front_door ?? null),
     CommunalFrontDoorNumSteps: s.communal_door_steps_count ?? undefined,

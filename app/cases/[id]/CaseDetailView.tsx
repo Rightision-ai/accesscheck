@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Case } from "@/types/dashboard";
 import ReportView from "@/app/components/report/ReportView";
 import { useRouter } from "next/navigation";
@@ -29,8 +29,10 @@ import {
 import { cn } from "@/lib/utils/cn";
 import LahrBandBadge from "@/app/components/common/LahrBandBadge";
 import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
+import { buildSurveyData } from "@/lib/surveys/buildSurveyData";
 import CostEstimationRows from "@/app/components/report/CostEstimationRows";
 import type { CostEstimation } from "@/lib/accessibility/cost-estimation/types";
+import { pollCostEstimation } from "@/lib/accessibility/cost-estimation/client";
 import {
   LAHR_BAND_BY_ID,
   type LahrBandId,
@@ -119,6 +121,9 @@ const BAND_SUITABILITY: Record<
 interface CaseDetailViewProps {
   caseData: Case;
   costEstimation?: CostEstimation | null;
+  /** Server-known background job state. When "pending", a regen is in flight server-side and
+   *  the persisted plan is the stale one — we should show the loading state instead. */
+  costEstimationJobStatus?: "pending" | "failed" | null;
 }
 
 function toBulletItems(text: string | undefined): string[] {
@@ -155,15 +160,49 @@ function SummaryBulletList({
 const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   caseData,
   costEstimation = null,
+  costEstimationJobStatus = null,
 }) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"details" | "ahr">("details");
   // Lifted out of the tab-children so that whichever tab triggers a regeneration shares the
   // result with the other. Without this, switching tabs unmounts each child, the prop reverts
   // to the server-loaded snapshot, and `autoGenerateIfMissing` fires another redundant POST.
+  // When the server reports a pending regen on first paint we deliberately ignore the loaded
+  // estimation — it's the stale "previous" plan and the children should show the loading
+  // overlay until the background job finishes.
   const [sharedCostEstimation, setSharedCostEstimation] = useState<
     CostEstimation | null | undefined
-  >(costEstimation);
+  >(costEstimationJobStatus === "pending" ? null : costEstimation);
+  const [isResumingRegen, setIsResumingRegen] = useState(
+    costEstimationJobStatus === "pending",
+  );
+
+  // Resume polling when we land on the page mid-regen (e.g. user refreshed during the 30-60s
+  // background job). We don't POST again — the server's `after()` callback is already running
+  // the work — we just poll until it resolves.
+  useEffect(() => {
+    if (!isResumingRegen) return;
+    const surveyId = Number(caseData.id);
+    if (!Number.isFinite(surveyId)) return;
+    let cancelled = false;
+    pollCostEstimation(surveyId)
+      .then((estimation: CostEstimation) => {
+        if (cancelled) return;
+        setSharedCostEstimation(estimation);
+        setIsResumingRegen(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Background job failed or polling timed out — fall back to whatever was persisted
+        // (likely the previous plan) so the user at least sees something.
+        setSharedCostEstimation(costEstimation);
+        setIsResumingRegen(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [propertyCoords, setPropertyCoords] = useState<{
     lat: number;
     lon: number;
@@ -172,8 +211,21 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   const [evidenceIndex, setEvidenceIndex] = useState(0);
   const { aiReport, wizardData } = caseData.mlData || {};
   const summary = aiReport?.Summary;
-  const lahrSurveySource =
-    (caseData.mlData as any)?.surveyRow ?? wizardData ?? null;
+  // Build the same row the report tab classifies against, so both tabs always show the same
+  // Accessible Housing Rules band. Using the persisted `mlData.surveyRow` here would drift
+  // from `buildSurveyData(...)` output and the two views could disagree.
+  const overviewSurveyRow = useMemo(
+    () =>
+      buildSurveyData(
+        caseData.mlData?.wizardData || {},
+        caseData.mlData?.userOverrides || {},
+        caseData.mlData?.rawAhr || {},
+        caseData,
+        "",
+      ),
+    [caseData],
+  );
+  const lahrSurveySource = overviewSurveyRow ?? null;
   const lahrEvaluation = lahrSurveySource
     ? classifyLahr(lahrSurveySource)
     : null;
@@ -621,6 +673,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                   estimation={sharedCostEstimation}
                   onEstimationChange={setSharedCostEstimation}
                   surveyUpdatedAt={caseData.mlData?.surveyUpdatedAt ?? null}
+                  forceLoading={isResumingRegen}
                 />
               )}
 
@@ -783,6 +836,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
               caseData={caseData}
               costEstimation={sharedCostEstimation}
               onCostEstimationChange={setSharedCostEstimation}
+              costEstimationForceLoading={isResumingRegen}
               onCaseSaved={() => router.refresh()}
               onBack={() => setActiveTab("details")}
               onUpdateCase={handleUpdateCase}

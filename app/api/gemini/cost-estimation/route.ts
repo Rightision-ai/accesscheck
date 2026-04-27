@@ -176,6 +176,28 @@ export async function POST(req: NextRequest) {
         const geminiTier = gemini.tiers?.find((t) => Number(t?.budget_gbp) === b);
         return buildTier({ budget: b, geminiTier, survey });
       });
+
+      // Enforce monotonic band uplift across budget tiers. Spending more should never project
+      // a worse band — but Gemini occasionally proposes weaker bundles at the higher tier
+      // (different choice of adaptations, model arithmetic drift). When that happens we copy
+      // the better lower-tier plan up, keeping the higher tier's budget label.
+      for (let i = 1; i < tiers.length; i++) {
+        const prev = tiers[i - 1];
+        const curr = tiers[i];
+        if (rankOf(curr.potentialBand) > rankOf(prev.potentialBand)) {
+          console.warn(
+            `[cost-estimation] tier ${curr.budgetGbp} regressed below tier ${prev.budgetGbp}` +
+              ` (${curr.potentialBand} vs ${prev.potentialBand}). Cloning the better plan.`,
+          );
+          tiers[i] = {
+            ...prev,
+            budgetGbp: curr.budgetGbp,
+            // Don't carry the old tier's unavailableReason if any.
+            unavailableReason: undefined,
+          };
+        }
+      }
+
       log(step, {
         tiers: tiers.map((t) => ({
           budget: t.budgetGbp,
@@ -267,22 +289,18 @@ async function writeJobStatus(
   surveyId: number,
   job: JobStatus | null,
 ): Promise<void> {
-  // Read current raw_ai_data, merge the marker in, write back. JSONB-safe and migration-free.
-  const { data, error } = await supabase
+  // Dedicated column (added by migration 20260427120000) — the surveys touch trigger ignores
+  // this column so completion writes don't bump updated_at and don't trigger the false-stale
+  // Re-assess banner.
+  await (supabase as unknown as {
+    from: (t: string) => {
+      update: (v: Record<string, unknown>) => {
+        eq: (col: string, val: unknown) => Promise<unknown>;
+      };
+    };
+  })
     .from("surveys")
-    .select("raw_ai_data")
-    .eq("id", surveyId)
-    .single();
-  if (error || !data) return;
-  const raw = (data.raw_ai_data ?? {}) as Record<string, unknown>;
-  if (job === null) {
-    delete raw.cost_estimation_status;
-  } else {
-    raw.cost_estimation_status = job;
-  }
-  await supabase
-    .from("surveys")
-    .update({ raw_ai_data: raw as Database["public"]["Tables"]["surveys"]["Update"]["raw_ai_data"] })
+    .update({ cost_estimation_status: job })
     .eq("id", surveyId);
 }
 
@@ -290,14 +308,20 @@ async function readJobStatus(
   supabase: SupabaseClient<Database>,
   surveyId: number,
 ): Promise<JobStatus | null> {
-  const { data } = await supabase
+  const { data } = await (supabase as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        eq: (col: string, val: unknown) => {
+          single: () => Promise<{ data: { cost_estimation_status: JobStatus | null } | null }>;
+        };
+      };
+    };
+  })
     .from("surveys")
-    .select("raw_ai_data")
+    .select("cost_estimation_status")
     .eq("id", surveyId)
     .single();
-  const raw = (data?.raw_ai_data ?? {}) as Record<string, unknown>;
-  const job = raw.cost_estimation_status as JobStatus | undefined;
-  return job ?? null;
+  return data?.cost_estimation_status ?? null;
 }
 
 function buildTier(args: {

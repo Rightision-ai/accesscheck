@@ -30,6 +30,9 @@ type Props = {
   /** Bubble new estimations up so a parent can share them across siblings (e.g. report tab vs.
    *  overview tab) and avoid redundant regenerations. */
   onEstimationChange?: (next: CostEstimation | null) => void;
+  /** Parent owns a regen in flight (e.g. user landed mid-job from a refresh). When true the
+   *  component renders the loading state and ignores its own estimation prop. */
+  forceLoading?: boolean;
 };
 
 const DIFFICULTY_COLOR: Record<string, string> = {
@@ -45,6 +48,7 @@ export default function CostEstimationRows({
   autoGenerateIfMissing = true,
   surveyUpdatedAt = null,
   onEstimationChange,
+  forceLoading = false,
 }: Props) {
   const [estimation, _setEstimation] = useState<
     CostEstimation | null | undefined
@@ -99,7 +103,8 @@ export default function CostEstimationRows({
       !estimation &&
       currentBand !== "A" &&
       !autoFiredRef.current &&
-      !isRefreshing
+      !isRefreshing &&
+      !forceLoading
     ) {
       autoFiredRef.current = true;
       void reEstimate();
@@ -110,6 +115,7 @@ export default function CostEstimationRows({
     currentBand,
     isRefreshing,
     reEstimate,
+    forceLoading,
   ]);
 
   if (currentBand === "A") return null;
@@ -172,7 +178,7 @@ export default function CostEstimationRows({
         </div>
       )}
 
-      {isRefreshing ? (
+      {forceLoading || isRefreshing ? (
         <EmptyState isLoading={true} />
       ) : !estimation ? (
         <EmptyState isLoading={false} />
