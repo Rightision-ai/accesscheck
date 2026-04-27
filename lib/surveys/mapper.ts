@@ -1,13 +1,4 @@
-import { Case, AccessibilityGrade } from "@/types/dashboard";
-import { LEGEND } from "@/lib/accessibility/flowchart";
-
-const VALID_GRADES: ReadonlySet<AccessibilityGrade> = new Set([
-  "A+",
-  "A-",
-  "B+",
-  "B-",
-  "C",
-]);
+import { Case } from "@/types/dashboard";
 
 /**
  * Merges survey DB columns (stored in mm) into mlData so the report displays mm values.
@@ -58,13 +49,6 @@ function mergeSurveyWidthsIntoMlData(mlData: Record<string, any>, s: any): void 
 }
 
 export function mapSurveyToCase(s: any): Case {
-  const grade =
-    s.raw_ai_data?.accessibility?.grade ??
-    (s.overall_grade && VALID_GRADES.has(s.overall_grade)
-      ? (s.overall_grade as AccessibilityGrade)
-      : null);
-  const accessibilityGrade: AccessibilityGrade | null =
-    grade && VALID_GRADES.has(grade) ? (grade as AccessibilityGrade) : null;
   const clonedRawAiData: Record<string, any> = s.raw_ai_data
     ? (JSON.parse(JSON.stringify(s.raw_ai_data)) as Record<string, any>)
     : {};
@@ -94,11 +78,11 @@ export function mapSurveyToCase(s: any): Case {
       s.inspector_phone || s.raw_ai_data?.wizardData?.phoneNumber || undefined,
     assessmentDate: s.inspection_date || s.created_at,
     aiScore: s.compliance_score ? Number(s.compliance_score) : null,
-    accessibilityGrade,
-    accessibilityLabel:
-      s.raw_ai_data?.accessibility?.label ??
-      (accessibilityGrade ? LEGEND[accessibilityGrade].label : null),
-    accessibilityReasons: s.raw_ai_data?.accessibility?.reasons ?? [],
+    // Homingo-grade fields are no longer populated. The Accessible Housing Rules band is the
+    // single source of truth and is computed client-side from the survey row via classifyLahr().
+    accessibilityGrade: null,
+    accessibilityLabel: null,
+    accessibilityReasons: [],
     status: s.status || "Draft",
     source: "AI Assessment",
     date: s.created_at,

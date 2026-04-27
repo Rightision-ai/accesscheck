@@ -74,6 +74,25 @@ export function rankOf(band: LahrBandId): number {
   return BAND_RANK[band];
 }
 
+/**
+ * Numeric overall score persisted as `surveys.compliance_score`. Linear-ish drop from A=100
+ * down to F=30, with G as a sentinel for "could not classify".
+ */
+const BAND_SCORE: Record<LahrBandId, number | null> = {
+  A: 100,
+  B: 90,
+  C: 80,
+  D: 70,
+  E: 60,
+  "E+": 50,
+  F: 30,
+  G: null,
+};
+
+export function lahrBandToScore(band: LahrBandId): number | null {
+  return BAND_SCORE[band];
+}
+
 export function lowerOf(a: LahrBandId, b: LahrBandId): LahrBandId {
   return rankOf(a) >= rankOf(b) ? a : b;
 }

@@ -158,6 +158,12 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
 }) => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"details" | "ahr">("details");
+  // Lifted out of the tab-children so that whichever tab triggers a regeneration shares the
+  // result with the other. Without this, switching tabs unmounts each child, the prop reverts
+  // to the server-loaded snapshot, and `autoGenerateIfMissing` fires another redundant POST.
+  const [sharedCostEstimation, setSharedCostEstimation] = useState<
+    CostEstimation | null | undefined
+  >(costEstimation);
   const [propertyCoords, setPropertyCoords] = useState<{
     lat: number;
     lon: number;
@@ -612,7 +618,8 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                 <CostEstimationRows
                   surveyId={Number(caseData.id)}
                   currentBand={lahrBand}
-                  estimation={costEstimation}
+                  estimation={sharedCostEstimation}
+                  onEstimationChange={setSharedCostEstimation}
                   surveyUpdatedAt={caseData.mlData?.surveyUpdatedAt ?? null}
                 />
               )}
@@ -774,6 +781,9 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden ">
             <ReportView
               caseData={caseData}
+              costEstimation={sharedCostEstimation}
+              onCostEstimationChange={setSharedCostEstimation}
+              onCaseSaved={() => router.refresh()}
               onBack={() => setActiveTab("details")}
               onUpdateCase={handleUpdateCase}
             />

@@ -24,6 +24,8 @@ import LahrAppendix from "./LahrAppendix";
 import CostEstimationAppendix from "./CostEstimationAppendix";
 import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
 import { buildSurveyData } from "@/lib/surveys/buildSurveyData";
+import { saveSurveyClient } from "@/lib/surveys/client";
+import { toast } from "sonner";
 import type { LahrBandId } from "@/lib/accessibility/lahr/types";
 import type { CostEstimation } from "@/lib/accessibility/cost-estimation/types";
 import html2canvas from "html2canvas-pro";
@@ -32,6 +34,12 @@ import { jsPDF } from "jspdf";
 interface ReportViewProps {
   caseData: Case;
   costEstimation?: CostEstimation | null;
+  /** Lift the current cost estimation back to the parent so the case-overview tab and report
+   *  tab share state and don't each trigger their own regeneration on tab switches. */
+  onCostEstimationChange?: (next: CostEstimation | null) => void;
+  /** Called after a successful in-place save (Reassess). Parent should `router.refresh()` so
+   *  the case-detail server component re-fetches and propagates fresh data down. */
+  onCaseSaved?: () => void;
   onBack: () => void;
   onUpdateCase: (updatedCase: Case) => void;
 }
@@ -1188,6 +1196,8 @@ const FacilitiesCheck = ({
 const ReportView: React.FC<ReportViewProps> = ({
   caseData,
   costEstimation = null,
+  onCostEstimationChange,
+  onCaseSaved,
   onBack,
   onUpdateCase,
 }) => {
@@ -1234,9 +1244,13 @@ const ReportView: React.FC<ReportViewProps> = ({
     () => buildSurveyData(wizardData, overrides, rawAhr, caseData, ""),
     [wizardData, overrides, rawAhr, caseData],
   );
+  // Seed the assessed row from the same `buildSurveyData` path as `liveSurveyRow`, using the
+  // overrides that were *persisted* on this case load. That way an unchanged form produces a
+  // byte-equal pair and `isAssessmentStale` stays false. Using the raw DB `surveyRow` as the
+  // seed produced a permanent mismatch (DB row has id/timestamps/raw_ai_data that the live
+  // build doesn't include).
   const initialAssessedRow = useMemo(
     () =>
-      (caseData.mlData as any)?.surveyRow ??
       buildSurveyData(
         wizardData,
         caseData.mlData?.userOverrides || {},
@@ -1252,6 +1266,23 @@ const ReportView: React.FC<ReportViewProps> = ({
     string,
     any
   > | null>(initialAssessedRow);
+
+  // Re-seed local state whenever the persisted survey timestamp changes (i.e. after a
+  // successful Reassess save followed by router.refresh() bringing fresh caseData down).
+  // Without this the `caseData` prop updates but `overrides` / `assessedSurveyRow` keep their
+  // pre-save values, and `isAssessmentStale` flips back to true.
+  const persistedSurveyUpdatedAt = caseData.mlData?.surveyUpdatedAt ?? null;
+  useEffect(() => {
+    const persistedOverrides = caseData.mlData?.userOverrides || {};
+    setOverrides(persistedOverrides);
+    setUserModifiedKeys(new Set(Object.keys(persistedOverrides)));
+    setAssessedSurveyRow(
+      buildSurveyData(wizardData, persistedOverrides, rawAhr, caseData, ""),
+    );
+    // Intentionally only depending on the timestamp — caseData/wizardData/rawAhr are read inside
+    // for their fresh values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persistedSurveyUpdatedAt]);
   const lahrSurveySource = assessedSurveyRow ?? wizardData ?? null;
   const lahrEvaluation = lahrSurveySource
     ? classifyLahr(lahrSurveySource)
@@ -1266,7 +1297,52 @@ const ReportView: React.FC<ReportViewProps> = ({
       return false;
     }
   }, [liveSurveyRow, assessedSurveyRow]);
-  const reassessBand = () => setAssessedSurveyRow(liveSurveyRow);
+  const [isReassessing, setIsReassessing] = useState(false);
+  const [isCostRegenerating, setIsCostRegenerating] = useState(false);
+  const [costRegenerateSignal, setCostRegenerateSignal] = useState(0);
+  // Page-level lock: while either the survey save or the DFG plan regen is running, render a
+  // fullscreen overlay so the user cannot edit form fields, save, download, or print.
+  const isReassessmentLocked = isReassessing || isCostRegenerating;
+  const reassessBand = async () => {
+    if (isLocked || isReassessmentLocked) return;
+    // 1. Promote live → assessed locally so the LAHR section re-renders immediately.
+    setAssessedSurveyRow(liveSurveyRow);
+    // 2. Persist the new overrides to the surveys row so the band in the case overview, the
+    //    DFG plan generator, and any future page load all see the recomputed score. Without this
+    //    the local UI updates but the DB keeps the old grade and a refresh wipes the change.
+    setIsReassessing(true);
+    try {
+      const updatedCase = {
+        ...caseData,
+        mlData: {
+          ...caseData.mlData,
+          userOverrides: overrides,
+        },
+      };
+      const result = await saveSurveyClient(updatedCase);
+      if (result?.error) {
+        toast.error(`Reassessment save failed: ${result.error}`);
+      } else {
+        // 3. Refresh the parent's caseData so the case-overview tab and the report's local
+        //    seeds re-derive against the persisted row. revalidatePath("/cases/[id]") in the
+        //    save route + router.refresh() here re-fetches the server component.
+        onCaseSaved?.();
+        // 4. Trigger DFG plan regeneration in the background. Server has the fresh row;
+        //    bumping the signal makes CostEstimationAppendix POST + poll for a new plan.
+        const newBand = lahrEvaluation?.band;
+        if (newBand && newBand !== "A") {
+          setCostRegenerateSignal((c) => c + 1);
+          toast.success("Band reassessed. Regenerating adoption plan…");
+        } else {
+          toast.success("Band reassessed and saved.");
+        }
+      }
+    } catch (err) {
+      toast.error(`Reassessment save failed: ${(err as Error).message}`);
+    } finally {
+      setIsReassessing(false);
+    }
+  };
   const analyzedAiSuggestions =
     wizardData.aiSuggestions ||
     caseData.mlData?.aiReport?.analysisData?.aiSuggestions ||
@@ -1579,6 +1655,68 @@ const ReportView: React.FC<ReportViewProps> = ({
         padding: "0 12px 16px",
       }}
     >
+      {/* Reassessment overlay — locks the page while the survey save and the DFG plan regen
+          are in flight so the user can't mutate form fields mid-update. */}
+      {isReassessmentLocked && (
+        <div
+          className="no-print"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(15,23,42,0.55)",
+            backdropFilter: "blur(4px)",
+            WebkitBackdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              padding: "28px 32px",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+              maxWidth: 420,
+              width: "100%",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <Box className="spin" size={28} color={AHR_VIOLET} />
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 16,
+                fontWeight: 800,
+                color: AHR_SLATE,
+              }}
+            >
+              {isReassessing
+                ? "Reassessing band…"
+                : "Regenerating adoption plan…"}
+            </h3>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 13,
+                lineHeight: 1.5,
+                color: "#475569",
+              }}
+            >
+              {isReassessing
+                ? "Persisting the survey record. Hold tight — this only takes a few seconds."
+                : "The Disabled Facilities Grant tiers are being recalculated against the new band. This usually finishes in 40–60 seconds."}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Nav Toolbar */}
       <div
         className="no-print report-toolbar"
@@ -1596,11 +1734,15 @@ const ReportView: React.FC<ReportViewProps> = ({
         >
           <button
             onClick={handleSave}
-            disabled={isSaving || isLocked || isAssessmentStale}
+            disabled={
+              isSaving || isLocked || isAssessmentStale || isReassessmentLocked
+            }
             title={
-              isAssessmentStale
-                ? "Re-assess the band before saving — form inputs have changed."
-                : undefined
+              isReassessmentLocked
+                ? "Reassessment in progress — please wait."
+                : isAssessmentStale
+                  ? "Re-assess the band before saving — form inputs have changed."
+                  : undefined
             }
             style={{
               display: "flex",
@@ -1608,17 +1750,23 @@ const ReportView: React.FC<ReportViewProps> = ({
               gap: "8px",
               border: "none",
               background:
-                isLocked || isAssessmentStale ? "#94a3b8" : AHR_MODIFIED,
+                isLocked || isAssessmentStale || isReassessmentLocked
+                  ? "#94a3b8"
+                  : AHR_MODIFIED,
               color: "#fff",
               padding: "12px 24px",
               borderRadius: "12px",
               fontWeight: "700",
-              cursor: isLocked || isAssessmentStale ? "not-allowed" : "pointer",
+              cursor:
+                isLocked || isAssessmentStale || isReassessmentLocked
+                  ? "not-allowed"
+                  : "pointer",
               boxShadow:
-                isLocked || isAssessmentStale
+                isLocked || isAssessmentStale || isReassessmentLocked
                   ? "none"
                   : "0 4px 15px rgba(5, 150, 105, 0.2)",
-              opacity: isSaving || isAssessmentStale ? 0.6 : 1,
+              opacity:
+                isSaving || isAssessmentStale || isReassessmentLocked ? 0.6 : 1,
             }}
           >
             {isSaving ? (
@@ -1632,28 +1780,41 @@ const ReportView: React.FC<ReportViewProps> = ({
           </button>
           <button
             onClick={handleDownloadPDF}
-            disabled={isDownloading || isAssessmentStale}
+            disabled={
+              isDownloading || isAssessmentStale || isReassessmentLocked
+            }
             title={
-              isAssessmentStale
-                ? "Re-assess the band before downloading — form inputs have changed."
-                : undefined
+              isReassessmentLocked
+                ? "Reassessment in progress — please wait."
+                : isAssessmentStale
+                  ? "Re-assess the band before downloading — form inputs have changed."
+                  : undefined
             }
             style={{
               display: "flex",
               alignItems: "center",
               gap: "8px",
               border: "none",
-              background: isAssessmentStale ? "#94a3b8" : AHR_VIOLET,
+              background:
+                isAssessmentStale || isReassessmentLocked
+                  ? "#94a3b8"
+                  : AHR_VIOLET,
               color: "#fff",
               padding: "12px 24px",
               borderRadius: "12px",
               fontWeight: "700",
               cursor:
-                isDownloading || isAssessmentStale ? "not-allowed" : "pointer",
-              boxShadow: isAssessmentStale
-                ? "none"
-                : "0 4px 15px rgba(124, 58, 237, 0.2)",
-              opacity: isDownloading || isAssessmentStale ? 0.6 : 1,
+                isDownloading || isAssessmentStale || isReassessmentLocked
+                  ? "not-allowed"
+                  : "pointer",
+              boxShadow:
+                isAssessmentStale || isReassessmentLocked
+                  ? "none"
+                  : "0 4px 15px rgba(124, 58, 237, 0.2)",
+              opacity:
+                isDownloading || isAssessmentStale || isReassessmentLocked
+                  ? 0.6
+                  : 1,
             }}
           >
             <Download size={18} />{" "}
@@ -1661,27 +1822,38 @@ const ReportView: React.FC<ReportViewProps> = ({
           </button>
           <button
             onClick={handlePrintPDF}
-            disabled={isDownloading || isAssessmentStale}
+            disabled={
+              isDownloading || isAssessmentStale || isReassessmentLocked
+            }
             title={
-              isAssessmentStale
-                ? "Re-assess the band before printing — form inputs have changed."
-                : undefined
+              isReassessmentLocked
+                ? "Reassessment in progress — please wait."
+                : isAssessmentStale
+                  ? "Re-assess the band before printing — form inputs have changed."
+                  : undefined
             }
             style={{
               display: "flex",
               alignItems: "center",
               gap: "8px",
               border: "none",
-              background: isAssessmentStale ? "#e2e8f0" : "#fff",
+              background:
+                isAssessmentStale || isReassessmentLocked ? "#e2e8f0" : "#fff",
               padding: "12px 24px",
               borderRadius: "12px",
               fontWeight: "700",
               cursor:
-                isDownloading || isAssessmentStale ? "not-allowed" : "pointer",
-              boxShadow: isAssessmentStale
-                ? "none"
-                : "0 2px 10px rgba(0,0,0,0.05)",
-              opacity: isDownloading || isAssessmentStale ? 0.6 : 1,
+                isDownloading || isAssessmentStale || isReassessmentLocked
+                  ? "not-allowed"
+                  : "pointer",
+              boxShadow:
+                isAssessmentStale || isReassessmentLocked
+                  ? "none"
+                  : "0 2px 10px rgba(0,0,0,0.05)",
+              opacity:
+                isDownloading || isAssessmentStale || isReassessmentLocked
+                  ? 0.6
+                  : 1,
             }}
           >
             <Printer size={18} />{" "}
@@ -1721,6 +1893,7 @@ const ReportView: React.FC<ReportViewProps> = ({
           <button
             type="button"
             onClick={reassessBand}
+            disabled={isReassessmentLocked}
             style={{
               flexShrink: 0,
               padding: "8px 16px",
@@ -1732,10 +1905,15 @@ const ReportView: React.FC<ReportViewProps> = ({
               fontWeight: 800,
               letterSpacing: "0.05em",
               textTransform: "uppercase",
-              cursor: "pointer",
+              cursor: isReassessmentLocked ? "wait" : "pointer",
+              opacity: isReassessmentLocked ? 0.6 : 1,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
             }}
           >
-            Re-assess band
+            {isReassessmentLocked && <Box className="spin" size={14} />}
+            {isReassessmentLocked ? "Reassessing…" : "Re-assess band"}
           </button>
         </div>
       )}
@@ -9983,8 +10161,11 @@ const ReportView: React.FC<ReportViewProps> = ({
                 surveyId={Number(caseData.id)}
                 currentBand={lahrEvaluation.band}
                 estimation={costEstimation}
+                onEstimationChange={onCostEstimationChange}
+                onRefreshingChange={setIsCostRegenerating}
                 surveyUpdatedAt={caseData.mlData?.surveyUpdatedAt ?? null}
                 inputsDirty={isAssessmentStale}
+                regenerateSignal={costRegenerateSignal}
               />
             </div>
           ) : null}

@@ -169,6 +169,7 @@ export async function POST(req: NextRequest) {
     }
 
     revalidatePath("/");
+    if (newId) revalidatePath(`/cases/${newId}`);
     return NextResponse.json({ success: true, id: newId });
   } catch (err) {
     console.error("Save survey API error:", err);

@@ -27,6 +27,9 @@ type Props = {
   autoGenerateIfMissing?: boolean;
   /** ISO string of the last time the survey was modified. Used to flag a stale plan. */
   surveyUpdatedAt?: string | null;
+  /** Bubble new estimations up so a parent can share them across siblings (e.g. report tab vs.
+   *  overview tab) and avoid redundant regenerations. */
+  onEstimationChange?: (next: CostEstimation | null) => void;
 };
 
 const DIFFICULTY_COLOR: Record<string, string> = {
@@ -41,10 +44,25 @@ export default function CostEstimationRows({
   estimation: initialEstimation,
   autoGenerateIfMissing = true,
   surveyUpdatedAt = null,
+  onEstimationChange,
 }: Props) {
-  const [estimation, setEstimation] = useState<
+  const [estimation, _setEstimation] = useState<
     CostEstimation | null | undefined
   >(initialEstimation);
+  // Keep parent in sync. When parent's prop later changes (e.g. sibling tab regenerated and
+  // pushed up), an effect below seeds the local state from it.
+  const setEstimation = useCallback(
+    (next: CostEstimation | null | undefined) => {
+      _setEstimation(next);
+      if (next !== undefined) onEstimationChange?.(next);
+    },
+    [onEstimationChange],
+  );
+  // If the parent's prop updates after mount (sibling pushed a new plan), reflect it locally
+  // so this view never shows a stale snapshot when the user comes back to this tab.
+  useEffect(() => {
+    if (initialEstimation !== undefined) _setEstimation(initialEstimation);
+  }, [initialEstimation]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const autoFiredRef = useRef(false);
@@ -203,6 +221,7 @@ function TierRow({
     DIFFICULTY_COLOR[tier.overallDifficulty] ?? DIFFICULTY_COLOR.minor;
   const isCap = tier.budgetGbp === 30000;
   const bandColor = LAHR_BAND_BY_ID[tier.potentialBand].color;
+  const isEmpty = tier.adaptations.length === 0;
 
   return (
     <li>
@@ -214,7 +233,7 @@ function TierRow({
             : "border-slate-200 bg-white"
         }`}
       >
-        {/* Budget */}
+        {/* Budget — always shown so the user can see which tier this row represents. */}
         <div className="w-[110px] shrink-0">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
             Budget
@@ -231,71 +250,78 @@ function TierRow({
           </div>
         </div>
 
-        {/* Projected band */}
-        <div className="w-[140px] shrink-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Projected band
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span
-              className="inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
-              style={{ backgroundColor: bandColor }}
+        {isEmpty ? (
+          /* Empty tier: just the reason. No projected-band, no spend, no difficulty —
+             those would imply a plan that doesn't exist. */
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+              No adoption available
+            </div>
+            <div
+              className="text-sm text-amber-800 truncate"
+              title={tier.unavailableReason ?? undefined}
             >
-              {tier.potentialBand}
-            </span>
-            {uplifted ? (
-              <span className="text-[10px] text-emerald-700 font-semibold">
-                ↑ from {currentBand}
+              {tier.unavailableReason ??
+                "No feasible adaptation fits this budget for this property."}
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Projected band */}
+            <div className="w-[140px] shrink-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Projected band
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
+                  style={{ backgroundColor: bandColor }}
+                >
+                  {tier.potentialBand}
+                </span>
+                {uplifted ? (
+                  <span className="text-[10px] text-emerald-700 font-semibold">
+                    ↑ from {currentBand}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-400">same</span>
+                )}
+              </div>
+            </div>
+
+            {/* Spend */}
+            <div className="w-[90px] shrink-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Spend
+              </div>
+              <div className="text-sm font-bold text-slate-800">
+                £{tier.totalCostGbp.toLocaleString()}
+              </div>
+            </div>
+
+            {/* Difficulty */}
+            <div className="w-[110px] shrink-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Difficulty
+              </div>
+              <span
+                className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold capitalize ${diffClass}`}
+              >
+                {tier.overallDifficulty}
               </span>
-            ) : (
-              <span className="text-[10px] text-slate-400">same</span>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* Spend */}
-        <div className="w-[90px] shrink-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Spend
-          </div>
-          <div className="text-sm font-bold text-slate-800">
-            £{tier.totalCostGbp.toLocaleString()}
-          </div>
-        </div>
-
-        {/* Difficulty */}
-        <div className="w-[110px] shrink-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Difficulty
-          </div>
-          <span
-            className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold capitalize ${diffClass}`}
-          >
-            {tier.overallDifficulty}
-          </span>
-        </div>
-
-        {/* Summary / CTA */}
-        <div className="flex-1 min-w-0">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            {tier.adaptations.length === 0 ? "No plan at this budget" : "Adaptations"}
-          </div>
-          <div
-            className={`text-sm truncate ${
-              tier.adaptations.length === 0 ? "text-amber-800" : "text-slate-700"
-            }`}
-            title={
-              tier.adaptations.length === 0
-                ? tier.unavailableReason ?? undefined
-                : undefined
-            }
-          >
-            {tier.adaptations.length === 0
-              ? tier.unavailableReason ??
-                "No feasible adaptation fits this budget — see the next tier."
-              : `${tier.adaptations.length} · ${tier.adaptations.map((a) => a.label).join(", ")}`}
-          </div>
-        </div>
+            {/* Adaptation list summary */}
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Adaptations
+              </div>
+              <div className="text-sm text-slate-700 truncate">
+                {`${tier.adaptations.length} · ${tier.adaptations.map((a) => a.label).join(", ")}`}
+              </div>
+            </div>
+          </>
+        )}
 
         <ChevronRight
           size={18}

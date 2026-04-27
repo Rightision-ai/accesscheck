@@ -3,9 +3,8 @@
  * Used by both the API route and the server action.
  */
 
-import { classifyAccessibility, gradeToScore } from "@/lib/accessibility/flowchart";
-import { deriveAccessibilityInput } from "@/lib/accessibility/deriveInputs";
 import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
+import { lahrBandToScore } from "@/lib/accessibility/lahr/types";
 
 function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
@@ -110,8 +109,10 @@ export function buildSurveyData(
     status: caseData.status,
     thumbnail_url: caseData.thumbnail || null,
     raw_ai_data: caseData.mlData,
-    compliance_score: caseData.aiScore ?? null,
-    overall_grade: rawAhr.meta_data?.overall_grade || null,
+    // overall_grade and compliance_score are set below from the Accessible Housing Rules band —
+    // never from rawAhr.meta_data (which historically held a non-LAHR letter) or caseData.aiScore.
+    compliance_score: null,
+    overall_grade: null,
     ai_confidence:
       num(String(caseData.mlData?.aiReport?.ConfidenceScore || "").replace("%", "")) ??
       null,
@@ -895,28 +896,15 @@ export function buildSurveyData(
     ),
   };
 
-  // ── Accessibility classification (deterministic flowchart) ──
-  const accessibilityInput = deriveAccessibilityInput({
-    survey: row,
-    wizardData,
-    rawAhr,
-  });
-  const classification = classifyAccessibility(accessibilityInput);
-  row.overall_grade = classification.grade;
-  row.compliance_score = gradeToScore(classification.grade);
-
-  // ── LAHR band (rule-driven from business-rules.json, authoritative going forward) ──
+  // ── Accessible Housing Rules band (authoritative — rule-driven from business-rules.json).
+  //    The DB column `overall_grade` stores the band string (A/B/C/D/E/E+/F/G); compliance_score
+  //    is derived from it. The legacy "homingo grade" classifier is no longer used for storage.
   const lahr = classifyLahr(row);
+  row.overall_grade = lahr.band;
+  row.compliance_score = lahrBandToScore(lahr.band);
 
   row.raw_ai_data = {
     ...(row.raw_ai_data || {}),
-    accessibility: {
-      grade: classification.grade,
-      label: classification.label,
-      description: classification.description,
-      reasons: classification.reasons,
-      inputs: accessibilityInput,
-    },
     lahr: {
       band: lahr.band,
       gTriggered: lahr.gTriggered,

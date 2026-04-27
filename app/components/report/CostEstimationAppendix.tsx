@@ -24,6 +24,15 @@ type Props = {
   /** Live signal from the report form: form inputs have changed but haven't been saved or
    * re-assessed yet. Forces the staleness banner regardless of timestamps. */
   inputsDirty?: boolean;
+  /** Increment this counter to imperatively trigger a regeneration. Used by the report's
+   * Reassess button to refresh the plan after a survey save. */
+  regenerateSignal?: number;
+  /** Bubble new estimations up so the parent can share them across siblings (e.g. overview
+   *  tab) and avoid redundant regenerations on tab switches. */
+  onEstimationChange?: (next: CostEstimation | null) => void;
+  /** Notifies the parent whenever the internal POST-then-poll loop starts/stops. Used by the
+   *  report's reassess flow to keep the page-level overlay up until the DFG regen finishes. */
+  onRefreshingChange?: (isRefreshing: boolean) => void;
 };
 
 const DIFFICULTY_COLOR: Record<string, string> = {
@@ -40,10 +49,24 @@ export default function CostEstimationAppendix({
   autoGenerateIfMissing = true,
   surveyUpdatedAt = null,
   inputsDirty = false,
+  regenerateSignal,
+  onEstimationChange,
+  onRefreshingChange,
 }: Props) {
-  const [estimation, setEstimation] = useState<CostEstimation | null | undefined>(
+  const [estimation, _setEstimation] = useState<CostEstimation | null | undefined>(
     initialEstimation,
   );
+  const setEstimation = useCallback(
+    (next: CostEstimation | null | undefined) => {
+      _setEstimation(next);
+      if (next !== undefined) onEstimationChange?.(next);
+    },
+    [onEstimationChange],
+  );
+  // Reflect parent updates locally when a sibling tab regenerates and pushes a fresh plan up.
+  useEffect(() => {
+    if (initialEstimation !== undefined) _setEstimation(initialEstimation);
+  }, [initialEstimation]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const autoFiredRef = useRef(false);
@@ -89,6 +112,23 @@ export default function CostEstimationAppendix({
       void reEstimate();
     }
   }, [autoGenerateIfMissing, estimation, currentBand, isRefreshing, reEstimate]);
+
+  // Imperative regenerate hook for the Reassess button. Skip the very first render so the
+  // initial undefined → 0 transition doesn't fire a duplicate generation.
+  const lastRegenerateSignalRef = useRef<number | undefined>(regenerateSignal);
+  useEffect(() => {
+    if (regenerateSignal === undefined) return;
+    if (regenerateSignal === lastRegenerateSignalRef.current) return;
+    lastRegenerateSignalRef.current = regenerateSignal;
+    if (currentBand === "A" || isRefreshing) return;
+    void reEstimate();
+  }, [regenerateSignal, currentBand, isRefreshing, reEstimate]);
+
+  // Surface refresh state to the parent so the page-level overlay (in the report) knows when
+  // the DFG regen finishes.
+  useEffect(() => {
+    onRefreshingChange?.(isRefreshing);
+  }, [isRefreshing, onRefreshingChange]);
 
   if (currentBand === "A") return null;
 
@@ -244,6 +284,7 @@ function TierCard({
 }) {
   const uplifted = tier.potentialBand !== currentBand;
   const diffColor = DIFFICULTY_COLOR[tier.overallDifficulty] ?? DIFFICULTY_COLOR.minor;
+  const isEmpty = tier.adaptations.length === 0;
 
   return (
     <article
@@ -262,32 +303,38 @@ function TierCard({
         )}
       </header>
 
-      <div className="grid grid-cols-2 gap-2 text-center">
-        <Stat label="Spend" value={`£${tier.totalCostGbp.toLocaleString()}`} />
-        <Stat label="Difficulty" value={tier.overallDifficulty} valueClass={diffColor} />
-      </div>
+      {/* Stats and projected band only render when a plan exists. Empty tiers show just the
+          "No adoption" reason — hiding stats avoids implying a £0 plan that uplifts the band. */}
+      {!isEmpty && (
+        <>
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <Stat label="Spend" value={`£${tier.totalCostGbp.toLocaleString()}`} />
+            <Stat label="Difficulty" value={tier.overallDifficulty} valueClass={diffColor} />
+          </div>
 
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-          Projected band
-        </span>
-        <span
-          className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
-          style={{ backgroundColor: LAHR_BAND_BY_ID[tier.potentialBand].color }}
-        >
-          {tier.potentialBand}
-        </span>
-        {uplifted && (
-          <span className="text-[10px] text-emerald-700">
-            ↑ from {currentBand}
-          </span>
-        )}
-      </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Projected band
+            </span>
+            <span
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
+              style={{ backgroundColor: LAHR_BAND_BY_ID[tier.potentialBand].color }}
+            >
+              {tier.potentialBand}
+            </span>
+            {uplifted && (
+              <span className="text-[10px] text-emerald-700">
+                ↑ from {currentBand}
+              </span>
+            )}
+          </div>
+        </>
+      )}
 
-      {tier.adaptations.length === 0 ? (
+      {isEmpty ? (
         <div className="rounded border border-amber-200 bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-900">
           <div className="font-bold uppercase tracking-wider text-[10px] text-amber-800 mb-1">
-            No plan at this budget
+            No adoption available
           </div>
           <p className="m-0">
             {tier.unavailableReason ??

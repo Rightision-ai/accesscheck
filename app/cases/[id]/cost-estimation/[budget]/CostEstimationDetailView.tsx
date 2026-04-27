@@ -67,7 +67,9 @@ export default function CostEstimationDetailView({
             )}
           </div>
 
-          {tier && (
+          {/* Band pathway only when this tier actually has a plan — otherwise it would imply
+              an uplift the budget can't deliver. */}
+          {tier && tier.adaptations.length > 0 && (
             <div className="flex flex-col items-end gap-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Band pathway
