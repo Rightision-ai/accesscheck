@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
 import { LAHR_BAND_BY_ID, type LahrBandId } from "@/lib/accessibility/lahr/types";
 import LahrBandBadge from "@/app/components/common/LahrBandBadge";
 import type {
@@ -33,6 +34,9 @@ type Props = {
   /** Notifies the parent whenever the internal POST-then-poll loop starts/stops. Used by the
    *  report's reassess flow to keep the page-level overlay up until the DFG regen finishes. */
   onRefreshingChange?: (isRefreshing: boolean) => void;
+  /** Parent owns a regen in flight (e.g. user landed mid-job from a refresh). When true the
+   *  appendix renders the loading state and skips its own auto-generate. */
+  forceLoading?: boolean;
 };
 
 const DIFFICULTY_COLOR: Record<string, string> = {
@@ -52,6 +56,7 @@ export default function CostEstimationAppendix({
   regenerateSignal,
   onEstimationChange,
   onRefreshingChange,
+  forceLoading = false,
 }: Props) {
   const [estimation, _setEstimation] = useState<CostEstimation | null | undefined>(
     initialEstimation,
@@ -106,12 +111,20 @@ export default function CostEstimationAppendix({
       !estimation &&
       currentBand !== "A" &&
       !autoFiredRef.current &&
-      !isRefreshing
+      !isRefreshing &&
+      !forceLoading
     ) {
       autoFiredRef.current = true;
       void reEstimate();
     }
-  }, [autoGenerateIfMissing, estimation, currentBand, isRefreshing, reEstimate]);
+  }, [
+    autoGenerateIfMissing,
+    estimation,
+    currentBand,
+    isRefreshing,
+    reEstimate,
+    forceLoading,
+  ]);
 
   // Imperative regenerate hook for the Reassess button. Skip the very first render so the
   // initial undefined → 0 transition doesn't fire a duplicate generation.
@@ -191,7 +204,7 @@ export default function CostEstimationAppendix({
         </div>
       )}
 
-      {isRefreshing ? (
+      {forceLoading || isRefreshing ? (
         <EmptyState isLoading={true} />
       ) : !estimation ? (
         <EmptyState isLoading={false} />
@@ -216,15 +229,33 @@ export default function CostEstimationAppendix({
 }
 
 function EmptyState({ isLoading }: { isLoading: boolean }) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-violet-200 bg-violet-50/40 py-10 text-center">
+        <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-violet-100">
+          <Loader2 size={40} className="relative z-[1] animate-spin text-violet-600" />
+          <motion.div
+            animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.1, 0.3] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="absolute inset-0 rounded-full bg-violet-500"
+          />
+        </div>
+        <div>
+          <h4 className="m-0 text-base font-extrabold text-violet-700">
+            Generating adoption plan…
+          </h4>
+          <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
+            The Disabled Facilities Grant tiers are being recalculated. This usually finishes in
+            40–60 seconds.
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded border border-dashed border-slate-200 py-10 text-[12px] text-slate-500">
-      {isLoading && <Loader2 size={20} className="animate-spin text-violet-500" />}
-      <span>
-        {isLoading
-          ? "Generating the DFG adoption plan — this can take 30–60 seconds."
-          : "Adoption plan not generated yet."}
-      </span>
-      {!isLoading && (
+      <span>Adoption plan not generated yet.</span>
+      {(
         <span className="text-[11px] text-slate-400">
           Use the button above to generate one for this property.
         </span>

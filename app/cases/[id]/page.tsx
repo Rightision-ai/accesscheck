@@ -40,5 +40,21 @@ export default async function CasePage({
   const caseData = mapSurveyToCase(survey);
   const costEstimation = await loadCostEstimation(supabase, surveyId);
 
-  return <CaseDetailView caseData={caseData} costEstimation={costEstimation} />;
+  // If a regen is in flight (or just failed), surface that to the client so the cost-estimation
+  // panel can show the loading state instead of the now-stale persisted plan. Stored in a
+  // dedicated column (migration 20260427120000) that the touch trigger ignores.
+  const jobStatus = (survey as { cost_estimation_status?: { status?: string } | null })
+    ?.cost_estimation_status;
+  const costEstimationJobStatus =
+    jobStatus?.status === "pending" || jobStatus?.status === "failed"
+      ? jobStatus.status
+      : null;
+
+  return (
+    <CaseDetailView
+      caseData={caseData}
+      costEstimation={costEstimation}
+      costEstimationJobStatus={costEstimationJobStatus}
+    />
+  );
 }

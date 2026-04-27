@@ -15,7 +15,9 @@ import {
   AlertCircle,
   Box,
   List,
+  Loader2,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { formatBritishDateTime } from "@/lib/utils/dateFormatter";
 import { Case } from "@/types/dashboard";
 import { ConfidenceBadge } from "../wizard/ConfidenceBadge";
@@ -37,6 +39,9 @@ interface ReportViewProps {
   /** Lift the current cost estimation back to the parent so the case-overview tab and report
    *  tab share state and don't each trigger their own regeneration on tab switches. */
   onCostEstimationChange?: (next: CostEstimation | null) => void;
+  /** True when the parent is resuming a server-side regen on first paint (status=pending).
+   *  Forces the cost-estimation appendix into its loading state. */
+  costEstimationForceLoading?: boolean;
   /** Called after a successful in-place save (Reassess). Parent should `router.refresh()` so
    *  the case-detail server component re-fetches and propagates fresh data down. */
   onCaseSaved?: () => void;
@@ -1197,6 +1202,7 @@ const ReportView: React.FC<ReportViewProps> = ({
   caseData,
   costEstimation = null,
   onCostEstimationChange,
+  costEstimationForceLoading = false,
   onCaseSaved,
   onBack,
   onUpdateCase,
@@ -1299,10 +1305,10 @@ const ReportView: React.FC<ReportViewProps> = ({
   }, [liveSurveyRow, assessedSurveyRow]);
   const [isReassessing, setIsReassessing] = useState(false);
   const [isCostRegenerating, setIsCostRegenerating] = useState(false);
-  const [costRegenerateSignal, setCostRegenerateSignal] = useState(0);
-  // Page-level lock: while either the survey save or the DFG plan regen is running, render a
-  // fullscreen overlay so the user cannot edit form fields, save, download, or print.
-  const isReassessmentLocked = isReassessing || isCostRegenerating;
+  // Page-level lock during the (short) survey save. The adoption-plan regen is now a separate
+  // user action — its loading state lives inside CostEstimationAppendix and doesn't lock the
+  // page.
+  const isReassessmentLocked = isReassessing;
   const reassessBand = async () => {
     if (isLocked || isReassessmentLocked) return;
     // 1. Promote live → assessed locally so the LAHR section re-renders immediately.
@@ -1327,12 +1333,14 @@ const ReportView: React.FC<ReportViewProps> = ({
         //    seeds re-derive against the persisted row. revalidatePath("/cases/[id]") in the
         //    save route + router.refresh() here re-fetches the server component.
         onCaseSaved?.();
-        // 4. Trigger DFG plan regeneration in the background. Server has the fresh row;
-        //    bumping the signal makes CostEstimationAppendix POST + poll for a new plan.
+        // The adoption plan is no longer auto-regenerated. The existing staleness banner on
+        // CostEstimationAppendix (`surveyUpdatedAt > generatedAt`) will appear with an
+        // "Update plan" button so the user can trigger the long Gemini job when they're ready.
         const newBand = lahrEvaluation?.band;
         if (newBand && newBand !== "A") {
-          setCostRegenerateSignal((c) => c + 1);
-          toast.success("Band reassessed. Regenerating adoption plan…");
+          toast.success(
+            "Band reassessed. The adoption plan is now out of date — open it and click Update plan when ready.",
+          );
         } else {
           toast.success("Band reassessed and saved.");
         }
@@ -1676,43 +1684,74 @@ const ReportView: React.FC<ReportViewProps> = ({
           <div
             style={{
               background: "#fff",
-              borderRadius: 16,
-              padding: "28px 32px",
+              borderRadius: 24,
+              padding: "32px 36px",
               boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-              maxWidth: 420,
+              maxWidth: 480,
               width: "100%",
               textAlign: "center",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: 12,
+              gap: 20,
             }}
           >
-            <Box className="spin" size={28} color={AHR_VIOLET} />
-            <h3
+            <div
               style={{
-                margin: 0,
-                fontSize: 16,
-                fontWeight: 800,
-                color: AHR_SLATE,
+                position: "relative",
+                width: 80,
+                height: 80,
+                borderRadius: "50%",
+                background: AHR_ACCENT,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              {isReassessing
-                ? "Reassessing band…"
-                : "Regenerating adoption plan…"}
-            </h3>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 13,
-                lineHeight: 1.5,
-                color: "#475569",
-              }}
-            >
-              {isReassessing
-                ? "Persisting the survey record. Hold tight — this only takes a few seconds."
-                : "The Disabled Facilities Grant tiers are being recalculated against the new band. This usually finishes in 40–60 seconds."}
-            </p>
+              <Loader2
+                size={40}
+                color={AHR_VIOLET}
+                className="animate-spin"
+                style={{ position: "relative", zIndex: 1 }}
+              />
+              <motion.div
+                animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.1, 0.3] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "50%",
+                  background: AHR_VIOLET,
+                }}
+              />
+            </div>
+            <div>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 20,
+                  fontWeight: 800,
+                  color: AHR_VIOLET,
+                  marginBottom: 8,
+                }}
+              >
+                {isReassessing
+                  ? "Reassessing band…"
+                  : "Generating adoption plan…"}
+              </h3>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 14,
+                  lineHeight: 1.5,
+                  color: "#64748b",
+                }}
+              >
+                {isReassessing
+                  ? "Persisting the survey record. Hold tight — this only takes a few seconds."
+                  : "The Disabled Facilities Grant tiers are being recalculated against the new band. This usually finishes in 40–60 seconds."}
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -1770,7 +1809,7 @@ const ReportView: React.FC<ReportViewProps> = ({
             }}
           >
             {isSaving ? (
-              <Box className="spin" size={18} />
+              <Box className="animate-spin" size={18} />
             ) : isLocked ? (
               <CheckCircle2 size={18} />
             ) : (
@@ -1912,7 +1951,7 @@ const ReportView: React.FC<ReportViewProps> = ({
               gap: 8,
             }}
           >
-            {isReassessmentLocked && <Box className="spin" size={14} />}
+            {isReassessmentLocked && <Box className="animate-spin" size={14} />}
             {isReassessmentLocked ? "Reassessing…" : "Re-assess band"}
           </button>
         </div>
@@ -10165,7 +10204,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                 onRefreshingChange={setIsCostRegenerating}
                 surveyUpdatedAt={caseData.mlData?.surveyUpdatedAt ?? null}
                 inputsDirty={isAssessmentStale}
-                regenerateSignal={costRegenerateSignal}
+                forceLoading={costEstimationForceLoading}
               />
             </div>
           ) : null}
