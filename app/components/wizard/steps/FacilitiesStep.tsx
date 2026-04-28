@@ -59,7 +59,7 @@ const FacilitiesStep: React.FC<WizardStepProps> = ({
               </div>
             </div>
             {floorPlanAnalysis && (
-              <div className="py-1 px-3 rounded-full bg-purple-100 text-purple-800 text-[11px] font-extrabold">
+              <div className="py-1 px-3 rounded-full bg-green-100 text-primary-dark text-[11px] font-extrabold">
                 AI Detection Active
               </div>
             )}

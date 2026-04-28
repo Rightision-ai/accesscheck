@@ -135,7 +135,7 @@ const SafetyHazardsStep: React.FC<WizardStepProps> = ({
                       current ? `${current}, ${tag}` : tag,
                     );
                 }}
-                className="py-1 px-2.5 rounded-lg bg-purple-50 border border-purple-200 text-[11px] font-bold text-purple-700 cursor-pointer flex items-center gap-1"
+                className="py-1 px-2.5 rounded-lg bg-green-50 border border-green-200 text-[11px] font-bold text-primary-dark cursor-pointer flex items-center gap-1"
               >
                 <ShieldAlert size={10} /> AI: {tag}
               </button>

@@ -94,7 +94,7 @@ const FloorPlanStep: React.FC<WizardStepProps> = ({
                   <div
                     className={cn(
                       "absolute inset-0 flex items-center justify-center transition-colors",
-                      overlayState === "purple" && "bg-purple-500/40",
+                      overlayState === "purple" && "bg-primary/40",
                       overlayState === "green" && "bg-green-500/40",
                       overlayState === "yellow" && "bg-amber-400/40",
                     )}

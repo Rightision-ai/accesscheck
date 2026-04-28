@@ -155,7 +155,7 @@ export default function CostEstimationAppendix({
     <div className="space-y-6 rounded-lg border border-slate-200 bg-white p-5">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
-          <h2 className="text-xs font-black uppercase tracking-wider text-violet-900">
+          <h2 className="text-xs font-black uppercase tracking-wider text-primary-dark">
             DFG Adoption Plan
           </h2>
           <p className="text-[11px] text-slate-500">
@@ -171,7 +171,7 @@ export default function CostEstimationAppendix({
             className={`pdf-hide rounded-md border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 ${
               isStale
                 ? "border-amber-400 bg-amber-100 text-amber-900 hover:bg-amber-200"
-                : "border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100"
+                : "border-green-300 bg-green-50 text-primary-dark hover:bg-green-100"
             }`}
           >
             {isRefreshing
@@ -231,17 +231,17 @@ export default function CostEstimationAppendix({
 function EmptyState({ isLoading }: { isLoading: boolean }) {
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-violet-200 bg-violet-50/40 py-10 text-center">
-        <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-violet-100">
-          <Loader2 size={40} className="relative z-[1] animate-spin text-violet-600" />
+      <div className="flex flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-green-200 bg-green-50/40 py-10 text-center">
+        <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
+          <Loader2 size={40} className="relative z-[1] animate-spin text-primary" />
           <motion.div
             animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.1, 0.3] }}
             transition={{ duration: 2, repeat: Infinity }}
-            className="absolute inset-0 rounded-full bg-violet-500"
+            className="absolute inset-0 rounded-full bg-primary"
           />
         </div>
         <div>
-          <h4 className="m-0 text-base font-extrabold text-violet-700">
+          <h4 className="m-0 text-base font-extrabold text-primary-dark">
             Generating adoption plan…
           </h4>
           <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
@@ -282,7 +282,7 @@ function SummaryRow({
         </span>
         <LahrBandBadge band={currentBand} size="sm" showLabel={false} />
       </div>
-      <div className="hidden h-px bg-gradient-to-r from-slate-200 via-violet-300 to-slate-200 md:block" />
+      <div className="hidden h-px bg-gradient-to-r from-slate-200 via-green-300 to-slate-200 md:block" />
       <div className="flex flex-col items-start gap-1 md:items-end">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
           Potential band at £30K
@@ -320,7 +320,7 @@ function TierCard({
   return (
     <article
       className={`pdf-avoid-break flex flex-col gap-3 rounded border p-4 ${
-        isCap ? "border-violet-300 bg-violet-50/40" : "border-slate-200 bg-white"
+        isCap ? "border-green-300 bg-green-50/40" : "border-slate-200 bg-white"
       }`}
     >
       <header className="flex items-baseline justify-between border-b border-slate-200 pb-2">
@@ -328,7 +328,7 @@ function TierCard({
           £{tier.budgetGbp.toLocaleString()}
         </h3>
         {isCap && (
-          <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+          <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
             DFG cap
           </span>
         )}
@@ -461,7 +461,7 @@ function NarrativeBlock({ estimation }: { estimation: CostEstimation }) {
         </span>
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
           <div
-            className="h-full bg-violet-500"
+            className="h-full bg-primary"
             style={{ width: `${confidencePct}%` }}
           />
         </div>

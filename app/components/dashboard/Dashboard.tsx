@@ -133,7 +133,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-5 mb-8">
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-2xl shadow-[0_4px_20px_rgba(102,126,234,0.15)]">
+        <div className="bg-gradient-to-br from-primary to-primary-dark p-6 rounded-2xl shadow-[0_4px_20px_rgba(15,183,91,0.2)]">
           <div className="flex items-center gap-3 mb-3">
             <FileText size={24} className="text-white" />
             <span className="text-xs text-white/90 font-semibold uppercase tracking-wider">
@@ -343,6 +343,12 @@ const Dashboard: React.FC<DashboardProps> = ({
           </table>
         </div>
       )}
+
+      <footer className="mt-10 pt-6 border-t border-slate-200 text-center">
+        <p className="text-[11px] text-slate-400 tracking-wide">
+          Powered by Homingo AI Engine
+        </p>
+      </footer>
     </div>
   );
 };

@@ -443,7 +443,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
               {/* Middle column: address stacked above date */}
               <div className="flex-1 flex flex-col gap-4 sm:gap-5 min-w-0 justify-center">
                 <div className="flex gap-3 sm:gap-4 items-start">
-                  <div className="p-2 sm:p-2.5 rounded-lg bg-violet-100 text-violet-600 shrink-0">
+                  <div className="p-2 sm:p-2.5 rounded-lg bg-green-100 text-primary shrink-0">
                     <Home size={18} className="sm:w-5 sm:h-5" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -515,7 +515,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
             {lahrBand && lahrBandDef && (
               <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-5">
                 <div className="flex items-center gap-2">
-                  <Info size={18} className="text-violet-600" />
+                  <Info size={18} className="text-primary" />
                   <h2 className="text-base font-bold text-slate-900 m-0">
                     Why this grade?
                   </h2>
@@ -643,14 +643,14 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
 
                 {/* Pointer to the DFG plan for what could change */}
                 {lahrBand !== "A" && lahrBand !== "G" && (
-                  <section className="rounded-md border border-violet-200 bg-violet-50/50 p-3">
+                  <section className="rounded-md border border-green-200 bg-green-50/50 p-3">
                     <div className="flex items-start gap-2">
                       <Info
                         size={14}
-                        className="text-violet-600 mt-0.5 shrink-0"
+                        className="text-primary mt-0.5 shrink-0"
                       />
                       <p className="text-[12px] leading-relaxed text-slate-700 m-0">
-                        <span className="font-semibold text-violet-900">
+                        <span className="font-semibold text-primary-dark">
                           Potential changes:
                         </span>{" "}
                         the DFG Adoption Plan below shows the bespoke
@@ -766,7 +766,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
 
               <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                 <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
-                  <FileText size={20} className="text-violet-600" />
+                  <FileText size={20} className="text-primary" />
                   Validated Floor Plan
                 </h3>
                 {wizardData?.floorPlan ? (

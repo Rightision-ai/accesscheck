@@ -49,11 +49,11 @@ interface ReportViewProps {
   onUpdateCase: (updatedCase: Case) => void;
 }
 
-// --- Design Tokens (Premium Surveyor Palette) ---
-const AHR_DEEP = "#4c1d95"; // Deep Violet
-const AHR_VIOLET = "#7c3aed"; // Violet
-const AHR_SLATE = "#1e293b"; // Slate 800
-const AHR_ACCENT = "#f5f3ff";
+// --- Design Tokens (AccessCheck Palette) ---
+const AHR_DEEP = "#008900"; // Forest Green (high-contrast)
+const AHR_VIOLET = "#0FB75B"; // Brand Green (token name kept for diff stability)
+const AHR_SLATE = "#37393A"; // Brand Dark Grey
+const AHR_ACCENT = "#E6F8EE";
 const AHR_BORDER = "#e2e8f0";
 const AHR_MODIFIED = "#059669"; // Override Green
 
@@ -69,19 +69,22 @@ const AHR_Header = ({
   uprn?: string;
   lahrBand?: LahrBandId | null;
 }) => (
-  <div className="border-b-4 border-violet-900 pb-4 mb-6">
+  <div className="border-b-4 border-primary-dark pb-4 mb-6">
     <div className="flex justify-between items-start gap-4 flex-wrap">
       <div className="flex gap-4 rounded-xl items-center">
-        <img src="/logo.png" alt="Homingo" className="w-16 h-16 rounded-xl" />
+        <img src="/logo.png" alt="AccessCheck" className="w-16 h-16 rounded-xl" />
         <div>
           <h1 className="text-2xl font-black text-slate-800 m-0 tracking-tight">
             Accessibility Housing Register
           </h1>
-          <p className="text-xs text-violet-600 font-medium m-0 uppercase">
+          <p className="text-xs text-primary font-medium m-0 uppercase">
             OFFICIAL ACCESSIBILITY SURVEY REPORT
           </p>
           <p className="text-xs font-medium text-slate-500 mt-1">
             Issued: {date}
+          </p>
+          <p className="text-[10px] font-medium text-slate-400 mt-0.5 tracking-wide">
+            Powered by Homingo AI Engine
           </p>
         </div>
       </div>
@@ -102,12 +105,12 @@ const SectionBlock = ({
   sub?: string;
 }) => (
   <div className="mb-6 break-inside-avoid">
-    <div className="border-l-4 border-violet-900 pl-4 mb-3">
+    <div className="border-l-4 border-primary-dark pl-4 mb-3">
       <div className="flex items-baseline gap-2">
         {number && (
-          <span className="text-lg font-black text-violet-600">{number}</span>
+          <span className="text-lg font-black text-primary">{number}</span>
         )}
-        <h2 className="text-sm font-black uppercase text-violet-900 tracking-wider m-0">
+        <h2 className="text-sm font-black uppercase text-primary-dark tracking-wider m-0">
           {title}
         </h2>
       </div>
@@ -184,7 +187,7 @@ const AHR_Checkbox = ({
 }) => (
   <div className="flex items-center gap-2.5 mb-1">
     <div
-      className={`w-[18px] h-[18px] rounded border-2 flex items-center justify-center ${checked ? "border-violet-600 bg-violet-600" : "border-slate-300 bg-white"}`}
+      className={`w-[18px] h-[18px] rounded border-2 flex items-center justify-center ${checked ? "border-primary bg-primary" : "border-slate-300 bg-white"}`}
     >
       {checked && <Check size={12} color="#fff" strokeWidth={4} />}
     </div>
@@ -217,7 +220,7 @@ const MeasurementBadge = ({
       )}
     </div>
     <div className="flex items-center gap-2">
-      <div className="bg-slate-50 border border-slate-200 py-1 px-2.5 rounded-md font-medium text-violet-900 min-w-[55px] text-center text-xs">
+      <div className="bg-slate-50 border border-slate-200 py-1 px-2.5 rounded-md font-medium text-primary-dark min-w-[55px] text-center text-xs">
         {value || "-"}
       </div>
       <span className="text-[10px] font-normal text-slate-400 w-5">{unit}</span>
@@ -258,7 +261,7 @@ const ProfessionalSeal = () => (
         borderRadius: "12px",
       }}
     >
-      Homingo
+      AccessCheck
       <br />
       CERTIFIED
       <br />
@@ -981,7 +984,7 @@ const DoubleBox = ({ checked }: { checked?: boolean }) => (
         style={{
           width: "10px",
           height: "10px",
-          background: "#a855f7",
+          background: "#0FB75B",
           borderRadius: "2px",
         }}
       />
@@ -2802,7 +2805,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       <span
                         style={{
                           fontSize: "10px",
-                          color: "#7c3aed",
+                          color: "#008900",
                           fontWeight: "900",
                         }}
                       >
@@ -2857,7 +2860,7 @@ const ReportView: React.FC<ReportViewProps> = ({
               <div
                 style={{
                   marginTop: "16px",
-                  background: "#a855f7",
+                  background: "#0FB75B",
                   padding: "12px 20px",
                   borderRadius: "4px",
                   color: "#fff",
@@ -2938,7 +2941,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       ) && (
                         <Check
                           size={20}
-                          color={isMod("stopTriggered") ? "#059669" : "#a855f7"}
+                          color={isMod("stopTriggered") ? "#059669" : "#0FB75B"}
                           strokeWidth={5}
                         />
                       )}
@@ -3281,7 +3284,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                           <path
                             d="M 10 50 L 100 50 L 100 10 Z"
                             fill="none"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1.2"
                           />
                           <line
@@ -3289,7 +3292,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="55"
                             x2="90"
                             y2="55"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1"
                             markerStart="url(#arrowhead-purple)"
                             markerEnd="url(#arrowhead-purple)"
@@ -3309,7 +3312,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="45"
                             x2="108"
                             y2="15"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1"
                             markerStart="url(#arrowhead-purple)"
                             markerEnd="url(#arrowhead-purple)"
@@ -3405,7 +3408,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               >
                                 <polygon
                                   points="0 0, 6 3, 0 6"
-                                  fill="#a855f7"
+                                  fill="#0FB75B"
                                 />
                               </marker>
                             </defs>
@@ -3415,7 +3418,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               width="45"
                               height="130"
                               fill="none"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                             />
                             <line
@@ -3423,7 +3426,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="50"
                               x2="60"
                               y2="50"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="0.8"
                               strokeDasharray="4 2"
                             />
@@ -3432,7 +3435,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="65"
                               x2="37.5"
                               y2="120"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.5"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -3441,7 +3444,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="50"
                               x2="75"
                               y2="140"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -3629,7 +3632,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             <path
                               d="M 10 40 H 100 V 130 H 60 V 80 H 10 Z"
                               fill="none"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                             />
                             <line
@@ -3637,7 +3640,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="40"
                               x2="60"
                               y2="80"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="0.8"
                               strokeDasharray="3 2"
                             />
@@ -3646,7 +3649,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="80"
                               x2="100"
                               y2="80"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="0.8"
                               strokeDasharray="3 2"
                             />
@@ -3655,7 +3658,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="60"
                               x2="50"
                               y2="60"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.5"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -3664,7 +3667,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="85"
                               x2="80"
                               y2="120"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.5"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -3673,7 +3676,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="20"
                               x2="55"
                               y2="20"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -3693,7 +3696,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="85"
                               x2="115"
                               y2="125"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -3820,7 +3823,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             <path
                               d="M 30 115 V 20 H 120 V 115 H 95 V 60 H 55 V 115 Z"
                               fill="none"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.2"
                             />
                             <line
@@ -3828,7 +3831,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="60"
                               x2="55"
                               y2="60"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeDasharray="4 2"
                               strokeWidth="0.8"
                             />
@@ -3837,7 +3840,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="60"
                               x2="120"
                               y2="60"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeDasharray="4 2"
                               strokeWidth="0.8"
                             />
@@ -3846,7 +3849,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="100"
                               x2="40"
                               y2="68"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.8"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -3855,7 +3858,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="68"
                               x2="110"
                               y2="105"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.8"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -3864,7 +3867,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="65"
                               x2="10"
                               y2="110"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -3885,7 +3888,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="65"
                               x2="140"
                               y2="110"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -4092,7 +4095,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             style={{
                               fontSize: "12px",
                               fontWeight: "900",
-                              color: "#7c3aed",
+                              color: "#008900",
                             }}
                           >
                             X
@@ -4575,7 +4578,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                           <path
                             d="M 10 50 L 100 50 L 100 10 Z"
                             fill="none"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1.2"
                           />
                           <line
@@ -4583,7 +4586,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="55"
                             x2="90"
                             y2="55"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1"
                             markerStart="url(#arrowhead-purple)"
                             markerEnd="url(#arrowhead-purple)"
@@ -4603,7 +4606,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="45"
                             x2="108"
                             y2="15"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1"
                             markerStart="url(#arrowhead-purple)"
                             markerEnd="url(#arrowhead-purple)"
@@ -4693,7 +4696,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               width="45"
                               height="130"
                               fill="none"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                             />
                             <line
@@ -4701,7 +4704,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="50"
                               x2="60"
                               y2="50"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="0.8"
                               strokeDasharray="4 2"
                             />
@@ -4710,7 +4713,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="65"
                               x2="37.5"
                               y2="120"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.5"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -4719,7 +4722,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="50"
                               x2="75"
                               y2="140"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -4906,7 +4909,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             <path
                               d="M 10 40 H 100 V 130 H 60 V 80 H 10 Z"
                               fill="none"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                             />
                             <line
@@ -4914,7 +4917,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="40"
                               x2="60"
                               y2="80"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="0.8"
                               strokeDasharray="3 2"
                             />
@@ -4923,7 +4926,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="80"
                               x2="100"
                               y2="80"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="0.8"
                               strokeDasharray="3 2"
                             />
@@ -4932,7 +4935,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="60"
                               x2="50"
                               y2="60"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.5"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -4941,7 +4944,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="85"
                               x2="80"
                               y2="120"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.5"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -4950,7 +4953,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="20"
                               x2="55"
                               y2="20"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -4970,7 +4973,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="85"
                               x2="115"
                               y2="125"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -5129,7 +5132,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             <path
                               d="M 30 115 V 20 H 120 V 115 H 95 V 60 H 55 V 115 Z"
                               fill="none"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.2"
                             />
                             <line
@@ -5137,7 +5140,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="60"
                               x2="55"
                               y2="60"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeDasharray="4 2"
                               strokeWidth="0.8"
                             />
@@ -5146,7 +5149,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="60"
                               x2="120"
                               y2="60"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeDasharray="4 2"
                               strokeWidth="0.8"
                             />
@@ -5155,7 +5158,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="100"
                               x2="40"
                               y2="68"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.8"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -5164,7 +5167,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="68"
                               x2="110"
                               y2="105"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.8"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -5173,7 +5176,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="65"
                               x2="10"
                               y2="110"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -5194,7 +5197,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="65"
                               x2="140"
                               y2="110"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -5316,7 +5319,7 @@ const ReportView: React.FC<ReportViewProps> = ({
               <div
                 style={{
                   marginTop: "24px",
-                  background: "#a855f7",
+                  background: "#0FB75B",
                   padding: "12px 20px",
                   borderRadius: "4px",
                   color: "#fff",
@@ -5377,7 +5380,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                         ?.steps_count === "5+" ||
                         rawAhr.external_access?.property_front_door
                           ?.steps_count === "5+") && (
-                        <Check size={20} color="#a855f7" strokeWidth={5} />
+                        <Check size={20} color="#0FB75B" strokeWidth={5} />
                       )}
                     </div>
                   </div>
@@ -5554,7 +5557,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                     style={{
                       background: isMod("internalStepsCount")
                         ? AHR_MODIFIED
-                        : "#a855f7",
+                        : "#0FB75B",
                       padding: "8px 16px",
                       borderRadius: "3px",
                       color: "#fff",
@@ -5614,7 +5617,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                           color={
                             isMod("internalStepsCount")
                               ? AHR_MODIFIED
-                              : "#a855f7"
+                              : "#0FB75B"
                           }
                           strokeWidth={5}
                         />
@@ -6386,7 +6389,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                           <path
                             d="M 10 50 L 100 50 L 100 10 Z"
                             fill="none"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1.2"
                           />
                           <line
@@ -6394,7 +6397,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="55"
                             x2="90"
                             y2="55"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1"
                             markerStart="url(#arrowhead-purple)"
                             markerEnd="url(#arrowhead-purple)"
@@ -6414,7 +6417,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="45"
                             x2="108"
                             y2="15"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1"
                             markerStart="url(#arrowhead-purple)"
                             markerEnd="url(#arrowhead-purple)"
@@ -6505,7 +6508,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               width="45"
                               height="130"
                               fill="none"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                             />
                             <line
@@ -6513,7 +6516,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="50"
                               x2="60"
                               y2="50"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="0.8"
                               strokeDasharray="4 2"
                             />
@@ -6522,7 +6525,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="65"
                               x2="37.5"
                               y2="120"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.5"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -6531,7 +6534,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="50"
                               x2="75"
                               y2="140"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -6719,7 +6722,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             <path
                               d="M 10 40 H 100 V 130 H 60 V 80 H 10 Z"
                               fill="none"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                             />
                             <line
@@ -6727,7 +6730,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="40"
                               x2="60"
                               y2="80"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="0.8"
                               strokeDasharray="3 2"
                             />
@@ -6736,7 +6739,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="80"
                               x2="100"
                               y2="80"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="0.8"
                               strokeDasharray="3 2"
                             />
@@ -6745,7 +6748,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="60"
                               x2="50"
                               y2="60"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.5"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -6754,7 +6757,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="85"
                               x2="80"
                               y2="120"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.5"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -6763,7 +6766,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="20"
                               x2="55"
                               y2="20"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -6783,7 +6786,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="85"
                               x2="115"
                               y2="125"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -6942,7 +6945,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             <path
                               d="M 30 115 V 20 H 120 V 115 H 95 V 60 H 55 V 115 Z"
                               fill="none"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.2"
                             />
                             <line
@@ -6950,7 +6953,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="60"
                               x2="55"
                               y2="60"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeDasharray="4 2"
                               strokeWidth="0.8"
                             />
@@ -6959,7 +6962,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="60"
                               x2="120"
                               y2="60"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeDasharray="4 2"
                               strokeWidth="0.8"
                             />
@@ -6968,7 +6971,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="100"
                               x2="40"
                               y2="68"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.8"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -6977,7 +6980,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="68"
                               x2="110"
                               y2="105"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1.8"
                               markerEnd="url(#arrowhead-purple)"
                             />
@@ -6986,7 +6989,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="65"
                               x2="10"
                               y2="110"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -7007,7 +7010,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               y1="65"
                               x2="140"
                               y2="110"
-                              stroke="#a855f7"
+                              stroke="#0FB75B"
                               strokeWidth="1"
                               markerStart="url(#arrowhead-purple)"
                               markerEnd="url(#arrowhead-purple)"
@@ -7355,7 +7358,7 @@ const ReportView: React.FC<ReportViewProps> = ({
               >
                 <div
                   style={{
-                    background: "#a855f7",
+                    background: "#0FB75B",
                     padding: "10px 20px",
                     borderRadius: "4px",
                     color: "#fff",
@@ -7396,14 +7399,14 @@ const ReportView: React.FC<ReportViewProps> = ({
                         ?.min_width_cm?.value <= 74.9 &&
                         rawAhr.vertical_circulation?.internal_stairs?.type ===
                           "CURVED")) && (
-                      <Check size={18} color="#a855f7" strokeWidth={5} />
+                      <Check size={18} color="#0FB75B" strokeWidth={5} />
                     )}
                   </div>
                 </div>
 
                 <div
                   style={{
-                    background: "#a855f7",
+                    background: "#0FB75B",
                     padding: "10px 20px",
                     borderRadius: "4px",
                     color: "#fff",
@@ -7444,7 +7447,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       ?.clear_space_bottom_70cm === false &&
                       rawAhr.context_amenities?.second_exit
                         ?.access_to_street === false && (
-                        <Check size={18} color="#a855f7" strokeWidth={5} />
+                        <Check size={18} color="#0FB75B" strokeWidth={5} />
                       )}
                   </div>
                 </div>
@@ -7569,7 +7572,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               refY="3"
                               orient="auto"
                             >
-                              <polygon points="0 0, 6 3, 0 6" fill="#a855f7" />
+                              <polygon points="0 0, 6 3, 0 6" fill="#0FB75B" />
                             </marker>
                           </defs>
                           {/* Wall lines */}
@@ -7578,7 +7581,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="20"
                             x2="60"
                             y2="20"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1.2"
                           />
                           <line
@@ -7586,7 +7589,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="60"
                             x2="60"
                             y2="60"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1.2"
                           />
                           <line
@@ -7594,7 +7597,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="0"
                             x2="60"
                             y2="20"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1.2"
                           />
                           <line
@@ -7602,7 +7605,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="60"
                             x2="60"
                             y2="80"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1.2"
                           />
                           {/* Door leaf - 70 degree opn (20deg from horizontal) */}
@@ -7611,14 +7614,14 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="60"
                             x2="98"
                             y2="46"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1.5"
                           />
                           {/* Swing arc starting from top gap edge to door tip */}
                           <path
                             d="M 60 20 A 40 40 0 0 1 98 46"
                             fill="none"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1"
                             strokeDasharray="3 2"
                           />
@@ -7628,7 +7631,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="40"
                             x2="55"
                             y2="40"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="2.5"
                             markerEnd="url(#arrowhead-purple-a)"
                           />
@@ -7700,7 +7703,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               refY="3"
                               orient="auto"
                             >
-                              <polygon points="0 0, 6 3, 0 6" fill="#a855f7" />
+                              <polygon points="0 0, 6 3, 0 6" fill="#0FB75B" />
                             </marker>
                           </defs>
                           {/* Hallway lines */}
@@ -7709,7 +7712,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="35"
                             x2="35"
                             y2="35"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1.2"
                           />
                           <line
@@ -7717,7 +7720,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="35"
                             x2="100"
                             y2="35"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1.2"
                           />
                           <line
@@ -7725,7 +7728,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="70"
                             x2="100"
                             y2="70"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1.2"
                           />
                           {/* Door leaf hinged left - opening 70 deg up-left */}
@@ -7734,14 +7737,14 @@ const ReportView: React.FC<ReportViewProps> = ({
                             y1="35"
                             x2="25"
                             y2="7"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1.5"
                           />
                           {/* Swing arc from right wall edge (65,35) to tip (25,7) */}
                           <path
                             d="M 65 35 A 30 30 0 0 0 25 7"
                             fill="none"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="1"
                             strokeDasharray="3 2"
                             strokeOpacity="0.7"
@@ -7750,7 +7753,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                           <path
                             d="M 5 55 H 50 V 32"
                             fill="none"
-                            stroke="#a855f7"
+                            stroke="#0FB75B"
                             strokeWidth="2.5"
                             markerEnd="url(#arrowhead-purple-b)"
                           />

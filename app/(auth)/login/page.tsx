@@ -28,61 +28,63 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="h-screen w-screen bg-gradient-to-br from-[#0f0c29] to-[#301481] flex items-center justify-center fixed inset-0 z-[9999]">
-      {/* Background decorative elements */}
-      <div className="absolute top-[20%] left-[10%] w-[300px] h-[300px] bg-(--secondary) blur-[150px] opacity-20 rounded-full"></div>
-      <div className="absolute bottom-[20%] right-[10%] w-[400px] h-[400px] bg-(--accent) blur-[180px] opacity-10 rounded-full"></div>
-
+    <div className="h-screen w-screen bg-white flex items-center justify-center fixed inset-0 z-[9999]">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="w-full max-w-[420px] p-10 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-[20px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)]"
+        className="w-full max-w-[420px] p-10 rounded-3xl bg-white border border-slate-200 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.1)]"
       >
         <div className="text-center mb-8">
           <img
             src="/login-logo.png"
-            alt="Homingo Logo"
+            alt="AccessCheck Logo"
             className="w-40 h-auto block mx-auto mb-6"
           />
-          <h1 className="text-white text-xl font-bold mb-2 tracking-wide">
+          <h1 className="text-slate-900 text-xl font-bold mb-2 tracking-wide">
             Welcome Back
           </h1>
-          <p className="text-white/60 text-xs">Sign in to continue</p>
+          <p className="text-slate-500 text-xs">Sign in to continue</p>
         </div>
 
         <form onSubmit={handleSubmit}>
           {error && !loading && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-[10px] text-[#ff6b6b] text-xs mb-5 text-center">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-[10px] text-red-600 text-xs mb-5 text-center">
               {error}
             </div>
           )}
 
           <div className="mb-4">
-            <div className="relative bg-white/5 rounded-xl border border-white/10 transition-all duration-200">
-              <User size={18} className="absolute left-4 top-4 text-white/50" />
+            <div className="relative bg-slate-50 rounded-xl border border-slate-200 transition-all duration-200 focus-within:border-primary focus-within:bg-white">
+              <User
+                size={18}
+                className="absolute left-4 top-4 text-slate-400"
+              />
               <input
                 type="email"
                 name="email"
                 placeholder="Email Address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full py-3.5 pl-12 pr-4 bg-transparent border-none text-white text-sm outline-none font-medium"
+                className="w-full py-3.5 pl-12 pr-4 bg-transparent border-none text-slate-900 text-sm outline-none font-medium placeholder:text-slate-400"
                 required
               />
             </div>
           </div>
 
           <div className="mb-7">
-            <div className="relative bg-white/5 rounded-xl border border-white/10">
-              <Lock size={18} className="absolute left-4 top-4 text-white/50" />
+            <div className="relative bg-slate-50 rounded-xl border border-slate-200 transition-all duration-200 focus-within:border-primary focus-within:bg-white">
+              <Lock
+                size={18}
+                className="absolute left-4 top-4 text-slate-400"
+              />
               <input
                 type="password"
                 name="password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full py-3.5 pl-12 pr-4 bg-transparent border-none text-white text-sm outline-none font-medium"
+                className="w-full py-3.5 pl-12 pr-4 bg-transparent border-none text-slate-900 text-sm outline-none font-medium placeholder:text-slate-400"
                 required
               />
             </div>
@@ -91,7 +93,7 @@ const LoginPage = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-[#7654f6] border-none text-white text-sm font-semibold cursor-pointer transition-all duration-200 flex items-center justify-center gap-2.5 shadow-[0_4px_12px_rgba(0,0,0,0.2)] disabled:cursor-wait hover:brightness-110 disabled:hover:brightness-100"
+            className="w-full py-3.5 rounded-xl bg-primary border-none text-white text-sm font-semibold cursor-pointer transition-all duration-200 flex items-center justify-center gap-2.5 shadow-[0_4px_12px_rgba(15,183,91,0.35)] disabled:cursor-wait hover:brightness-110 disabled:hover:brightness-100"
           >
             {loading ? (
               <>
@@ -107,9 +109,9 @@ const LoginPage = () => {
           </button>
         </form>
 
-        <div className="mt-8 text-center">
-          <p className="text-white/30 text-xs">
-            Protected by Homingo Secure Access v2.0
+        <div className="mt-8 text-center space-y-1">
+          <p className="text-slate-400 text-[10px] tracking-wide">
+            Powered by Homingo AI Engine
           </p>
         </div>
       </motion.div>

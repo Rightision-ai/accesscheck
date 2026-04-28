@@ -43,7 +43,7 @@ export const AIConfirmationCard: React.FC<AIConfirmationCardProps> = ({
                 {detectedValue !== null && (
                     <div className={cn(
                         "px-2.5 py-0.5 rounded-full text-[10px] font-extrabold flex items-center gap-1",
-                        isHighConfidence ? "bg-purple-100 text-purple-800" : "bg-purple-50 text-purple-700"
+                        isHighConfidence ? "bg-green-100 text-primary-dark" : "bg-green-50 text-primary-dark"
                     )}>
                         <div className="w-1.5 h-1.5 rounded-full bg-current" />
                         AI: {detectedValue.toString()}
@@ -64,8 +64,8 @@ export const AIConfirmationCard: React.FC<AIConfirmationCardProps> = ({
                             className={cn(
                                 "py-2.5 px-2 rounded-xl border-2 font-bold text-xs cursor-pointer transition-all flex items-center justify-center gap-1.5 relative",
                                 isSelected && !isSuggestion && "border-primary bg-primary text-white",
-                                isSelected && isSuggestion && "border-purple-600 bg-purple-600 text-white",
-                                isSuggestion && !isSelected && "border-purple-200 bg-purple-50 text-purple-700",
+                                isSelected && isSuggestion && "border-primary bg-primary text-white",
+                                isSuggestion && !isSelected && "border-green-200 bg-green-50 text-primary-dark",
                                 !isSelected && !isSuggestion && "border-slate-200 bg-white text-slate-500"
                             )}
                         >

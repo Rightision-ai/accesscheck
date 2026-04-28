@@ -38,7 +38,7 @@ export default function CostEstimationDetailView({
       <div className="mx-auto max-w-4xl p-6">
         <Link
           href={`/cases/${surveyId}`}
-          className="inline-flex items-center gap-1 text-sm font-semibold text-violet-700 hover:text-violet-900"
+          className="inline-flex items-center gap-1 text-sm font-semibold text-primary-dark hover:text-primary-dark"
         >
           <ChevronLeft size={16} />
           Back to case overview
@@ -46,13 +46,13 @@ export default function CostEstimationDetailView({
 
         <header className="mt-4 flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div>
-            <div className="flex items-center gap-2 text-violet-700">
+            <div className="flex items-center gap-2 text-primary-dark">
               <PoundSterling size={18} />
               <span className="text-xs font-bold uppercase tracking-wider">
                 DFG Adoption Plan
               </span>
               {isCap && (
-                <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
                   DFG cap
                 </span>
               )}
@@ -309,7 +309,7 @@ function FooterMeta({ estimation }: { estimation: CostEstimation }) {
         <span className="font-bold uppercase tracking-wider">Confidence</span>
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
           <div
-            className="h-full bg-violet-500"
+            className="h-full bg-primary"
             style={{ width: `${confidencePct}%` }}
           />
         </div>

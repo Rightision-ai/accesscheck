@@ -28,8 +28,8 @@ const Header: React.FC<HeaderProps> = ({ user, onOpenWizard, onSearch }) => {
     <header className="min-h-16 md:h-20 flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 md:px-8 py-3 sticky top-0 z-[100] border-b border-[var(--glass-border)] bg-white">
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <img
-          src="/homingo-logo.png"
-          alt="Homingo"
+          src="/logo.png"
+          alt="AccessCheck"
           className="h-9 sm:h-[45px] cursor-pointer"
         />
       </div>
@@ -76,7 +76,7 @@ const Header: React.FC<HeaderProps> = ({ user, onOpenWizard, onSearch }) => {
               {user?.role || "OT"}
             </div>
           </div>
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg md:rounded-xl bg-primary text-white flex items-center justify-center text-xs sm:text-sm font-extrabold cursor-pointer shadow-[0_4px_12px_rgba(99,102,241,0.3)] shrink-0">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg md:rounded-xl bg-primary text-white flex items-center justify-center text-xs sm:text-sm font-extrabold cursor-pointer shadow-[0_4px_12px_rgba(15,183,91,0.3)] shrink-0">
             {user?.name ? (
               user.name.charAt(0)
             ) : (

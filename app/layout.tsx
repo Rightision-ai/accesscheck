@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Homingo Dashboard",
-  description: "Homingo Dashboard",
+  title: "AccessCheck Dashboard",
+  description: "AccessCheck Dashboard",
 };
 
 export default function RootLayout({

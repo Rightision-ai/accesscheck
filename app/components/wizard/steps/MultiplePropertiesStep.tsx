@@ -48,7 +48,7 @@ const MultiplePropertiesStep: React.FC<WizardStepProps> = ({
           className={cn(
             "flex-1 py-4 px-3 rounded-xl border-2 cursor-pointer font-bold text-[15px] transition-all text-center",
             isYes
-              ? "border-primary bg-primary-light text-indigo-700"
+              ? "border-primary bg-primary-light text-primary-dark"
               : "border-slate-200 bg-white text-slate-500",
           )}
           onClick={() => handleUpdateField("multipleProperties", "Yes")}
@@ -59,7 +59,7 @@ const MultiplePropertiesStep: React.FC<WizardStepProps> = ({
           className={cn(
             "flex-1 py-4 px-3 rounded-xl border-2 cursor-pointer font-bold text-[15px] transition-all text-center",
             isNo
-              ? "border-primary bg-primary-light text-indigo-700"
+              ? "border-primary bg-primary-light text-primary-dark"
               : "border-slate-200 bg-white text-slate-500",
           )}
           onClick={() => {
@@ -78,8 +78,8 @@ const MultiplePropertiesStep: React.FC<WizardStepProps> = ({
           exit={{ opacity: 0, height: 0 }}
           className="overflow-hidden"
         >
-          <div className="bg-primary-light border-[1.5px] border-indigo-200 rounded-[10px] p-4">
-            <label className="text-xs font-semibold text-indigo-700 block mb-2.5">
+          <div className="bg-primary-light border-[1.5px] border-green-200 rounded-[10px] p-4">
+            <label className="text-xs font-semibold text-primary-dark block mb-2.5">
               How many identical units are there in total?
             </label>
             <input
@@ -90,7 +90,7 @@ const MultiplePropertiesStep: React.FC<WizardStepProps> = ({
               onChange={(e) =>
                 handleUpdateField("multiplePropertiesCount", e.target.value)
               }
-              className="w-[120px] py-2.5 px-3 border-[1.5px] border-indigo-300 rounded-lg text-[15px] font-bold text-slate-800 bg-white outline-none"
+              className="w-[120px] py-2.5 px-3 border-[1.5px] border-green-300 rounded-lg text-[15px] font-bold text-slate-800 bg-white outline-none"
             />
           </div>
         </motion.div>

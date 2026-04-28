@@ -253,7 +253,7 @@ function LahrBandsLegend({ band }: { band: LahrBandId }) {
                 <strong style={{ color: def.color }}>
                   {id} — {def.label}
                 </strong>{" "}
-                {active && <em className="text-violet-700">(current)</em>}
+                {active && <em className="text-primary-dark">(current)</em>}
                 <span className="block text-slate-500">{def.description}</span>
               </span>
             </li>

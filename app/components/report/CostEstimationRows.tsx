@@ -130,7 +130,7 @@ export default function CostEstimationRows({
     <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-3 mb-4">
         <div className="flex items-center gap-2">
-          <PoundSterling size={18} className="text-violet-600" />
+          <PoundSterling size={18} className="text-primary" />
           <div>
             <h2 className="text-base font-bold text-slate-900 m-0">
               Adoption Plans
@@ -148,7 +148,7 @@ export default function CostEstimationRows({
           className={`pdf-hide inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 ${
             isStale
               ? "border-amber-400 bg-amber-100 text-amber-900 hover:bg-amber-200"
-              : "border-violet-300 bg-violet-50 text-violet-800 hover:bg-violet-100"
+              : "border-green-300 bg-green-50 text-primary-dark hover:bg-green-100"
           }`}
         >
           <RefreshCw size={12} className={isRefreshing ? "animate-spin" : ""} />
@@ -203,7 +203,7 @@ function EmptyState({ isLoading }: { isLoading: boolean }) {
     <div className="flex flex-col items-center justify-center gap-2 rounded border border-dashed border-slate-200 py-8 text-center text-[12px] text-slate-500">
       {isLoading ? (
         <>
-          <Loader2 size={18} className="animate-spin text-violet-500" />
+          <Loader2 size={18} className="animate-spin text-primary" />
           <span>Generating adoption plan — this can take 30–60 seconds.</span>
         </>
       ) : (
@@ -233,9 +233,9 @@ function TierRow({
     <li>
       <Link
         href={`/cases/${surveyId}/cost-estimation/${tier.budgetGbp}`}
-        className={`group flex items-center gap-3 rounded-lg border p-3 transition-colors hover:border-violet-300 hover:bg-violet-50/40 ${
+        className={`group flex items-center gap-3 rounded-lg border p-3 transition-colors hover:border-green-300 hover:bg-green-50/40 ${
           isCap
-            ? "border-violet-200 bg-violet-50/20"
+            ? "border-green-200 bg-green-50/20"
             : "border-slate-200 bg-white"
         }`}
       >
@@ -249,7 +249,7 @@ function TierRow({
               £{(tier.budgetGbp / 1000).toFixed(0)}K
             </span>
             {isCap && (
-              <span className="rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+              <span className="rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
                 DFG cap
               </span>
             )}
@@ -331,7 +331,7 @@ function TierRow({
 
         <ChevronRight
           size={18}
-          className="shrink-0 text-slate-400 group-hover:text-violet-600"
+          className="shrink-0 text-slate-400 group-hover:text-primary"
         />
       </Link>
     </li>
