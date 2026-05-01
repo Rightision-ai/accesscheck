@@ -33,7 +33,7 @@ export default function ValidationInterfaceClient({ caseData, user }: { caseData
   return (
     <ValidationInterface
       caseData={caseData}
-      onBack={() => router.push('/')}
+      onBack={() => router.push('/dashboard')}
       onUpdateCase={handleUpdateCase}
       onOpenReport={() => router.push(`/assessments/${caseData.id}/report`)}
       onDelete={handleDelete}

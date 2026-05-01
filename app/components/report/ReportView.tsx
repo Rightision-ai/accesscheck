@@ -32,6 +32,7 @@ import type { LahrBandId } from "@/lib/accessibility/lahr/types";
 import type { CostEstimation } from "@/lib/accessibility/cost-estimation/types";
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
+import Image from "next/image";
 
 interface ReportViewProps {
   caseData: Case;
@@ -72,7 +73,11 @@ const AHR_Header = ({
   <div className="border-b-4 border-primary-dark pb-4 mb-6">
     <div className="flex justify-between items-start gap-4 flex-wrap">
       <div className="flex gap-4 rounded-xl items-center">
-        <img src="/logo.png" alt="AccessCheck" className="w-16 h-16 rounded-xl" />
+        <img
+          src="/logo.png"
+          alt="AccessCheck"
+          className="w-16 h-16 rounded-xl"
+        />
         <div>
           <h1 className="text-2xl font-black text-slate-800 m-0 tracking-tight">
             Accessibility Housing Register
@@ -84,7 +89,14 @@ const AHR_Header = ({
             Issued: {date}
           </p>
           <p className="text-[10px] font-medium text-slate-400 mt-0.5 tracking-wide">
-            Powered by Homingo AI Engine
+            Powered by{" "}
+            <Image
+              src="/assets/media/homingo-logo.png"
+              alt="Homingo"
+              width={50}
+              height={50}
+              className="h-8 w-auto ml-2"
+            />
           </p>
         </div>
       </div>

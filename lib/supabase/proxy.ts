@@ -40,11 +40,18 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Protected routes logic
-  const isLoginPage = request.nextUrl.pathname.startsWith('/login')
+  const pathname = request.nextUrl.pathname
+  const isLoginPage = pathname.startsWith('/login')
+  const isMarketingRoute =
+    pathname === '/' ||
+    pathname.startsWith('/solutions') ||
+    pathname.startsWith('/about')
   const isPublicRoute = isLoginPage ||
-                        request.nextUrl.pathname.startsWith('/_next') ||
-                        request.nextUrl.pathname.startsWith('/api') ||
-                        request.nextUrl.pathname === '/favicon.ico'
+                        isMarketingRoute ||
+                        pathname.startsWith('/_next') ||
+                        pathname.startsWith('/api') ||
+                        pathname.startsWith('/assets') ||
+                        pathname === '/favicon.ico'
 
   // If user is not authenticated and trying to access protected route
   if (!user && !isPublicRoute) {
@@ -60,7 +67,7 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     // Check if there's a redirectTo parameter
     const redirectTo = request.nextUrl.searchParams.get('redirectTo')
-    url.pathname = redirectTo || '/'
+    url.pathname = redirectTo || '/dashboard'
     url.searchParams.delete('redirectTo')
     return NextResponse.redirect(url)
   }

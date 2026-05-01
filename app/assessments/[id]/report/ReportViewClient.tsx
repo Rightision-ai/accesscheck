@@ -36,7 +36,7 @@ export default function ReportViewClient({
     <ReportView
       caseData={caseData}
       costEstimation={costEstimation}
-      onBack={() => router.push('/')}
+      onBack={() => router.push('/dashboard')}
       onUpdateCase={handleUpdateCase}
     />
   );

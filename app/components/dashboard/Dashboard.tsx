@@ -12,6 +12,7 @@ import {
 import CaseCard from "./CaseCard";
 import { Case } from "@/types/dashboard";
 import { cn } from "@/lib/utils/cn";
+import Image from "next/image";
 
 interface DashboardProps {
   user: any;
@@ -346,7 +347,14 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       <footer className="mt-10 pt-6 border-t border-slate-200 text-center">
         <p className="text-[11px] text-slate-400 tracking-wide">
-          Powered by Homingo AI Engine
+          Powered by{" "}
+          <Image
+            src="/assets/media/homingo-logo.png"
+            alt="Homingo"
+            width={50}
+            height={50}
+            className="h-8 w-auto ml-2"
+          />
         </p>
       </footer>
     </div>

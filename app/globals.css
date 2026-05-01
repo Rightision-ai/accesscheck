@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
 :root {
   --background: #ffffff;
@@ -39,4 +40,103 @@ body {
 /* html2canvas compatibility: prevents text shift with Tailwind */
 img {
   display: inline-block;
+}
+
+/* Subtle reveal on initial paint — used by marketing surface */
+@keyframes ac-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ac-fade-up {
+  animation: ac-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.ac-fade-up-1 { animation-delay: 0.05s; }
+.ac-fade-up-2 { animation-delay: 0.12s; }
+.ac-fade-up-3 { animation-delay: 0.20s; }
+
+/* Hero "AI scanning" visual */
+@keyframes ac-scan {
+  0%   { top: 0;       opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { top: 100%;    opacity: 0; }
+}
+.ac-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(15, 183, 91, 0.85) 50%,
+    transparent 100%
+  );
+  box-shadow: 0 0 24px 6px rgba(15, 183, 91, 0.45);
+  animation: ac-scan 2.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+.ac-scan-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 183, 91, 0.08) 0%,
+    transparent 30%,
+    transparent 70%,
+    rgba(15, 183, 91, 0.08) 100%
+  );
+}
+
+/* Annotated-photo markers (used by GradeShowcase) */
+@keyframes ac-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(15, 183, 91, 0.55); }
+  70%  { box-shadow: 0 0 0 14px rgba(15, 183, 91, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(15, 183, 91, 0); }
+}
+.ac-pulse {
+  animation: ac-pulse-ring 1.8s cubic-bezier(0.66, 0, 0, 1) infinite;
+}
+@keyframes ac-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.6; }
+}
+.ac-blink {
+  animation: ac-blink 1.6s ease-in-out infinite;
+}
+
+/* Engine cards (How it works) */
+.engine-card {
+  position: relative;
+  isolation: isolate;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.3s ease;
+}
+.engine-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px -16px rgba(15, 183, 91, 0.25);
+}
+.engine-card .card-image {
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.engine-card:hover .card-image {
+  transform: scale(1.06);
+}
+.engine-card .card-glow {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(
+    closest-side,
+    rgba(15, 183, 91, 0.35),
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.engine-card:hover .card-glow {
+  opacity: 1;
 }

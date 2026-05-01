@@ -18,7 +18,7 @@ export default async function ValidatePage({ params }: { params: Promise<{ id: s
 
   if (error || !survey) {
     console.error('Error fetching survey:', error);
-    redirect('/');
+    redirect('/dashboard');
   }
 
   const caseData = mapSurveyToCase(survey);

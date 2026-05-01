@@ -27,11 +27,13 @@ const Header: React.FC<HeaderProps> = ({ user, onOpenWizard, onSearch }) => {
   return (
     <header className="min-h-16 md:h-20 flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 md:px-8 py-3 sticky top-0 z-[100] border-b border-[var(--glass-border)] bg-white">
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        <img
-          src="/header-logo.png"
-          alt="AccessCheck"
-          className="h-9 sm:h-[72px] cursor-pointer"
-        />
+        <a href="/dashboard" aria-label="AccessCheck dashboard home">
+          <img
+            src="/assets/logo/SVG/AcessCheck -28.svg"
+            alt="AccessCheck"
+            className="h-9 sm:h-[64px] cursor-pointer"
+          />
+        </a>
       </div>
 
       {/* Desktop: Search bar */}
