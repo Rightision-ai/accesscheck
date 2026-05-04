@@ -114,8 +114,8 @@ const LoginPage = () => {
           <p className="text-slate-400 text-[10px] tracking-wide">
             Powered by{" "}
             <Image
-              src="/assets/media/homingo-logo.png"
-              alt="Homingo"
+              src="/assets/media/rightision-logo.png"
+              alt="Rightision"
               width={50}
               height={50}
               className="h-8 ml-2 w-auto"

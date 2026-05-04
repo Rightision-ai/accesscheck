@@ -29,7 +29,7 @@ const Header: React.FC<HeaderProps> = ({ user, onOpenWizard, onSearch }) => {
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <a href="/dashboard" aria-label="AccessCheck dashboard home">
           <img
-            src="/assets/logo/SVG/AcessCheck -28.svg"
+            src="/assets/logo/PNG/AcessCheck -21.png"
             alt="AccessCheck"
             className="h-9 sm:h-[64px] cursor-pointer"
           />

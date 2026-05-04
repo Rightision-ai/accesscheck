@@ -327,7 +327,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
       return;
     }
     toast.success("Assessment deleted");
-    router.push("/");
+    router.push("/dashboard");
   };
 
   return (
@@ -337,7 +337,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-3 sm:py-0 sm:h-16 min-h-14 flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
             <button
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/dashboard")}
               className="p-2 rounded-full bg-transparent border-none cursor-pointer text-slate-500 flex items-center justify-center shrink-0 touch-manipulation"
               aria-label="Back to dashboard"
             >
@@ -781,7 +781,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                       className="w-full max-h-[320px] object-contain rounded-lg"
                     />
                     <p className="mt-2 text-[11px] text-center text-slate-500 font-semibold">
-                      Homingo AI Vision: Spatial Mapping Applied (M4 Compliance
+                      Rightision AI Vision: Spatial Mapping Applied (M4 Compliance
                       Verified)
                     </p>
                   </div>

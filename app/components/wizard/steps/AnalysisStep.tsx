@@ -31,7 +31,7 @@ const AnalysisStep: React.FC<WizardStepProps> = ({
                 Building Final Report
               </h3>
               <p className="text-text-dim text-sm">
-                The Homingo AI engine is consolidating extracted section data
+                The Rightision AI engine is consolidating extracted section data
                 and confidence signals for the final report.
               </p>
             </div>

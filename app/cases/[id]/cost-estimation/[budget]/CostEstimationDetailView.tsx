@@ -317,7 +317,7 @@ function FooterMeta({ estimation }: { estimation: CostEstimation }) {
       </div>
       <p className="mt-2 m-0">
         Generated {new Date(estimation.generatedAt).toLocaleString()} using{" "}
-        Homingo AI Engine. Figures are indicative — obtain a quote from a
+        Rightision AI Engine. Figures are indicative — obtain a quote from a
         qualified contractor before commissioning works.
       </p>
     </section>

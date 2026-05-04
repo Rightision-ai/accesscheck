@@ -45,7 +45,10 @@ export async function updateSession(request: NextRequest) {
   const isMarketingRoute =
     pathname === '/' ||
     pathname.startsWith('/solutions') ||
-    pathname.startsWith('/about')
+    pathname.startsWith('/about') ||
+    pathname.startsWith('/contact') ||
+    pathname.startsWith('/privacy') ||
+    pathname.startsWith('/terms')
   const isPublicRoute = isLoginPage ||
                         isMarketingRoute ||
                         pathname.startsWith('/_next') ||

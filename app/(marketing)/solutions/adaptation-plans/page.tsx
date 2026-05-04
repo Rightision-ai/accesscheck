@@ -1,4 +1,5 @@
 import SolutionPage from "@/app/components/marketing/SolutionPage";
+import AdaptationPlanHero from "@/app/components/marketing/AdaptationPlanHero";
 
 export const metadata = {
   title: "Adaptation plans",
@@ -12,6 +13,7 @@ export default function AdaptationPlansPage() {
       eyebrow="Adaptation plans"
       title="Costed plans, not just observations."
       intro="AccessCheck doesn’t stop at flagging issues. It proposes specific adaptations, prices them, and shows how each one moves the home up the accessibility grade."
+      hero={<AdaptationPlanHero />}
       highlights={[
         "Targeted recommendations per room",
         "Cost estimates with budget banding",

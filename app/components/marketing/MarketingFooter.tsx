@@ -74,14 +74,14 @@ export default function MarketingFooter() {
                     <p className="text-sm font-semibold">
                       A service by Foundations
                     </p>
-                    <p className="text-xs text-white/80">
+                    <p className="text-xs text-white/80 mt-2">
                       Powered by
                       <Image
-                        src="/assets/media/homingo-logo.png"
-                        alt="Homingo"
+                        src="/assets/media/rightision-logo.png"
+                        alt="Rightision"
                         width={50}
                         height={50}
-                        className="h-8 w-auto ml-2"
+                        className="h-6 w-auto ml-2"
                       />
                     </p>
                   </div>
@@ -92,7 +92,7 @@ export default function MarketingFooter() {
                   for home improvement agencies in England.
                 </p>
                 <a
-                  href="https://www.linkedin.com/company/homingo-co-uk/posts/?feedView=all"
+                  href="https://www.linkedin.com/company/rightision/posts/?feedView=all"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="AccessCheck on LinkedIn"
@@ -106,19 +106,27 @@ export default function MarketingFooter() {
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-white border-b-2 border-white pb-2 inline-block">
                     Product
                   </h2>
-                  <ul className=" space-y-3 text-sm">
+                  <ul className="mt-4 space-y-3 text-sm">
                     <li>
                       <Link
-                        href="/solutions"
-                        className="text-white hover:text-primary-dark hover:underline"
+                        href="/solutions/floor-plan-analysis"
+                        className="text-white hover:text-primary-light hover:underline"
                       >
-                        Solutions
+                        Floor plan analysis
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        href="/solutions/image-analysis"
+                        className="text-white hover:text-primary-light hover:underline"
+                      >
+                        Image analysis
                       </Link>
                     </li>
                     <li>
                       <Link
                         href="/solutions/adaptation-plans"
-                        className="text-white hover:text-primary-dark hover:underline"
+                        className="text-white hover:text-primary-light hover:underline"
                       >
                         Adaptation plans
                       </Link>
@@ -126,17 +134,9 @@ export default function MarketingFooter() {
                     <li>
                       <Link
                         href="/solutions/reports"
-                        className="text-white hover:text-primary-dark hover:underline"
+                        className="text-white hover:text-primary-light hover:underline"
                       >
                         Reports
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        href="/login"
-                        className="text-white hover:text-primary-dark hover:underline"
-                      >
-                        Login
                       </Link>
                     </li>
                   </ul>
@@ -150,28 +150,35 @@ export default function MarketingFooter() {
                     <li>
                       <Link
                         href="/about"
-                        className="text-white hover:text-primary-dark hover:underline"
+                        className="text-white hover:text-primary-light hover:underline"
                       >
                         About us
                       </Link>
                     </li>
                     <li>
                       <Link
-                        href="/solutions/dfg"
-                        className="text-white hover:text-primary-dark hover:underline"
+                        href="/contact"
+                        className="text-white hover:text-primary-light hover:underline"
                       >
-                        Disabled Facilities Grant
+                        Contact
+                      </Link>
+                    </li>
+
+                    <li>
+                      <Link
+                        href="/privacy"
+                        className="text-white hover:text-primary-light hover:underline"
+                      >
+                        Privacy policy
                       </Link>
                     </li>
                     <li>
-                      <a
-                        href="https://www.foundations.uk"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-white hover:text-primary-dark hover:underline"
+                      <Link
+                        href="/terms"
+                        className="text-white hover:text-primary-light hover:underline"
                       >
-                        Foundations
-                      </a>
+                        Terms &amp; conditions
+                      </Link>
                     </li>
                   </ul>
                 </nav>
@@ -201,7 +208,7 @@ export default function MarketingFooter() {
                       />
                       <a
                         href="mailto:hello@accesscheck.uk"
-                        className="text-white hover:text-primary-dark hover:underline"
+                        className="text-white hover:text-primary-light hover:underline"
                       >
                         hello@accesscheck.uk
                       </a>

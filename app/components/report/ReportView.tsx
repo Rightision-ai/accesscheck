@@ -91,8 +91,8 @@ const AHR_Header = ({
           <p className="text-[10px] font-medium text-slate-400 mt-0.5 tracking-wide">
             Powered by{" "}
             <Image
-              src="/assets/media/homingo-logo.png"
-              alt="Homingo"
+              src="/assets/media/rightision-logo.png"
+              alt="Rightision"
               width={50}
               height={50}
               className="h-8 w-auto ml-2"
@@ -10168,7 +10168,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                             fontWeight: "700",
                           }}
                         >
-                          Homingo AI Vision: Spatial Mapping Applied (M4
+                          Rightision AI Vision: Spatial Mapping Applied (M4
                           Compliance Verified)
                         </div>
                       </div>

@@ -5,13 +5,15 @@ import TaglineQuote from "@/app/components/marketing/TaglineQuote";
 import StatsStrip from "@/app/components/marketing/StatsStrip";
 import AudienceCards from "@/app/components/marketing/AudienceCards";
 import FinalCTA from "@/app/components/marketing/FinalCTA";
+import AccessCheckMotionExplainer from "../components/marketing/AccessCheckMotionExplainer";
 
 export default function HomePage() {
   return (
     <>
       <Hero />
       <StatsStrip />
-      <GradeShowcase />
+      {/* <GradeShowcase /> */}
+      <AccessCheckMotionExplainer />
       <HowItWorks />
       <TaglineQuote />
       <AudienceCards />

@@ -23,7 +23,7 @@ export default function FinalCTA() {
             <ArrowRight size={18} aria-hidden="true" />
           </Link>
           <Link
-            href="/about"
+            href="/contact"
             className="inline-flex items-center justify-center min-h-12 px-7 rounded-lg border border-[var(--text-main)]/15 text-[var(--text-main)] text-base font-semibold hover:border-[var(--primary-dark)] hover:text-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
           >
             Contact us

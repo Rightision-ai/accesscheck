@@ -32,7 +32,7 @@ const STEPS = [
     description:
       "Approach gradients, kerbs and local context inform whether a home is reachable, not just usable.",
     image: "/assets/media/geospatial-analysis.png",
-    href: "/solutions",
+    href: "/solutions/floor-plan-analysis",
   },
 ];
 

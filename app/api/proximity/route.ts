@@ -29,7 +29,7 @@ async function geocodePostcode(postcode: string): Promise<{ lat: number; lon: nu
     const url = `https://nominatim.openstreetmap.org/search?q=${encoded}&countrycodes=gb&format=json&limit=1`;
 
     const res = await fetch(url, {
-        headers: { 'User-Agent': 'Homingo-OT/1.0 (occupational-therapy-assessment)' },
+        headers: { 'User-Agent': 'Rightision-OT/1.0 (occupational-therapy-assessment)' },
         signal: AbortSignal.timeout(8000),
     });
 

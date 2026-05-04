@@ -170,18 +170,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        <div className="bg-orange-50 p-6 rounded-2xl border-2 border-orange-500 shadow-[0_4px_12px_rgba(245,158,11,0.1)]">
-          <div className="flex items-center gap-3 mb-3">
-            <Clock size={24} className="text-orange-500" />
-            <span className="text-xs text-orange-700 font-semibold uppercase tracking-wider">
-              In Progress
-            </span>
-          </div>
-          <div className="text-4xl font-extrabold text-orange-600 leading-none">
-            {stats.inProgress}
-          </div>
-        </div>
-
         <div className="bg-slate-100 p-6 rounded-2xl border-2 border-slate-400 shadow-[0_4px_12px_rgba(148,163,184,0.1)]">
           <div className="flex items-center gap-3 mb-3">
             <FileText size={24} className="text-slate-500" />
@@ -349,8 +337,8 @@ const Dashboard: React.FC<DashboardProps> = ({
         <p className="text-[11px] text-slate-400 tracking-wide">
           Powered by{" "}
           <Image
-            src="/assets/media/homingo-logo.png"
-            alt="Homingo"
+            src="/assets/media/rightision-logo.png"
+            alt="Rightision"
             width={50}
             height={50}
             className="h-8 w-auto ml-2"

@@ -9,9 +9,12 @@ import {
   Ruler,
   Wrench,
   FileText,
-  BadgeCheck,
   ArrowRight,
+  LayoutDashboard,
+  LogOut,
 } from "lucide-react";
+import { useUser } from "@/lib/auth/hooks";
+import { signOut } from "@/lib/auth/actions";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -57,17 +60,16 @@ const SOLUTIONS = [
     title: "DFG-ready reports",
     description: "Defensible PDFs with linked photo evidence per finding.",
   },
-  {
-    href: "/solutions/dfg",
-    icon: BadgeCheck,
-    title: "Disabled Facilities Grant",
-    description:
-      "Help applicants prepare faster, better-evidenced submissions.",
-  },
 ];
 
 export default function MarketingHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, loading } = useUser();
+  const isAuthed = !loading && !!user;
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
     <header
@@ -134,7 +136,7 @@ export default function MarketingHeader() {
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
                 <Link
-                  href="/about#contact-heading"
+                  href="/contact"
                   className={navigationMenuTriggerStyle()}
                 >
                   Contact
@@ -146,17 +148,38 @@ export default function MarketingHeader() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            asChild
-            variant="primary"
-            size="md"
-            className="hidden md:inline-flex"
-          >
-            <Link href="/login">
-              Login
-              <ArrowRight size={16} aria-hidden="true" />
-            </Link>
-          </Button>
+          {isAuthed ? (
+            <div className="hidden md:flex items-center gap-2">
+              <Button asChild variant="primary" size="md">
+                <Link href="/dashboard" aria-label="Go to dashboard">
+                  <LayoutDashboard size={16} aria-hidden="true" />
+                  Dashboard
+                </Link>
+              </Button>
+              <form action={handleSignOut}>
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Sign out"
+                >
+                  <LogOut size={18} aria-hidden="true" />
+                </Button>
+              </form>
+            </div>
+          ) : (
+            <Button
+              asChild
+              variant="primary"
+              size="md"
+              className="hidden md:inline-flex"
+            >
+              <Link href="/login">
+                Login
+                <ArrowRight size={16} aria-hidden="true" />
+              </Link>
+            </Button>
+          )}
 
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
@@ -205,18 +228,44 @@ export default function MarketingHeader() {
                   About
                 </Link>
                 <Link
-                  href="/about#contact-heading"
+                  href="/contact"
                   onClick={() => setMobileOpen(false)}
                   className="px-2 py-2 rounded-md text-sm font-medium text-[var(--text-main)] hover:bg-[var(--primary-light)] hover:text-[var(--primary-dark)]"
                 >
                   Contact
                 </Link>
-                <Button asChild variant="primary" size="md" className="mt-4">
-                  <Link href="/login" onClick={() => setMobileOpen(false)}>
-                    Login
-                    <ArrowRight size={16} aria-hidden="true" />
-                  </Link>
-                </Button>
+                {isAuthed ? (
+                  <>
+                    <Button asChild variant="primary" size="md" className="mt-4">
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        <LayoutDashboard size={16} aria-hidden="true" />
+                        Dashboard
+                      </Link>
+                    </Button>
+                    <form action={handleSignOut} className="mt-2">
+                      <Button
+                        type="submit"
+                        variant="outline"
+                        size="md"
+                        className="w-full"
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        <LogOut size={16} aria-hidden="true" />
+                        Sign out
+                      </Button>
+                    </form>
+                  </>
+                ) : (
+                  <Button asChild variant="primary" size="md" className="mt-4">
+                    <Link href="/login" onClick={() => setMobileOpen(false)}>
+                      Login
+                      <ArrowRight size={16} aria-hidden="true" />
+                    </Link>
+                  </Button>
+                )}
               </nav>
             </SheetContent>
           </Sheet>
