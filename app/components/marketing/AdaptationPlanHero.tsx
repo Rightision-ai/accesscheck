@@ -58,7 +58,7 @@ export default function AdaptationPlanHero() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-3 gap-2 p-3 bg-[var(--bg-surface)]">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-3 bg-[var(--bg-surface)]">
         <div className="rounded-lg border border-[var(--border)] bg-white p-3">
           <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-dim)]">
             Total cost

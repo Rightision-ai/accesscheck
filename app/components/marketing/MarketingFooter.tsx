@@ -53,10 +53,10 @@ export default function MarketingFooter() {
         className="bg-primary-dark text-white"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="md:col-span-5">
-                <div className="flex items-center gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            <div className="lg:col-span-5 min-w-0">
+              <div>
+                <div className="flex items-center gap-4 flex-wrap">
                   <Link
                     href="/"
                     aria-label="AccessCheck home"
@@ -101,8 +101,9 @@ export default function MarketingFooter() {
                   <Linkedin size={18} aria-hidden="true" />
                 </a>
               </div>
-              <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-6 lg:grid-cols-9 gap-10">
-                <nav aria-label="Product" className="md:col-span-3">
+            </div>
+            <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-8 min-w-0">
+              <nav aria-label="Product" className="min-w-0">
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-white border-b-2 border-white pb-2 inline-block">
                     Product
                   </h2>
@@ -142,7 +143,7 @@ export default function MarketingFooter() {
                   </ul>
                 </nav>
 
-                <nav aria-label="Company" className="md:col-span-3">
+                <nav aria-label="Company" className="min-w-0">
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-white border-b-2 border-white pb-2 inline-block">
                     Company
                   </h2>
@@ -183,7 +184,7 @@ export default function MarketingFooter() {
                   </ul>
                 </nav>
 
-                <div className="md:col-span-3">
+                <div className="min-w-0">
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-white border-b-2 border-white pb-2 inline-block">
                     Get in touch
                   </h2>
@@ -200,7 +201,7 @@ export default function MarketingFooter() {
                         Manchester, M4 6LZ
                       </span>
                     </li>
-                    <li className="flex items-center gap-2">
+                    <li className="flex items-center gap-2 min-w-0">
                       <Mail
                         size={16}
                         className="text-white shrink-0"
@@ -208,7 +209,7 @@ export default function MarketingFooter() {
                       />
                       <a
                         href="mailto:hello@accesscheck.uk"
-                        className="text-white hover:text-primary-light hover:underline"
+                        className="text-white hover:text-primary-light hover:underline break-all"
                       >
                         hello@accesscheck.uk
                       </a>
@@ -217,7 +218,6 @@ export default function MarketingFooter() {
                 </div>
               </div>
             </div>
-          </div>
           <ul className="mt-8 flex flex-wrap items-center justify-center md:justify-start gap-x-8 gap-y-4 bg-white/5 rounded-xl px-5 py-5">
             {TRADEMARKS.map((t) => (
               <li key={t.src} className="flex items-center">

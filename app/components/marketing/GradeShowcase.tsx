@@ -48,7 +48,7 @@ export default function GradeShowcase() {
           <div className="absolute left-[73%] top-[42%] -translate-x-1/2 flex flex-col items-center gap-1">
             <div
               aria-hidden="true"
-              className="flex items-center justify-between w-60 h-[2px] bg-[var(--primary)]"
+              className="flex items-center justify-between w-32 sm:w-60 h-[2px] bg-[var(--primary)]"
             >
               <span className="block w-2 h-2 rounded-full bg-[var(--primary)]" />
               <span className="block w-2 h-2 rounded-full bg-[var(--primary)]" />

@@ -98,7 +98,7 @@ export default function MarketingHeader() {
             <NavigationMenuItem>
               <NavigationMenuTrigger>Solutions</NavigationMenuTrigger>
               <NavigationMenuContent>
-                <ul className="grid w-[640px] grid-cols-2 gap-2 p-4">
+                <ul className="grid w-[min(640px,calc(100vw-2rem))] grid-cols-2 gap-2 p-4">
                   {SOLUTIONS.map(({ icon: Icon, ...item }) => (
                     <li key={item.href}>
                       <NavigationMenuLink asChild>
