@@ -46,7 +46,7 @@ export default function PrivacyPage() {
               We use the information you provide to deliver assessments,
               generate reports, support your account, improve the service, and
               meet legal and regulatory obligations. Property data is processed
-              to produce the AccessCheck Accessibility Grade and supporting
+              to produce the AccessCheck accessibility category and supporting
               evidence — not to train third-party models without your consent.
             </p>
           </article>

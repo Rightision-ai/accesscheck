@@ -49,12 +49,12 @@ export default function FloorPlanAnalysisPage() {
           text: "Our pipeline detects rooms, fixtures and openings on the plan, then geometrically validates whether each space meets recognised accessibility thresholds. Every measurement is linked to the source drawing, so reviewers can verify what the AI saw.",
         },
         {
-          heading: "Built around recognised standards",
-          text: "Thresholds reflect the Wheelchair Housing Design Guide, Lifetime Homes and Building Regulations Part M, so results align with what panels and grant officers already trust.",
+          heading: "Informed by recognised guidance",
+          text: "Thresholds reflect the Wheelchair Housing Design Guide, Lifetime Homes and Building Regulations Part M, so results align with the guidance social landlords, allocations teams, panels and reviewers already trust.",
         },
         {
           heading: "Catches conflicts the eye misses",
-          text: "AccessCheck cross-checks plan geometry against listing claims and on-site photos. If a listing says ‘step-free’ but the plan or photo shows a 50 mm threshold, you’ll see the conflict surfaced — not buried.",
+          text: "AccessCheck cross-checks plan geometry against listing claims and on-site photos. If a listing says ‘step-free’ but the plan or photo shows a 50 mm threshold, you’ll see the conflict surfaced — not buried, so allocations and adaptations teams can act on it before an offer is made.",
         },
       ]}
     />

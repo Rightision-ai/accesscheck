@@ -1,5 +1,21 @@
+"use client";
+
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { ArrowRight, Check } from "lucide-react";
+
+function AnimatedArrow() {
+  return (
+    <motion.span
+      aria-hidden="true"
+      animate={{ x: [0, 10, 0] }}
+      transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+      className="inline-flex group-hover:translate-x-2 transition-transform"
+    >
+      <ArrowRight size={18} />
+    </motion.span>
+  );
+}
 
 interface SolutionPageProps {
   eyebrow: string;
@@ -19,7 +35,7 @@ export default function SolutionPage({
   highlights,
   body,
   hero,
-  primaryCta = { label: "Login to start", href: "/login" },
+  primaryCta = { label: "Request a demo", href: "/contact" },
   secondaryCta = { label: "Try the demo", href: "/demo" },
 }: SolutionPageProps) {
   return (
@@ -58,10 +74,10 @@ export default function SolutionPage({
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <Link
                 href={primaryCta.href}
-                className="inline-flex items-center justify-center gap-2 min-h-12 px-6 rounded-lg bg-[var(--primary)] text-white font-semibold hover:bg-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
+                className="group inline-flex items-center justify-center gap-2 min-h-12 px-6 rounded-lg bg-[var(--primary)] text-white font-semibold hover:bg-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
               >
                 {primaryCta.label}
-                <ArrowRight size={18} aria-hidden="true" />
+                <AnimatedArrow />
               </Link>
               <Link
                 href={secondaryCta.href}

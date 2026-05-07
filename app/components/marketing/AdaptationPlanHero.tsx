@@ -31,19 +31,19 @@ export default function AdaptationPlanHero() {
       <div className="bg-white p-5 border-b border-[var(--border)]">
         <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-[var(--primary-dark)]">
           <PoundSterling size={14} aria-hidden="true" />
-          DFG Adoption Plan
+          Adaptation plan example
         </p>
         <h3 className="mt-2 text-2xl sm:text-3xl font-extrabold text-[var(--text-main)]">
           £20,000 plan
         </h3>
         <p className="mt-2 text-sm text-[var(--text-dim)] leading-relaxed">
-          Bundling 4 adaptations under a £20,000 budget, the property’s
-          Accessible Housing Rules band is projected to move from D to C.
+          Bundling 4 adaptations under a £20,000 budget, the property&rsquo;s
+          accessibility category is projected to move from D to C.
         </p>
 
         <div className="mt-5">
           <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-dim)] text-center mb-2">
-            Band pathway
+            Category pathway
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
             <BandPathway active="D" />
@@ -81,7 +81,7 @@ export default function AdaptationPlanHero() {
         </div>
         <div className="rounded-lg border border-[var(--border)] bg-white p-3">
           <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-dim)]">
-            Projected band
+            Projected category
           </p>
           <div className="mt-1 flex items-center gap-1.5">
             <span className="grid place-items-center w-7 h-7 rounded-full bg-[var(--primary)] text-white text-xs font-bold">
@@ -121,9 +121,9 @@ export default function AdaptationPlanHero() {
           </div>
           <p className="mt-2 text-[11px] text-[var(--text-dim)] leading-relaxed line-clamp-3">
             Substantive build delivered by plumbing, building, carpentry and
-            electrics. Resolves Accessible Housing Rules triggers around toilet
-            access on the entry level and provides 100 cm lateral transfer
-            space for independent use.
+            electrics. Removes accessibility barriers around toilet access on
+            the entry level and provides 100 cm lateral transfer space for
+            independent use.
           </p>
         </article>
       </div>

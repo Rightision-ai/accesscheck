@@ -7,6 +7,8 @@ import AudienceCards from "@/app/components/marketing/AudienceCards";
 import FinalCTA from "@/app/components/marketing/FinalCTA";
 import DemoPreview from "@/app/components/marketing/DemoPreview";
 import AccessCheckMotionExplainer from "../components/marketing/AccessCheckMotionExplainer";
+import ProblemStatement from "@/app/components/marketing/ProblemStatement";
+import LandlordCapabilities from "@/app/components/marketing/LandlordCapabilities";
 
 export default function HomePage() {
   return (
@@ -14,7 +16,9 @@ export default function HomePage() {
       <Hero />
       <StatsStrip />
       {/* <GradeShowcase /> */}
+      <ProblemStatement />
       <AccessCheckMotionExplainer />
+      <LandlordCapabilities />
       <HowItWorks />
       <DemoPreview />
       <TaglineQuote />

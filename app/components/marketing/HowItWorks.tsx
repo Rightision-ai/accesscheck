@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { motion } from "framer-motion";
+import { Cpu } from "lucide-react";
 
 const STEPS = [
   {
@@ -36,29 +40,72 @@ const STEPS = [
   },
 ];
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0 },
+};
+
 export default function HowItWorks() {
   return (
-    <section aria-labelledby="how-heading" className="bg-white">
+    <section
+      aria-labelledby="how-heading"
+      className="bg-[var(--bg-surface)] border-y border-[var(--border)]"
+    >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">
-        <div className="max-w-2xl">
-          <span className="inline-block text-xs font-semibold uppercase tracking-wide text-[var(--primary-dark)]">
-            How it works
-          </span>
-          <h2
-            id="how-heading"
-            className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[var(--text-main)] leading-[1.05]"
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          variants={{
+            hidden: {},
+            show: { transition: { staggerChildren: 0.08 } },
+          }}
+          className="max-w-3xl"
+        >
+          <motion.span
+            variants={fadeUp}
+            transition={{ duration: 0.45, ease: "easeOut" }}
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase text-[var(--primary-dark)] bg-white border border-[var(--primary)]/20"
           >
-            The 4-step AI engine.
-          </h2>
-          <p className="mt-4 text-lg text-[var(--text-dim)] leading-relaxed">
-            How AccessCheck analyses a home — from pixels and plans to a
-            defensible accessibility grade.
-          </p>
-        </div>
+            <Cpu size={14} aria-hidden="true" />
+            AI engine
+          </motion.span>
+          <motion.h2
+            id="how-heading"
+            variants={fadeUp}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="mt-4 text-4xl md:text-5xl font-black tracking-tight text-[var(--text-main)] leading-[1.1]"
+          >
+            How the <span className="text-[var(--primary-dark)]">AI engine</span>{" "}
+            works.
+          </motion.h2>
+          <motion.p
+            variants={fadeUp}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="mt-5 text-lg text-[var(--text-dim)] leading-relaxed"
+          >
+            How AccessCheck analyses a home — from pixels and plans to a clear
+            accessibility category.
+          </motion.p>
+        </motion.div>
 
-        <ul className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {STEPS.map((s, i) => (
-            <li key={s.number} className="ac-fade-up" style={{ animationDelay: `${i * 0.08}s` }}>
+        <motion.ul
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-60px" }}
+          variants={{
+            hidden: {},
+            show: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+          }}
+          className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+        >
+          {STEPS.map((s) => (
+            <motion.li
+              key={s.number}
+              variants={fadeUp}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              whileHover={{ y: -4 }}
+            >
               <Link
                 href={s.href}
                 className="engine-card group h-full block rounded-2xl border border-[var(--border)] bg-white overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
@@ -85,9 +132,9 @@ export default function HowItWorks() {
                 </div>
                 <span className="card-glow" aria-hidden="true" />
               </Link>
-            </li>
+            </motion.li>
           ))}
-        </ul>
+        </motion.ul>
       </div>
     </section>
   );

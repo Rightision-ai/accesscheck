@@ -1,9 +1,17 @@
+"use client";
+
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { ArrowRight, Play } from "lucide-react";
 
 const POSTER_URL =
   process.env.NEXT_PUBLIC_DEMO_VIDEO_POSTER_URL ||
   "/assets/media/hero_bg-B3Bwin3-.jpg";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0 },
+};
 
 export default function DemoPreview() {
   return (
@@ -12,25 +20,53 @@ export default function DemoPreview() {
       className="bg-white border-y border-[var(--border)]"
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center max-w-2xl mx-auto">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--primary-dark)]">
-            Interactive demo
-          </p>
-          <h2
-            id="demo-preview-heading"
-            className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[var(--text-main)] leading-[1.05]"
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          variants={{
+            hidden: {},
+            show: { transition: { staggerChildren: 0.08 } },
+          }}
+          className="max-w-3xl"
+        >
+          <motion.span
+            variants={fadeUp}
+            transition={{ duration: 0.45, ease: "easeOut" }}
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase text-[var(--primary-dark)] bg-[var(--primary-light)] border border-[var(--primary)]/20"
           >
-            See AccessCheck in action
-          </h2>
-          <p className="mt-4 text-lg text-[var(--text-dim)]">
+            <Play size={14} aria-hidden="true" fill="currentColor" />
+            Interactive demo
+          </motion.span>
+          <motion.h2
+            id="demo-preview-heading"
+            variants={fadeUp}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="mt-4 text-4xl md:text-5xl font-black tracking-tight text-[var(--text-main)] leading-[1.1]"
+          >
+            See <span className="text-[var(--primary-dark)]">AccessCheck</span>{" "}
+            in action.
+          </motion.h2>
+          <motion.p
+            variants={fadeUp}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="mt-5 text-lg text-[var(--text-dim)] leading-relaxed"
+          >
             Walk through a real assessment in minutes — no sign-up required.
-          </p>
-        </div>
+          </motion.p>
+        </motion.div>
 
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.6, ease: "easeOut", delay: 0.15 }}
+          className="mt-12"
+        >
         <Link
           href="/demo"
           aria-label="Open the interactive AccessCheck demo"
-          className="group mt-12 block relative rounded-2xl overflow-hidden border border-[var(--border)] shadow-xl bg-[var(--bg-surface)] transition-transform duration-300 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
+          className="group block relative rounded-2xl overflow-hidden border border-[var(--border)] shadow-xl bg-[var(--bg-surface)] transition-transform duration-300 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
         >
           <div className="relative aspect-video w-full">
             <img
@@ -59,6 +95,7 @@ export default function DemoPreview() {
             </span>
           </div>
         </Link>
+        </motion.div>
       </div>
     </section>
   );
