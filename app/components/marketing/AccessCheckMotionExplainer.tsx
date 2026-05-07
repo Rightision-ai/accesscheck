@@ -101,7 +101,7 @@ export default function AccessCheckMotionExplainer() {
               show: { opacity: 1, y: 0 },
             }}
             transition={{ duration: 0.5, ease: "easeOut" }}
-            className="mt-4 text-4xl md:text-5xl font-black tracking-tight text-[var(--text-main)] leading-[1.1]"
+            className="mt-4 text-4xl md:text-5xl font-bold tracking-tight text-[var(--text-main)] leading-[1.1]"
           >
             How <span className="text-[var(--primary-dark)]">AccessCheck</span>{" "}
             works.

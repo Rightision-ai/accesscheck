@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Linkedin, Mail, MapPin } from "lucide-react";
+import { Linkedin, MapPin } from "lucide-react";
 
 const TRADEMARKS = [
   {
@@ -201,24 +201,11 @@ export default function MarketingFooter() {
                         Manchester, M4 6LZ
                       </span>
                     </li>
-                    <li className="flex items-center gap-2 min-w-0">
-                      <Mail
-                        size={16}
-                        className="text-white shrink-0"
-                        aria-hidden="true"
-                      />
-                      <a
-                        href="mailto:hello@accesscheck.uk"
-                        className="text-white hover:text-primary-light hover:underline break-all"
-                      >
-                        hello@accesscheck.uk
-                      </a>
-                    </li>
                   </ul>
                 </div>
               </div>
             </div>
-          <ul className="mt-8 flex flex-wrap items-center justify-center md:justify-start gap-x-8 gap-y-4 bg-white/5 rounded-xl px-5 py-5">
+          <ul className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 bg-white/5 rounded-xl px-5 py-5">
             {TRADEMARKS.map((t) => (
               <li key={t.src} className="flex items-center">
                 <Image

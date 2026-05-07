@@ -17,7 +17,7 @@ const STATS: Stat[] = [
   },
   {
     icon: Layers3,
-    value: "Built on Standards",
+    value: "Standards-Based",
     label: "Established standards",
     sub: "Informed by established access and housing design guidance, including wheelchair housing, Lifetime Homes and Part M.",
     valueClass:

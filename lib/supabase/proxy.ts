@@ -47,6 +47,7 @@ export async function updateSession(request: NextRequest) {
   const isMarketingRoute =
     pathname === "/" ||
     pathname.startsWith("/solutions") ||
+    pathname.startsWith("/technology") ||
     pathname.startsWith("/about") ||
     pathname.startsWith("/contact") ||
     pathname.startsWith("/privacy") ||

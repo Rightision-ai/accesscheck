@@ -1,4 +1,4 @@
-import { Mail, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
 import ContactForm from "@/app/components/marketing/ContactForm";
 
 export const metadata = {
@@ -32,16 +32,6 @@ export default function ContactPage() {
             working days.
           </p>
           <ul className="mt-8 space-y-4 text-sm">
-            <li className="flex items-start gap-3 text-[var(--text-main)]">
-              <Mail
-                size={18}
-                className="mt-0.5 text-[var(--primary-dark)] shrink-0"
-                aria-hidden="true"
-              />
-              <a href="mailto:hello@accesscheck.uk" className="hover:underline">
-                hello@accesscheck.uk
-              </a>
-            </li>
             <li className="flex items-start gap-3 text-[var(--text-main)]">
               <MapPin
                 size={18}

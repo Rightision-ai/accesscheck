@@ -8,11 +8,11 @@ export const metadata = {
 
 function FloorPlanAnalysisHero() {
   return (
-    <figure className="relative rounded-2xl overflow-hidden border border-[var(--border)] shadow-xl bg-[var(--bg-surface)] aspect-[4/5]">
+    <figure className="relative rounded-2xl overflow-hidden border border-[var(--border)] shadow-xl bg-[var(--bg-surface)] aspect-[4/3]">
       <div
         role="img"
         aria-label="A residential floor plan analysed by AccessCheck — rooms, doors and windows annotated with confidence percentages."
-        className="absolute inset-0 bg-contain bg-center bg-no-repeat"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
           backgroundImage: "url('/assets/media/floor-plan-analysis.jpg')",
           backgroundColor: "var(--bg-surface)",

@@ -128,6 +128,14 @@ export default function MarketingHeader() {
 
             <NavigationMenuItem>
               <NavigationMenuLink asChild>
+                <Link href="/technology" className={navigationMenuTriggerStyle()}>
+                  Technology
+                </Link>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+
+            <NavigationMenuItem>
+              <NavigationMenuLink asChild>
                 <Link href="/about" className={navigationMenuTriggerStyle()}>
                   About
                 </Link>
@@ -222,9 +230,16 @@ export default function MarketingHeader() {
                   </Link>
                 ))}
                 <Link
-                  href="/about"
+                  href="/technology"
                   onClick={() => setMobileOpen(false)}
                   className="mt-3 px-2 py-2 rounded-md text-sm font-medium text-[var(--text-main)] hover:bg-[var(--primary-light)] hover:text-[var(--primary-dark)]"
+                >
+                  Technology
+                </Link>
+                <Link
+                  href="/about"
+                  onClick={() => setMobileOpen(false)}
+                  className="px-2 py-2 rounded-md text-sm font-medium text-[var(--text-main)] hover:bg-[var(--primary-light)] hover:text-[var(--primary-dark)]"
                 >
                   About
                 </Link>

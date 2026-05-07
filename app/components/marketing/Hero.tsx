@@ -70,14 +70,14 @@ export default function Hero() {
             className="ac-fade-up ac-fade-up-1 mt-5 text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.05] tracking-tight text-[var(--text-main)]"
           >
             Understand{" "}
-            <span className="text-[var(--primary-dark)]">accessibility</span>{" "}
+            <span className="text-[var(--primary-dark)] font-extrabold">
+              accessibility
+            </span>{" "}
             across your homes
           </h1>
           <p className="ac-fade-up ac-fade-up-2 mt-6 max-w-xl text-lg text-[var(--text-dim)] leading-relaxed">
             AccessCheck helps social landlords assess the accessibility of their
-            homes using photos, floor plans and property data. It supports
-            better allocation decisions, clearer accessibility records and
-            earlier understanding of what adaptations may be feasible.
+            homes using photos, floor plans and property data.
           </p>
           <div className="ac-fade-up ac-fade-up-3 mt-8 flex flex-col sm:flex-row gap-3">
             <Button asChild variant="primary" size="lg">

@@ -20,6 +20,7 @@ export default function ContactForm() {
     const name = (fd.get("name") as string)?.trim();
     const email = (fd.get("email") as string)?.trim();
     const body = (fd.get("message") as string)?.trim();
+    const company = (fd.get("company") as string) ?? "";
 
     const next: Record<string, string> = {};
     if (!name) next.name = "Please enter your name.";
@@ -37,7 +38,7 @@ export default function ContactForm() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, email, message: body }),
+        body: JSON.stringify({ name, email, message: body, company }),
       });
       if (!res.ok) throw new Error("Request failed");
       setStatus("success");
@@ -115,6 +116,19 @@ export default function ContactForm() {
             Tell us a bit about your team and what you’re trying to assess.
           </p>
         )}
+      </div>
+
+      {/* Honeypot — humans never see this; bots fill all fields and get rejected. */}
+      <div aria-hidden="true" className="hidden" tabIndex={-1}>
+        <label>
+          Company
+          <input
+            type="text"
+            name="company"
+            autoComplete="off"
+            tabIndex={-1}
+          />
+        </label>
       </div>
 
       <button
