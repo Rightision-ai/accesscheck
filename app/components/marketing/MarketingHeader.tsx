@@ -57,8 +57,9 @@ const SOLUTIONS = [
   {
     href: "/solutions/reports",
     icon: FileText,
-    title: "DFG-ready reports",
-    description: "Defensible PDFs with linked photo evidence per finding.",
+    title: "Property-level reports",
+    description:
+      "Property-level accessibility PDFs with linked photo evidence per finding.",
   },
 ];
 

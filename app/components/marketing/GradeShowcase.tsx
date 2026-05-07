@@ -1,13 +1,19 @@
 import { Check, AlertTriangle } from "lucide-react";
 
-const GRADES = [
-  { letter: "A", label: "Wheelchair-accessible throughout" },
-  { letter: "B", label: "Wheelchair-accessible to essential rooms" },
+const CATEGORIES = [
+  {
+    letter: "A",
+    label: "Potentially suitable for wheelchair users throughout",
+  },
+  {
+    letter: "B",
+    label: "Potentially suitable for wheelchair users in essential rooms",
+  },
   { letter: "C", label: "Level approach, wide doorways, stair-lift-ready" },
   { letter: "D", label: "Level approach, wider doors, more space" },
   { letter: "E", label: "Step-free, level throughout" },
   { letter: "F", label: "General-needs housing" },
-  { letter: "G", label: "Not yet assessed — fill gaps to grade" },
+  { letter: "G", label: "Not yet assessed — fill gaps to categorise" },
 ];
 
 export default function GradeShowcase() {
@@ -79,22 +85,23 @@ export default function GradeShowcase() {
           </figcaption>
         </figure>
 
-        {/* RIGHT: grade explainer */}
+        {/* RIGHT: category explainer */}
         <div>
           <span className="inline-block text-xs font-semibold uppercase tracking-wide text-[var(--primary-dark)]">
-            Accessibility Grade
+            Accessibility Category
           </span>
           <h2
             id="grade-heading"
             className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[var(--text-main)] leading-[1.05]"
           >
-            One clear grade. Backed by photo evidence.
+            One clear category. Backed by photo evidence.
           </h2>
           <p className="mt-4 text-lg text-[var(--text-dim)] leading-relaxed">
-            Every property gets a letter grade from A to G, drawn from
-            recognised accessibility standards. Each grade is backed by the
-            photographs, measurements and listing text we analysed — so OTs,
-            grant officers and applicants can defend it.
+            Every property gets a category from A to G, informed by recognised
+            accessibility guidance. Each category is backed by the
+            photographs, measurements and listing text we analysed — so
+            landlords, occupational therapists, reviewers and tenants can
+            understand how it was reached.
           </p>
 
           <div className="mt-6 inline-flex items-center gap-3 rounded-full bg-[var(--primary-light)] border border-[var(--primary)]/20 px-4 py-2">
@@ -102,12 +109,13 @@ export default function GradeShowcase() {
               A
             </span>
             <span className="text-sm font-semibold text-[var(--primary-dark)]">
-              Sample property — Grade A · highly compatible.
+              Sample property — Category A · potentially suitable for
+              wheelchair users.
             </span>
           </div>
 
           <ul className="mt-8 space-y-3">
-            {GRADES.map((g) => (
+            {CATEGORIES.map((g) => (
               <li key={g.letter} className="flex items-center gap-4">
                 <span
                   aria-hidden="true"
@@ -116,7 +124,7 @@ export default function GradeShowcase() {
                   {g.letter}
                 </span>
                 <span className="text-sm text-[var(--text-main)]">
-                  <span className="sr-only">Grade {g.letter}: </span>
+                  <span className="sr-only">Category {g.letter}: </span>
                   {g.label}
                 </span>
               </li>

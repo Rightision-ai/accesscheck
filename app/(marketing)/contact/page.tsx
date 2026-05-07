@@ -4,7 +4,7 @@ import ContactForm from "@/app/components/marketing/ContactForm";
 export const metadata = {
   title: "Contact",
   description:
-    "Get in touch with the AccessCheck team — bring AccessCheck and the Rightision AI engine into your workflow.",
+    "Get in touch with the AccessCheck team — bring stock-level accessibility intelligence into your housing workflow.",
 };
 
 export default function ContactPage() {
@@ -25,10 +25,11 @@ export default function ContactPage() {
             Get in touch
           </h1>
           <p className="mt-5 text-lg text-[var(--text-main)] leading-relaxed">
-            We’d love to hear from teams looking to bring AccessCheck — and
+            We&rsquo;d love to hear from social landlords, local authority
+            teams and housing organisations looking to bring AccessCheck — and
             the Rightision AI engine that powers it — into their workflow.
-            Drop us a line and we’ll get back to you within a few working
-            days.
+            Drop us a line and we&rsquo;ll get back to you within a few
+            working days.
           </p>
           <ul className="mt-8 space-y-4 text-sm">
             <li className="flex items-start gap-3 text-[var(--text-main)]">

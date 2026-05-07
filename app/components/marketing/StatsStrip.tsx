@@ -1,31 +1,44 @@
 import { BadgeCheck, Layers3, Timer, FileCheck2 } from "lucide-react";
 
-const STATS = [
+type Stat = {
+  icon: typeof BadgeCheck;
+  value: string;
+  label: string;
+  sub: string;
+  valueClass?: string;
+};
+
+const STATS: Stat[] = [
   {
     icon: BadgeCheck,
-    value: "A–G",
-    label: "Accessibility grades",
-    sub: "One letter, from A (fully wheelchair-accessible) to G (not yet assessed).",
+    value: "A–G ",
+    label: "Accessibility categories",
+    sub: "Clear accessibility categories to help teams understand which homes may suit different needs.",
   },
   {
     icon: Layers3,
-    value: "4",
-    label: "Recognised standards",
-    sub: "WHDG · Housing Corp SDS · Lifetime Homes · Part M.",
+    value: "Built on Standards",
+    label: "Established standards",
+    sub: "Informed by established access and housing design guidance, including wheelchair housing, Lifetime Homes and Part M.",
+    valueClass:
+      "mt-5 text-3xl md:text-3xl font-extrabold tracking-tight text-[var(--text-main)] leading-tight",
   },
   {
     icon: Timer,
     value: "Minutes",
     label: "From upload to report",
-    sub: "Photos and plans become a defensible PDF in minutes, not weeks.",
+    sub: "Turn photos, plans and property data into a clear accessibility report.",
   },
   {
     icon: FileCheck2,
-    value: "DFG",
-    label: "Application-ready",
-    sub: "Built to drop straight into Disabled Facilities Grant submissions.",
+    value: "Allocation-ready",
+    label: "Decision support",
+    sub: "Designed to support better matching, clearer records and more informed decisions about adaptation potential.",
   },
 ];
+
+const DEFAULT_VALUE_CLASS =
+  "mt-5 text-3xl  font-extrabold tracking-tight text-[var(--text-main)] leading-none";
 
 export default function StatsStrip() {
   return (
@@ -51,13 +64,8 @@ export default function StatsStrip() {
                 >
                   <Icon size={22} />
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-dim)]">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
               </div>
-              <p className="mt-5 text-4xl md:text-5xl font-extrabold tracking-tight text-[var(--text-main)] leading-none">
-                {s.value}
-              </p>
+              <p className={s.valueClass ?? DEFAULT_VALUE_CLASS}>{s.value}</p>
               <p className="mt-3 text-sm font-semibold text-[var(--primary-dark)] uppercase tracking-wide">
                 {s.label}
               </p>

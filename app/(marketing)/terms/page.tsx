@@ -51,11 +51,14 @@ export default function TermsPage() {
           <article>
             <h2 className="text-2xl font-bold">4. The assessment output</h2>
             <p className="mt-3">
-              AccessCheck produces evidence-backed accessibility grades and
-              recommendations to support professional judgement. The service
-              does not replace clinical, surveying or planning expertise.
-              Reports should be reviewed by qualified personnel before they
-              are used for funding, procurement or compliance decisions.
+              AccessCheck produces evidence-backed accessibility categories
+              and recommendations to support professional judgement. The
+              service provides decision-support information and does not
+              replace a professional access assessment, occupational therapy
+              advice, surveying or planning expertise, or a landlord&rsquo;s
+              own decision-making process. Reports should be reviewed by
+              qualified personnel before they are used for funding, allocation,
+              procurement or compliance decisions.
             </p>
           </article>
 

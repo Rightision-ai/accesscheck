@@ -77,7 +77,7 @@ export default function ImageAnalysisPage() {
     <SolutionPage
       eyebrow="Image analysis"
       title="Photos become evidence."
-      intro="AccessCheck reads the photos you already have — listing shots, OT site photos, family-supplied images — and pulls out the accessibility-relevant detail."
+      intro="AccessCheck reads the photos you already have — stock photos, listing shots, surveyor or OT site photos, tenant-supplied images — and pulls out the accessibility-relevant detail."
       hero={<ImageAnalysisHero />}
       highlights={[
         "Grab rails, level access, ramps",
@@ -92,11 +92,11 @@ export default function ImageAnalysisPage() {
         },
         {
           heading: "Works with the photos you already have",
-          text: "No special equipment, no LiDAR, no scheduled re-visits. AccessCheck makes use of existing imagery — including HEIC iPhone shots — so OTs and home improvement agencies can move faster on cases they’re already working.",
+          text: "No special equipment, no LiDAR, no scheduled re-visits. AccessCheck makes use of existing imagery — including HEIC iPhone shots — so social landlords, occupational therapists and home improvement agencies can move faster on the homes and cases they’re already working.",
         },
         {
-          heading: "Surfaces conflicts with listing text",
-          text: "If a listing description and the photographs disagree, AccessCheck flags it. That single feature alone tends to catch a meaningful share of hidden barriers before an applicant ever views a property.",
+          heading: "Surfaces conflicts with listing or stock data",
+          text: "If a listing description, stock record and the photographs disagree, AccessCheck flags it. That single feature alone tends to catch a meaningful share of hidden barriers before a tenant or applicant ever views a property.",
         },
       ]}
     />

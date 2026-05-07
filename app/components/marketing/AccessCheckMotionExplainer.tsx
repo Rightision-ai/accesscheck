@@ -18,28 +18,28 @@ import {
 const steps = [
   {
     id: 1,
-    title: "Applicant Details",
-    desc: "Streamline the intake process with our precision-guided wizard, expertly capturing essential personal data and complex accessibility requirements.",
+    title: "Property details",
+    desc: "Start with basic property information, photos, plans or survey data.",
   },
   {
     id: 2,
-    title: "Smart Evidence Collection",
-    desc: "Seamlessly upload floor plans, exterior shots, and interior spaces. The system automatically categorizes and prepares files for AI analysis.",
+    title: "Access features",
+    desc: "AccessCheck reviews key features such as entrances, thresholds, circulation space, bathrooms, bedrooms and routes through the home.",
   },
   {
     id: 3,
-    title: "Vision AI Engine",
-    desc: "Proprietary computer vision algorithms analyze photos to extract spatial geometry, detect fixtures, and identify potential hazards in real-time.",
+    title: "Accessibility category",
+    desc: "The home is given a clear category, with notes on who it may suit and where the main barriers are.",
   },
   {
     id: 4,
-    title: "Standards & Grading",
-    desc: "Extracted data is cross-referenced against building regulations (e.g., Part M) to automatically calculate the property's accessibility grade.",
+    title: "Adaptation feasibility",
+    desc: "The report highlights where adaptations may be realistic, limited or unlikely to provide a good long-term solution.",
   },
   {
     id: 5,
-    title: "Official Report Generation",
-    desc: "Generate a verified, standardized PDF report instantly, ready for submission to the Accessibility Housing Register.",
+    title: "Property-level report",
+    desc: "Create a clear record that can support allocations, asset planning, accessible housing registers and future investment decisions.",
   },
 ];
 
@@ -70,118 +70,148 @@ export default function AccessCheckMotionExplainer() {
   }, [activeStep, reducedMotion, isHovered]);
 
   return (
-    <div className="w-full min-h-screen bg-[#F9FAFB] flex items-center justify-center p-4 md:p-6 font-sans overflow-hidden">
-      <div className="max-w-6xl w-full flex flex-col lg:flex-row gap-8 lg:gap-16 items-center lg:items-stretch scale-[0.9] lg:scale-[0.85] transform origin-center">
-        {/* Left Side: Sticky Navigation / Content */}
-        <div className="w-full lg:w-5/12 flex flex-col justify-center py-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-10"
+    <section aria-labelledby="how-it-works-heading" className="bg-white">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 md:py-12 font-sans">
+        {/* Standard section header */}
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-80px" }}
+          variants={{
+            hidden: {},
+            show: { transition: { staggerChildren: 0.08 } },
+          }}
+          className="max-w-3xl"
+        >
+          <motion.span
+            variants={{
+              hidden: { opacity: 0, y: 24 },
+              show: { opacity: 1, y: 0 },
+            }}
+            transition={{ duration: 0.45, ease: "easeOut" }}
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase text-[var(--primary-dark)] bg-[var(--primary-light)] border border-[var(--primary)]/20"
           >
-            <div className="flex items-center gap-4 mb-4">
-              <img
-                src="/logo.png"
-                alt="AccessCheck Logo"
-                className="w-12 h-12 object-contain"
-              />
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0FB75B]/10 text-[#008900] text-xs font-bold uppercase tracking-widest border border-[#0FB75B]/20">
-                <Sparkles size={14} /> The Platform
-              </div>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-black text-[#1A1A1A] leading-[1.1] tracking-tight">
-              How <span className="text-[#0FB75B]">AccessCheck</span>
-              <br />
-              Works
-            </h2>
-          </motion.div>
+            <Sparkles size={14} aria-hidden="true" />
+            The platform
+          </motion.span>
+          <motion.h2
+            id="how-it-works-heading"
+            variants={{
+              hidden: { opacity: 0, y: 24 },
+              show: { opacity: 1, y: 0 },
+            }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="mt-4 text-4xl md:text-5xl font-black tracking-tight text-[var(--text-main)] leading-[1.1]"
+          >
+            How <span className="text-[var(--primary-dark)]">AccessCheck</span>{" "}
+            works.
+          </motion.h2>
+          <motion.p
+            variants={{
+              hidden: { opacity: 0, y: 24 },
+              show: { opacity: 1, y: 0 },
+            }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="mt-5 text-lg text-[var(--text-dim)] leading-relaxed"
+          >
+            From property data to accessibility category — a five-step workflow
+            that turns photos, plans and stock data into a clear property-level
+            picture.
+          </motion.p>
+        </motion.div>
 
-          <div className="flex flex-col gap-2 relative">
-            {/* Timeline Line */}
-            <div className="absolute left-[19px] top-6 bottom-6 w-[2px] bg-gray-200" />
+        {/* Interactive timeline + visuals */}
+        <div className="mt-12 flex flex-col lg:flex-row gap-8 lg:gap-16 items-center lg:items-stretch">
+          {/* Left Side: Sticky Navigation / Content */}
+          <div className="w-full lg:w-5/12 flex flex-col justify-center py-4">
+            <div className="flex flex-col gap-2 relative">
+              {/* Timeline Line */}
+              <div className="absolute left-[19px] top-6 bottom-6 w-[2px] bg-gray-200" />
 
-            {steps.map((step) => {
-              const isActive = activeStep === step.id;
-              const isPast = activeStep > step.id;
+              {steps.map((step) => {
+                const isActive = activeStep === step.id;
+                const isPast = activeStep > step.id;
 
-              return (
-                <button
-                  key={step.id}
-                  onClick={() => setActiveStep(step.id)}
-                  className="flex items-start gap-5 text-left z-10 relative group py-3"
-                >
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all duration-500 border-2 bg-white flex-shrink-0 ${
-                      isActive
-                        ? "border-[#0FB75B] text-[#0FB75B] shadow-[0_0_20px_rgba(15,183,91,0.3)] scale-110"
-                        : isPast
-                          ? "border-[#0FB75B] bg-[#0FB75B] text-white"
-                          : "border-gray-200 text-gray-400 group-hover:border-gray-300"
-                    }`}
+                return (
+                  <button
+                    key={step.id}
+                    onClick={() => setActiveStep(step.id)}
+                    className="flex items-start gap-5 text-left z-10 relative group py-3"
                   >
-                    {isPast ? <CheckCircle size={20} /> : step.id}
-                  </div>
-
-                  <div
-                    className={`pt-1.5 transition-all duration-500 ${isActive ? "opacity-100 translate-x-2" : "opacity-50 group-hover:opacity-80"}`}
-                  >
-                    <h3
-                      className={`font-bold text-lg md:text-xl transition-colors ${isActive ? "text-[#1A1A1A]" : "text-[#37393A]"}`}
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all duration-500 border-2 bg-white flex-shrink-0 ${
+                        isActive
+                          ? "border-[#0FB75B] text-[#0FB75B] shadow-[0_0_20px_rgba(15,183,91,0.3)] scale-110"
+                          : isPast
+                            ? "border-[#0FB75B] bg-[#0FB75B] text-primary"
+                            : "border-gray-200 text-gray-400 group-hover:border-gray-300"
+                      }`}
                     >
-                      {step.title}
-                    </h3>
-                    <AnimatePresence>
-                      {isActive && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.4, ease: "easeInOut" }}
-                          className="overflow-hidden"
-                        >
-                          <p className="text-sm text-gray-500 mt-2.5 leading-relaxed pr-4 font-medium">
-                            {step.desc}
-                          </p>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </button>
-              );
-            })}
+                      {isPast ? <CheckCircle size={20} /> : step.id}
+                    </div>
+
+                    <div
+                      className={`pt-1.5 transition-all duration-500 ${isActive ? "opacity-100 translate-x-2" : "opacity-50 group-hover:opacity-80"}`}
+                    >
+                      <h3
+                        className={`font-bold text-lg md:text-xl transition-colors ${isActive ? "text-[#1A1A1A]" : "text-[#37393A]"}`}
+                      >
+                        {step.title}
+                      </h3>
+                      <AnimatePresence>
+                        {isActive && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.4, ease: "easeInOut" }}
+                            className="overflow-hidden"
+                          >
+                            <p className="text-sm text-gray-500 mt-2.5 leading-relaxed pr-4 font-medium">
+                              {step.desc}
+                            </p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right Side: Interactive Visuals Container */}
+          <div
+            className="w-full lg:w-7/12  md:aspect-[4/3] lg:aspect-auto lg:h-[700px] relative rounded-[2.5rem] bg-white shadow-[0_30px_60px_-20px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden flex items-center justify-center p-4 sm:p-8"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
+            {/* Subtle background abstract shapes */}
+            <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#0FB75B]/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#0FB75B]/5 rounded-full blur-3xl pointer-events-none" />
+
+            <AnimatePresence mode="wait">
+              {activeStep === 1 && (
+                <VisualStep1 key="1" reduced={reducedMotion} />
+              )}
+              {activeStep === 2 && (
+                <VisualStep2 key="2" reduced={reducedMotion} />
+              )}
+              {activeStep === 3 && (
+                <VisualStep3 key="3" reduced={reducedMotion} />
+              )}
+              {activeStep === 4 && (
+                <VisualStep4 key="4" reduced={reducedMotion} />
+              )}
+              {activeStep === 5 && (
+                <VisualStep5 key="5" reduced={reducedMotion} />
+              )}
+            </AnimatePresence>
           </div>
         </div>
-
-        {/* Right Side: Interactive Visuals Container */}
-        <div
-          className="w-full lg:w-7/12  md:aspect-[4/3] lg:aspect-auto lg:h-[700px] relative rounded-[2.5rem] bg-white shadow-[0_30px_60px_-20px_rgba(0,0,0,0.08)] border border-gray-100 overflow-hidden flex items-center justify-center p-4 sm:p-8"
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
-          {/* Subtle background abstract shapes */}
-          <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#0FB75B]/5 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#0FB75B]/5 rounded-full blur-3xl pointer-events-none" />
-
-          <AnimatePresence mode="wait">
-            {activeStep === 1 && (
-              <VisualStep1 key="1" reduced={reducedMotion} />
-            )}
-            {activeStep === 2 && (
-              <VisualStep2 key="2" reduced={reducedMotion} />
-            )}
-            {activeStep === 3 && (
-              <VisualStep3 key="3" reduced={reducedMotion} />
-            )}
-            {activeStep === 4 && (
-              <VisualStep4 key="4" reduced={reducedMotion} />
-            )}
-            {activeStep === 5 && (
-              <VisualStep5 key="5" reduced={reducedMotion} />
-            )}
-          </AnimatePresence>
-        </div>
+        <DecisionSupportCaveat />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -199,29 +229,29 @@ const VisualStep1 = ({ reduced }: { reduced: boolean }) => (
     <div className="bg-gradient-to-br from-[#1A1A1A] to-[#37393A] text-white p-6 pb-8 relative overflow-hidden">
       <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full pointer-events-none" />
       <h3 className="font-black text-2xl mb-1 tracking-tight">
-        Personal Details
+        Property Details
       </h3>
       <p className="text-white/60 text-xs font-bold uppercase tracking-widest">
-        Applicant Wizard
+        Property Capture
       </p>
     </div>
     <div className="p-6 bg-white -mt-4 rounded-t-[24px] flex flex-col gap-4 relative z-10">
       <FormField
         delay={0.2}
-        label="Applicant Name"
-        value="Sarah Jenkins"
+        label="Property Reference"
+        value="12 Oak Lane"
         reduced={reduced}
       />
       <FormField
         delay={0.6}
-        label="Reference ID"
-        value="AHR-2026-8891"
+        label="Property Type"
+        value="2-bed mid-terrace"
         reduced={reduced}
       />
       <FormField
         delay={1.0}
-        label="Primary Need"
-        value="Wheelchair Access"
+        label="Survey Status"
+        value="Photos & plans uploaded"
         reduced={reduced}
         isActive
       />
@@ -265,12 +295,12 @@ const VisualStep2 = ({ reduced }: { reduced: boolean }) => (
   >
     <div className="flex items-center justify-between px-2">
       <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">
-        Evidence Pipeline
+        Access Features
       </h4>
       <div className="flex gap-2">
         <div className="w-2 h-2 rounded-full bg-[#0FB75B] animate-pulse" />
         <div className="text-[10px] font-bold text-[#0FB75B] uppercase">
-          Live Sync
+          Reviewing
         </div>
       </div>
     </div>
@@ -278,30 +308,26 @@ const VisualStep2 = ({ reduced }: { reduced: boolean }) => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <UploadCard
         icon={<Map size={24} />}
-        title="Floor Plan"
+        title="Floor plan"
         delay={0.2}
         reduced={reduced}
-        tags={["Scale: 1:50", "Walls Mapped"]}
+        tags={["Scale: 1:50", "Routes mapped"]}
       />
       <UploadCard
         icon={<Home size={24} />}
-        title="Exterior"
+        title="Entrances"
         delay={0.6}
         reduced={reduced}
-        tags={["Entrance: Level", "Width: 900mm"]}
+        tags={["Approach: Level", "Width: 900mm"]}
       />
       <div className="sm:col-span-2">
         <UploadCard
           icon={<ImageIcon size={24} />}
-          title="Interior Spaces"
+          title="Bathrooms & circulation space"
           delay={1.0}
           reduced={reduced}
           isLarge
-          tags={[
-            "Bathroom Detected",
-            "Clearance: Verified",
-            "Fixture Analysis",
-          ]}
+          tags={["Bathroom reviewed", "Clearance noted", "Thresholds checked"]}
         />
       </div>
     </div>
@@ -323,7 +349,7 @@ const VisualStep2 = ({ reduced }: { reduced: boolean }) => (
       >
         <CheckCircle size={14} className="text-[#0FB75B]" />
         <span className="text-[10px] font-black text-[#008900] uppercase tracking-widest">
-          Dataset Validated & Indexed
+          Features identified & catalogued
         </span>
       </motion.div>
     </div>
@@ -347,7 +373,7 @@ const UploadCard = ({ icon, title, isLarge, delay, reduced, tags }: any) => (
         transition={{ duration: 2, repeat: Infinity, delay: delay + 0.5 }}
         className="text-[8px] font-black text-[#0FB75B] uppercase tracking-tighter"
       >
-        Analyzing...
+        Reviewing...
       </motion.div>
     </div>
 
@@ -414,12 +440,12 @@ const VisualStep3 = ({ reduced }: { reduced: boolean }) => {
         <div className="flex items-center gap-2.5">
           <Sparkles size={18} className="text-[#0FB75B]" />
           <span className="text-sm font-black text-[#1A1A1A] uppercase tracking-widest">
-            AI Vision Engine
+            Accessibility Category
           </span>
         </div>
         <div className="flex gap-2 items-center">
           <div className="text-[10px] font-black text-[#0FB75B] tracking-widest mr-2 uppercase">
-            Processing
+            Reviewing
           </div>
           <motion.div
             animate={reduced ? {} : { opacity: [1, 0.4, 1] }}
@@ -486,32 +512,32 @@ const VisualStep3 = ({ reduced }: { reduced: boolean }) => {
         {/* Right Side: Streaming Complex Analysis Data */}
         <div className="w-full sm:w-[45%] flex flex-col gap-4">
           <div className="text-xs font-black text-[#1A1A1A] border-b-2 border-gray-100 pb-2 uppercase tracking-widest">
-            Live Extraction
+            Category indicators
           </div>
 
           <div className="space-y-4">
             <DataRow
               delay={0.2}
-              label="Turning Circle"
-              value="Mapped"
+              label="Turning circle"
+              value="Sufficient"
               reduced={reduced}
             />
             <DataRow
               delay={0.8}
-              label="Grab Rails"
-              value="3 Detected"
+              label="Grab rails"
+              value="3 noted"
               reduced={reduced}
             />
             <DataRow
               delay={1.4}
-              label="Shower Seat"
-              value="Verified"
+              label="Step-free approach"
+              value="Yes"
               reduced={reduced}
             />
             <DataRow
               delay={2.0}
-              label="Clearance Check"
-              value="Active"
+              label="Bathroom clearance"
+              value="Reviewing"
               reduced={reduced}
               status="pending"
             />
@@ -527,10 +553,10 @@ const VisualStep3 = ({ reduced }: { reduced: boolean }) => {
           >
             <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-yellow-400" />
             <div className="text-[10px] font-black text-yellow-600 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-              <AlertTriangle size={14} /> Review Flag
+              <AlertTriangle size={14} /> Note for category
             </div>
             <div className="text-xs font-bold text-[#1A1A1A] leading-tight">
-              Shower step &gt;15mm threshold detected.
+              Shower threshold may limit suitability for some users.
             </div>
           </motion.div>
         </div>
@@ -576,32 +602,32 @@ const VisualStep4 = ({ reduced }: { reduced: boolean }) => {
         <div className="absolute top-0 right-0 w-32 h-32 bg-[#0FB75B]/5 rounded-bl-[100px] -z-10" />
         <h3 className="text-sm font-black text-[#1A1A1A] mb-6 flex items-center gap-2 uppercase tracking-widest">
           <ShieldCheck size={20} className="text-[#0FB75B]" />
-          Standards Engine
+          Adaptation Feasibility
         </h3>
         <div className="space-y-4">
           <CheckItem
-            text="Verify measurements against Part M"
+            text="Level access — feasible"
             delay={0.2}
             reduced={reduced}
           />
           <CheckItem
-            text="Assess step-free approach"
+            text="Bathroom changes — limited"
             delay={0.6}
             reduced={reduced}
           />
           <CheckItem
-            text="Calculate adaptation feasibility"
+            text="Layout changes — unlikely"
             delay={1.0}
             reduced={reduced}
           />
         </div>
       </div>
 
-      {/* Grade Result */}
+      {/* Category Result */}
       <div className="bg-white rounded-[24px] shadow-2xl border border-gray-100 p-6 sm:p-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4">
           <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">
-            Calculated Grade
+            Adaptation outlook
           </h3>
           <motion.div
             initial={
@@ -611,7 +637,7 @@ const VisualStep4 = ({ reduced }: { reduced: boolean }) => {
             transition={{ delay: 2.0, type: "spring", bounce: 0.5 }}
             className="text-sm font-black text-[#008900] bg-[#0FB75B]/10 px-5 py-2 rounded-xl border-2 border-[#0FB75B]/30 shadow-inner"
           >
-            C : LIFETIME HOMES
+            CATEGORY C · ADAPTATIONS LIMITED
           </motion.div>
         </div>
 
@@ -649,10 +675,10 @@ const VisualStep4 = ({ reduced }: { reduced: boolean }) => {
               type: "spring",
               bounce: 0.3,
             }}
-            className="absolute top-[-14px] bottom-[-14px] w-8 bg-white rounded-xl shadow-lg border-2 border-[#1A1A1A] z-10 flex items-center justify-center"
+            className="absolute top-[-14px] bottom-[-14px] w-8 bg-white opacity-70 rounded-xl shadow-lg  z-10 flex items-center justify-center"
             style={{ transform: "translateX(-50%)" }}
           >
-            <div className="w-1.5 h-6 bg-[#1A1A1A] rounded-full opacity-40" />
+            <div className="w-1.5 h-6 bg-[#1A1A1A] opacity-80 rounded-full " />
           </motion.div>
         </div>
       </div>
@@ -715,15 +741,15 @@ const VisualStep5 = ({ reduced }: { reduced: boolean }) => (
           </div>
           <div>
             <div className="font-black text-white text-sm tracking-wide leading-tight">
-              AHR Report
+              Accessibility Report
             </div>
             <div className="text-gray-400 text-[8px] font-bold uppercase tracking-widest mt-0.5">
-              Official Document
+              Property-level assessment
             </div>
           </div>
         </div>
         <div className="bg-[#0FB75B]/20 border border-[#0FB75B]/50 text-[#0FB75B] px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest">
-          GRADE C
+          CATEGORY C
         </div>
       </div>
 
@@ -742,7 +768,10 @@ const VisualStep5 = ({ reduced }: { reduced: boolean }) => (
             </div>
             <ul className="text-[10px] text-[#1A1A1A] space-y-1 pl-3.5 list-disc font-medium">
               <li>Ambulant disabled tenants & older people</li>
-              <li>Wheelchair users for the ground floor</li>
+              <li>
+                Potentially suitable for wheelchair users on the ground floor,
+                subject to individual needs
+              </li>
             </ul>
           </motion.div>
 
@@ -753,10 +782,10 @@ const VisualStep5 = ({ reduced }: { reduced: boolean }) => (
             className="bg-red-500/5 border border-red-500/20 rounded-xl p-2.5"
           >
             <div className="flex items-center gap-1.5 text-red-600 mb-1.5 text-[9px] font-black uppercase tracking-widest">
-              <X size={12} /> Not Suitable For
+              <X size={12} /> May not suit
             </div>
             <ul className="text-[10px] text-[#1A1A1A] space-y-1 pl-3.5 list-disc font-medium">
-              <li>Full-time power-chair users requiring clearances</li>
+              <li>Full-time power-chair users requiring wider clearances</li>
             </ul>
           </motion.div>
         </div>
@@ -768,25 +797,25 @@ const VisualStep5 = ({ reduced }: { reduced: boolean }) => (
           transition={{ delay: 0.8 }}
         >
           <h4 className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-2.5">
-            What's holding this grade back
+            Where the main barriers are
           </h4>
           <div className="flex flex-col gap-2">
             <LimitationRow
-              title="Property Ramp Gradient"
+              title="Approach gradient"
               desc="Door threshold 1.5-10cm"
-              cap="Caps at E"
+              cap="May limit to E"
               color="bg-amber-500"
             />
             <LimitationRow
-              title="Bathroom Section"
-              desc="Needs 150x150cm turning space"
-              cap="Caps at C"
+              title="Bathroom"
+              desc="Needs 150×150cm turning space"
+              cap="May limit to C"
               color="bg-[#0FB75B]"
             />
             <LimitationRow
-              title="General Access"
-              desc="1st floor requires 2 lifts for A"
-              cap="Caps at B"
+              title="First-floor access"
+              desc="Stair access only; lift not feasible"
+              cap="May limit to B"
               color="bg-[#0FB75B]"
             />
           </div>
@@ -801,11 +830,22 @@ const VisualStep5 = ({ reduced }: { reduced: boolean }) => (
           transition={{ delay: 1.2 }}
           className="flex items-center gap-2 text-xs font-bold text-white bg-[#1A1A1A] px-5 py-2.5 rounded-xl hover:bg-[#0FB75B] transition-colors shadow-md w-full justify-center"
         >
-          <Download size={16} /> Download Official PDF
+          <Download size={16} /> Download accessibility report
         </motion.button>
       </div>
     </motion.div>
   </div>
+);
+
+/* ============================================================================
+ * Decision-support caveat — sits beneath the steps section
+ * ============================================================================ */
+export const DecisionSupportCaveat = () => (
+  <p className="mx-auto max-w-3xl px-6 pb-12 text-center text-xs text-[var(--text-dim)] leading-relaxed mt-8">
+    AccessCheck provides decision-support information. It does not replace a
+    professional access assessment, occupational therapy advice or a
+    landlord&apos;s own decision-making process.
+  </p>
 );
 
 const LimitationRow = ({ title, desc, cap, color }: any) => (

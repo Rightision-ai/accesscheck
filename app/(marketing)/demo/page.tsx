@@ -5,7 +5,7 @@ import ArcadeEmbed from "@/app/components/marketing/ArcadeEmbed";
 export const metadata = {
   title: "Interactive demo",
   description:
-    "Take a hands-on tour of AccessCheck — see how a photo or floor plan becomes a DFG-ready accessibility report.",
+    "Take a hands-on tour of AccessCheck — see how photos, plans and property data become a clear accessibility category and property-level report.",
 };
 
 export default function DemoPage() {
@@ -21,8 +21,9 @@ export default function DemoPage() {
           </h1>
           <p className="mt-5 text-lg text-[var(--text-dim)] leading-relaxed">
             Walk through a real assessment in minutes. No sign-up required —
-            click through the demo to see how AccessCheck turns photos and floor
-            plans into a clear accessibility grade and a DFG-ready report.
+            click through the demo to see how AccessCheck turns photos, plans
+            and property data into a clear accessibility category and a
+            property-level report.
           </p>
         </div>
       </section>

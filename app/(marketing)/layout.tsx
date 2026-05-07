@@ -5,11 +5,11 @@ import SkipLink from "@/app/components/marketing/SkipLink";
 
 export const metadata: Metadata = {
   title: {
-    default: "AccessCheck — Assess homes and assign accessibility categories using AI",
+    default: "AccessCheck — Stock intelligence for accessible housing",
     template: "%s | AccessCheck",
   },
   description:
-    "AccessCheck uses AI to assess homes from photos and floor plans, assigning a clear accessibility grade and producing DFG-ready reports.",
+    "AccessCheck helps social landlords assess the accessibility of their homes using photos, floor plans and property data — supporting better allocations, clearer records and earlier understanding of adaptation potential.",
 };
 
 export default function MarketingLayout({
