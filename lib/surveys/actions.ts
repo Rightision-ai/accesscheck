@@ -64,6 +64,18 @@ export async function deleteSurvey(caseId: string) {
   const surveyId = parseInt(caseId, 10);
   if (Number.isNaN(surveyId)) return { error: 'Invalid case ID' };
 
+  const { data: survey } = await supabase
+    .from('surveys')
+    .select('cost_estimation_status')
+    .eq('id', surveyId)
+    .single();
+
+  const status = (survey as { cost_estimation_status?: { status?: string } } | null)
+    ?.cost_estimation_status?.status;
+  if (status === 'pending') {
+    return { error: 'A cost estimation is currently running for this assessment. Please wait for it to finish before deleting.' };
+  }
+
   const { error } = await supabase
     .from('surveys')
     .delete()
