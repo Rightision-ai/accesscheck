@@ -88,10 +88,11 @@ Patch value conventions:
 Instructions:
 1. Inspect the attached floor plan and evidence photos.
 2. For each triggered rule, decide whether a feasible adaptation exists for THIS property given visible constraints (run-out length, load-bearing walls, ceiling void, drainage falls, freeholder consent, etc.). If no feasible adaptation exists, explain it in "dropped_candidates" with a specific, visually grounded reason.
-3. For EACH budget in [${budgets.join(", ")}] (£):
-   - Select the bundle of bespoke adaptations that fits within the tier's budget and maximises LAHR-band uplift. Never exceed the budget.
-   - Higher tiers are usually supersets of lower tiers; re-plan only if a different combination beats the superset.
-   - Tie-break order: shorter overall duration, then lower disruption (fewer "major" items).
+3. TIERS ARE STRICTLY CUMULATIVE — each tier is the tier below it plus more:
+   - £${budgets[0].toLocaleString()} tier: Propose adaptations whose total cost is ≤ £${budgets[0].toLocaleString()}.
+${budgets.slice(1).map((b, idx) => `   - £${b.toLocaleString()} tier: COPY every adaptation from the £${budgets[idx].toLocaleString()} tier VERBATIM (same label, same cost, same field_patches), then add NEW adaptations that bring the running total to between £${budgets[idx].toLocaleString()} and £${b.toLocaleString()}. Never exceed £${b.toLocaleString()}.`).join("\n")}
+   - The additional adaptations added in each higher tier should target the gap between the previous tier's cap and this tier's cap (e.g. if £15K plan totals £12K, the £20K tier should add ~£3K–£8K of new work).
+   - Tie-break for new adaptations: maximise LAHR-band uplift first, then shorter duration, then lower disruption.
 4. Return strict JSON only — no markdown, no commentary outside the JSON.
 
 Writing register for the narrative fields:
@@ -99,38 +100,61 @@ Writing register for the narrative fields:
 - Per-adaptation "narrative": 1–2 full sentences describing what the work involves in this specific property and why it matters for the tenant. Tie it to what you can actually see in the floor plan or photos. Do not restate cost, duration or trades — those live in their own fields. No "Cost:" / "Duration:" labels. Flowing prose.
 - "rationale_if_not_band_a": Plain-English explanation of why £30K doesn't reach band A (if applicable) — reference the specific structural or spatial constraint you can see.
 
-Output shape:
+Output shape (note the cumulative structure — each higher tier lists all lower-tier adaptations verbatim plus new ones):
 {
   "current_band": "${currentBand}",
   "overall_narrative": "Flowing 2–4 sentence briefing for an OT; avoid bullet formatting.",
   "tiers": [
     {
       "budget_gbp": 15000,
-      "total_cost_gbp": 14800,
-      "total_duration_days": 10,
+      "total_cost_gbp": 12600,
+      "total_duration_days": 8,
       "overall_difficulty": "minor" | "moderate" | "major",
       "potential_band_estimate": "E",
       "adaptations": [
         {
-          "label": "Short title for the adaptation, e.g. 'Widen entrance door to 85cm and re-hang'",
+          "label": "Adaptation A — specific to this property",
           "addresses_rules": [25, 26],
           "cost_gbp": 1800,
           "duration_days": 2,
           "difficulty": "minor" | "moderate" | "major",
-          "trades": ["carpentry", "plastering"],
-          "preconditions": "Optional — any site checks the surveyor must confirm before quoting.",
-          "narrative": "1–2 full sentences in OT-appropriate prose. Grounded in the specific property.",
+          "trades": ["carpentry"],
+          "preconditions": "Optional site checks.",
+          "narrative": "1–2 full sentences in OT-appropriate prose.",
           "visual_evidence_confidence": 0.0,
-          "field_patches": { "property_door_opening_width": 85, "communal_door_opening_width": 85 }
+          "field_patches": { "property_door_opening_width": 85 }
         }
       ],
-      "dropped_candidates": [
-        { "label": "Internal hallway widening", "reason": "Short prose reason tied to the visual evidence." }
-      ],
-      "tier_unavailable_reason": "Optional. Only populate if adaptations is empty — a 1–2 sentence explanation grounded in the visual evidence."
+      "dropped_candidates": [{ "label": "Internal hallway widening", "reason": "Reason." }],
+      "tier_unavailable_reason": "Only if adaptations is empty."
     },
-    { "budget_gbp": 20000, ... },
-    { "budget_gbp": 30000, ... }
+    {
+      "budget_gbp": 20000,
+      "total_cost_gbp": 18400,
+      "total_duration_days": 14,
+      "overall_difficulty": "minor" | "moderate" | "major",
+      "potential_band_estimate": "D",
+      "adaptations": [
+        { "label": "Adaptation A — COPIED FROM £15K TIER VERBATIM", "addresses_rules": [25, 26], "cost_gbp": 1800, "duration_days": 2, "difficulty": "minor", "trades": ["carpentry"], "narrative": "...", "field_patches": { "property_door_opening_width": 85 } },
+        { "label": "Adaptation B — NEW for this tier, bridging £12,600 → £18,400", "addresses_rules": [44], "cost_gbp": 5800, "duration_days": 4, "difficulty": "moderate", "trades": ["mechanical"], "narrative": "...", "field_patches": { "has_stair_lift": true } }
+      ],
+      "dropped_candidates": [],
+      "tier_unavailable_reason": null
+    },
+    {
+      "budget_gbp": 30000,
+      "total_cost_gbp": 27200,
+      "total_duration_days": 22,
+      "overall_difficulty": "moderate" | "major",
+      "potential_band_estimate": "C",
+      "adaptations": [
+        { "label": "Adaptation A — COPIED FROM £15K TIER", "cost_gbp": 1800, ... },
+        { "label": "Adaptation B — COPIED FROM £20K TIER", "cost_gbp": 5800, ... },
+        { "label": "Adaptation C — NEW for this tier, bridging £18,400 → £27,200", "addresses_rules": [64], "cost_gbp": 8800, "duration_days": 6, "difficulty": "major", "trades": ["plumbing", "tiling"], "narrative": "...", "field_patches": { "bathroom_has_level_access_shower": true } }
+      ],
+      "dropped_candidates": [],
+      "tier_unavailable_reason": null
+    }
   ],
   "reaches_band_a_at_30k": true | false,
   "rationale_if_not_band_a": "Plain-English reason. Optional.",
@@ -139,6 +163,8 @@ Output shape:
 
 Hard rules:
 - Each tier.total_cost_gbp MUST be ≤ that tier.budget_gbp.
+- Each tier (except the first) MUST include ALL adaptations from the tier below it, copied verbatim (same label, same cost_gbp, same field_patches). Omitting a lower-tier adaptation from a higher tier is an error.
+- The total_cost_gbp for each tier must be ≥ the budget_gbp of the previous tier wherever feasible (fill the gap with new adaptations). If no more feasible work exists, explain in tier_unavailable_reason and set adaptations to only the carried-forward ones.
 - Return the tiers in the same order as the budgets: ${budgets.join(", ")}.
 - Use plain JSON numbers (no currency symbols, no thousands separators).
 - Narratives are prose, not column dumps. Never emit phrases like "Cost: £…", "Duration: … days", "Trades: …", "Difficulty: …" inside a narrative field.

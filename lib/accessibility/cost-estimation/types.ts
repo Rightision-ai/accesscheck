@@ -17,6 +17,8 @@ export type RemediationInstance = {
   preconditions?: string;
   visualEvidenceConfidence?: number;
   fieldPatches: Record<string, unknown>;
+  /** True when this adaptation was carried forward from a lower-tier plan. */
+  isInherited?: boolean;
 };
 
 export type DroppedAdaptation = {

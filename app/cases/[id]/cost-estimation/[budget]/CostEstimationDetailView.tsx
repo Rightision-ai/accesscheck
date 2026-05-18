@@ -126,6 +126,7 @@ export default function CostEstimationDetailView({
                     index={idx + 1}
                     adaptation={a}
                     ruleLookup={ruleLookup}
+                    isInherited={a.isInherited ?? false}
                   />
                 ))}
                 {tier.adaptations.length === 0 && (
@@ -187,7 +188,14 @@ function HeadlineStrip({
       <HeadlineTile
         label="Total cost"
         value={`£${tier.totalCostGbp.toLocaleString()}`}
-        sub={`within £${tier.budgetGbp.toLocaleString()} cap`}
+        sub={(() => {
+          const newSpend = tier.adaptations
+            .filter((a) => !a.isInherited)
+            .reduce((s, a) => s + a.costGbp, 0);
+          return newSpend > 0 && newSpend < tier.totalCostGbp
+            ? `£${newSpend.toLocaleString()} new · within £${tier.budgetGbp.toLocaleString()} cap`
+            : `within £${tier.budgetGbp.toLocaleString()} cap`;
+        })()}
       />
       <HeadlineTile
         label="Overall disruption"
@@ -266,17 +274,31 @@ function AdaptationCard({
   index,
   adaptation,
   ruleLookup,
+  isInherited,
 }: {
   index: number;
   adaptation: TierPlan["adaptations"][number];
   ruleLookup: Record<number, { capBand: string; description: string }>;
+  isInherited: boolean;
 }) {
   return (
-    <li className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <li className={`rounded-xl border p-5 shadow-sm ${isInherited ? "border-slate-100 bg-slate-50" : "border-slate-200 bg-white"}`}>
       <header className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Adaptation {index}
+          <div className="flex items-center gap-2">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Adaptation {index}
+            </div>
+            {isInherited && (
+              <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                Carried over
+              </span>
+            )}
+            {!isInherited && (
+              <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary-dark">
+                New this tier
+              </span>
+            )}
           </div>
           <h3 className="mt-0.5 text-base font-extrabold text-slate-900">
             {adaptation.label}

@@ -173,31 +173,15 @@ export async function POST(req: NextRequest) {
       });
 
       step = "build_tiers";
-      const tiers: TierPlan[] = DFG_BUDGET_TIERS.map((b) => {
+      const rawTiers: TierPlan[] = DFG_BUDGET_TIERS.map((b) => {
         const geminiTier = gemini.tiers?.find((t) => Number(t?.budget_gbp) === b);
         return buildTier({ budget: b, geminiTier, survey });
       });
 
-      // Enforce monotonic band uplift across budget tiers. Spending more should never project
-      // a worse band — but Gemini occasionally proposes weaker bundles at the higher tier
-      // (different choice of adaptations, model arithmetic drift). When that happens we copy
-      // the better lower-tier plan up, keeping the higher tier's budget label.
-      for (let i = 1; i < tiers.length; i++) {
-        const prev = tiers[i - 1];
-        const curr = tiers[i];
-        if (rankOf(curr.potentialBand) > rankOf(prev.potentialBand)) {
-          console.warn(
-            `[cost-estimation] tier ${curr.budgetGbp} regressed below tier ${prev.budgetGbp}` +
-              ` (${curr.potentialBand} vs ${prev.potentialBand}). Cloning the better plan.`,
-          );
-          tiers[i] = {
-            ...prev,
-            budgetGbp: curr.budgetGbp,
-            // Don't carry the old tier's unavailableReason if any.
-            unavailableReason: undefined,
-          };
-        }
-      }
+      // Enforce cumulative structure: each tier must include all adaptations from the tier
+      // below it plus new ones targeting the spend gap. This also guarantees monotonic band
+      // improvement since higher tiers are supersets of lower ones.
+      const tiers = enforceCumulativeTiers(rawTiers, survey);
 
       log(step, {
         tiers: tiers.map((t) => ({
@@ -323,6 +307,94 @@ async function readJobStatus(
     .eq("id", surveyId)
     .single();
   return data?.cost_estimation_status ?? null;
+}
+
+/**
+ * Enforce the cumulative tier rule: each tier must include all adaptations from the tier
+ * below it (marked isInherited) plus new ones that fill the gap to this tier's cap.
+ * Re-projects the band after merging so the stored potentialBand is always accurate.
+ */
+function enforceCumulativeTiers(
+  tiers: TierPlan[],
+  survey: Partial<SurveyRow>,
+): TierPlan[] {
+  const result: TierPlan[] = [];
+
+  for (let i = 0; i < tiers.length; i++) {
+    const curr = tiers[i];
+
+    if (i === 0) {
+      // First tier: keep as-is, but mark all adaptations as not inherited.
+      result.push({
+        ...curr,
+        adaptations: curr.adaptations.map((a) => ({ ...a, isInherited: false })),
+      });
+      continue;
+    }
+
+    const prev = result[i - 1];
+    const prevBudget = prev.budgetGbp;
+
+    // Adaptations from the previous tier, carried forward and flagged as inherited.
+    const inherited = prev.adaptations.map((a) => ({ ...a, isInherited: true }));
+    const inheritedCost = inherited.reduce((s, a) => s + a.costGbp, 0);
+
+    // New adaptations Gemini proposed for this tier that are not already covered.
+    const prevLabels = new Set(prev.adaptations.map((a) => a.label));
+    const newForThisTier = curr.adaptations
+      .filter((a) => !prevLabels.has(a.label))
+      .map((a) => ({ ...a, isInherited: false }));
+
+    // Add new adaptations up to this tier's budget cap.
+    const newAccepted: typeof inherited = [];
+    let runningCost = inheritedCost;
+    for (const a of newForThisTier) {
+      if (runningCost + a.costGbp <= curr.budgetGbp) {
+        newAccepted.push(a);
+        runningCost += a.costGbp;
+      }
+    }
+
+    // If no new adaptations were added, show this tier as empty rather than
+    // repeating the previous tier's plan unchanged.
+    if (newAccepted.length === 0) {
+      console.warn(
+        `[cost-estimation] tier ${curr.budgetGbp}: no new adaptations beyond tier ${prev.budgetGbp} — marking empty.`,
+      );
+      result.push({
+        ...curr,
+        adaptations: [],
+        totalCostGbp: 0,
+        totalDurationDays: 0,
+        overallDifficulty: "minor",
+        potentialBand: prev.potentialBand,
+        unavailableReason:
+          curr.unavailableReason ??
+          `No additional adaptations are feasible within the £${curr.budgetGbp.toLocaleString()} budget beyond those already included in the £${prev.budgetGbp.toLocaleString()} plan.`,
+      });
+      continue;
+    }
+
+    const cumulative = [...inherited, ...newAccepted];
+
+    if (runningCost < prevBudget) {
+      console.warn(
+        `[cost-estimation] tier ${curr.budgetGbp}: cumulative spend £${runningCost} is below` +
+          ` the previous tier cap £${prevBudget}. Gemini did not propose enough new work.`,
+      );
+    }
+
+    result.push({
+      ...curr,
+      adaptations: cumulative,
+      totalCostGbp: runningCost,
+      totalDurationDays: cumulative.reduce((s, a) => s + a.durationDays, 0),
+      overallDifficulty: aggregateDifficulty(cumulative),
+      potentialBand: projectBandAfter(survey, cumulative),
+    });
+  }
+
+  return result;
 }
 
 function buildTier(args: {
