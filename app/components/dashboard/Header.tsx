@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Search, Bell, User, PlusCircle, LogOut, Menu, X } from "lucide-react";
+import Link from "next/link";
+import { Search, Bell, User, PlusCircle, Building2, LogOut, Menu, X } from "lucide-react";
 import { signOut } from "@/lib/auth/actions";
 
 interface HeaderProps {
@@ -54,6 +55,17 @@ const Header: React.FC<HeaderProps> = ({ user, onOpenWizard, onSearch }) => {
 
       {/* Desktop: Actions */}
       <div className="flex items-center gap-2 sm:gap-4 md:gap-6 shrink-0">
+        {/* Check Property - desktop only */}
+        <Link
+          href="/property-check"
+          className="hidden md:flex py-2 px-3 sm:px-4 rounded-lg md:rounded-[10px] items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-semibold transition-all border border-gray-200 cursor-pointer bg-white/80 backdrop-blur hover:border-primary hover:bg-primary-light"
+        >
+          <Building2
+            size={16}
+            className="sm:w-[18px] sm:h-[18px] text-primary shrink-0"
+          />
+          <span>Check Property</span>
+        </Link>
         {/* New Assessment - desktop only */}
         <button
           onClick={onOpenWizard}
@@ -122,6 +134,16 @@ const Header: React.FC<HeaderProps> = ({ user, onOpenWizard, onSearch }) => {
                   />
                 </div>
               </div>
+              <Link
+                href="/property-check"
+                onClick={() => setMenuOpen(false)}
+                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 text-left"
+              >
+                <Building2 size={20} className="text-primary shrink-0" />
+                <span className="text-sm font-medium text-slate-700">
+                  Check Property
+                </span>
+              </Link>
               <button className="w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 text-left">
                 <Bell size={20} className="text-slate-400 shrink-0" />
                 <span className="text-sm font-medium text-slate-700">

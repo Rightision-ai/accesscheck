@@ -1,0 +1,7 @@
+property_ref,address,postcode,bedrooms,floor_level,property_type,known_adaptations
+P-001,10 Downing Street,SW1A 2AA,4,ground,house,
+P-002,221B Baker Street,NW1 6XE,2,first,flat,
+P-003,1 Horse Guards Road,SW1A 2HQ,3,ground,house,Grab rails fitted
+P-004,48 Leicester Square,WC2H 7LU,2,second,flat,
+P-005,30 St Mary Axe,EC3A 8BF,1,ground,flat,Level access shower
+P-006,Invalid Example,INVALID,1,ground,flat,
