@@ -10117,7 +10117,23 @@ const ReportView: React.FC<ReportViewProps> = ({
                   </div>
 
                   {/* Floor Plan on the first evidence page */}
-                  {pageIdx === 0 && wizardData.floorPlan && (
+                  {pageIdx === 0 && (() => {
+                    const fp =
+                      typeof wizardData.floorPlan === "string"
+                        ? wizardData.floorPlan
+                        : wizardData.floorPlan
+                          ? URL.createObjectURL(wizardData.floorPlan)
+                          : null;
+                    const isPdf =
+                      wizardData.floorPlanIsPdf === true ||
+                      (!!fp && /\.pdf(\?|$)/i.test(fp));
+                    // Reports export to PDF (html2canvas) — only a raster <img>
+                    // is captured, so use the rendered preview for PDFs.
+                    const imgSrc =
+                      wizardData.floorPlanPreviewUrl ||
+                      (fp && !isPdf ? fp : null);
+                    if (!imgSrc) return null;
+                    return (
                     <div style={{ marginTop: "40px" }}>
                       <h4
                         style={{
@@ -10140,11 +10156,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                         }}
                       >
                         <img
-                          src={
-                            typeof wizardData.floorPlan === "string"
-                              ? wizardData.floorPlan
-                              : URL.createObjectURL(wizardData.floorPlan)
-                          }
+                          src={imgSrc}
                           style={{
                             width: "100%",
                             maxHeight: "600px",
@@ -10166,7 +10178,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                         </div>
                       </div>
                     </div>
-                  )}
+                    );
+                  })()}
                 </SectionBlock>
               </div>
             ));

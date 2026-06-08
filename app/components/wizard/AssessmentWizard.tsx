@@ -115,6 +115,7 @@ const initialFormData = {
   floorPlanIsPdf: false,
   floorPlanName: "",
   floorPlanOpenUrl: null as string | null,
+  floorPlanPreviewUrl: null as string | null,
   hasNoFloorPlan: false,
   // Property-search (evidence harvester) linkage
   propertyId: null as string | null,
@@ -203,8 +204,10 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   // this is the rendered first page (the PDF itself can't be drawn on a canvas).
   const floorPlanFileRef = useRef<File | null>(null);
   const floorPlanImageRef = useRef<string | null>(null);
-  // Caches the storage URL after the original file is uploaded at save time.
+  // Caches the storage URLs after the original file (and, for PDFs, the rendered
+  // first-page preview image) are uploaded at save time.
   const floorPlanUploadedUrlRef = useRef<string | null>(null);
+  const floorPlanPreviewUrlRef = useRef<string | null>(null);
 
   const steps = STEPS;
   const totalSteps = steps.length;
@@ -322,9 +325,11 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     handleUpdateField("floorPlanIsPdf", false);
     handleUpdateField("floorPlanName", "");
     handleUpdateField("floorPlanOpenUrl", null);
+    handleUpdateField("floorPlanPreviewUrl", null);
     floorPlanFileRef.current = null;
     floorPlanImageRef.current = null;
     floorPlanUploadedUrlRef.current = null;
+    floorPlanPreviewUrlRef.current = null;
     setFloorPlanAnalysis(null);
     setFloorPlanDetection(null);
   };
@@ -361,8 +366,9 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
 
       const imageBase64 = await toBase64(imageFile);
       floorPlanFileRef.current = rawFile; // original, uploaded at save
-      floorPlanImageRef.current = imageBase64; // raster for annotation
+      floorPlanImageRef.current = imageBase64; // raster for annotation/preview
       floorPlanUploadedUrlRef.current = null; // new file → re-upload at save
+      floorPlanPreviewUrlRef.current = null;
 
       handleUpdateField("floorPlanIsPdf", isPdf);
       handleUpdateField(
@@ -591,20 +597,43 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
    * Upload the original floor-plan file to storage — deferred until save. Returns
    * the stored URL (or the existing URL / null). Idempotent across re-saves.
    */
-  const persistFloorPlan = async (): Promise<string | null> => {
-    // Already uploaded this session (e.g. a prior draft save) → reuse the URL.
-    if (floorPlanUploadedUrlRef.current) return floorPlanUploadedUrlRef.current;
+  const persistFloorPlan = async (): Promise<{
+    url: string | null;
+    previewUrl: string | null;
+  }> => {
+    // Already uploaded this session (e.g. a prior draft save) → reuse the URLs.
+    if (floorPlanUploadedUrlRef.current) {
+      return {
+        url: floorPlanUploadedUrlRef.current,
+        previewUrl: floorPlanPreviewUrlRef.current,
+      };
+    }
     const file = floorPlanFileRef.current;
     if (file) {
-      const ext = (file.type || "").includes("pdf") ? "pdf" : "jpg";
+      const isPdf = (file.type || "").includes("pdf");
+      const ext = isPdf ? "pdf" : "jpg";
       try {
         const url = await uploadFileToStorage(
           file,
           `survey/${formData.id || "new"}/floorplan-${Date.now()}.${ext}`,
         );
+        // For PDFs, also persist the rendered first-page image so the report and
+        // case overview can show an image preview (a PDF can't render in <img>).
+        let previewUrl: string | null = null;
+        if (isPdf && floorPlanImageRef.current) {
+          try {
+            previewUrl = await uploadBase64ToStorage(
+              floorPlanImageRef.current,
+              `survey/${formData.id || "new"}/floorplan-preview-${Date.now()}.jpg`,
+            );
+          } catch (e) {
+            console.warn("Floor plan preview upload failed:", e);
+          }
+        }
         floorPlanUploadedUrlRef.current = url;
+        floorPlanPreviewUrlRef.current = previewUrl;
         handleUpdateField("floorPlanOpenUrl", url);
-        return url;
+        return { url, previewUrl };
       } catch (err) {
         console.warn("Floor plan upload failed:", err);
       }
@@ -612,7 +641,10 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     // No original held (e.g. reopened draft) or upload failed: keep whatever the
     // form has (a stored URL stays as-is; a base64 image is uploaded by saveSurveyClient).
     const current = formData.floorPlan;
-    return typeof current === "string" ? current : null;
+    return {
+      url: typeof current === "string" ? current : null,
+      previewUrl: formData.floorPlanPreviewUrl ?? null,
+    };
   };
 
   const buildFloorPlanDetectionPayload = async () => {
@@ -638,7 +670,8 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   const handleSaveDraft = async () => {
     setIsSavingDraft(true);
     try {
-      const floorPlanUrl = await persistFloorPlan();
+      const { url: floorPlanUrl, previewUrl: floorPlanPreviewUrl } =
+        await persistFloorPlan();
       const detectionPayload = await buildFloorPlanDetectionPayload();
       const draftCase: Case = {
         id: formData.id || `H-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -661,7 +694,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         mlData: {
           imageCount: formData.photos?.length || 0,
           floorPlanAvailable: !!floorPlanUrl,
-          wizardData: { ...formData, floorPlan: floorPlanUrl },
+          wizardData: { ...formData, floorPlan: floorPlanUrl, floorPlanPreviewUrl },
           aiReport: formData.aiReport,
           floorPlanDetection: detectionPayload,
           propertyId: formData.propertyId ?? null,
@@ -2050,7 +2083,8 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   );
 
   async function handleSafeClose() {
-    const floorPlanUrl = await persistFloorPlan();
+    const { url: floorPlanUrl, previewUrl: floorPlanPreviewUrl } =
+      await persistFloorPlan();
     const detectionPayload = await buildFloorPlanDetectionPayload();
     const completedCase: Case = {
       id: formData.id || `H-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -2073,7 +2107,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
       mlData: {
         imageCount: formData.photos?.length || 0,
         floorPlanAvailable: !!floorPlanUrl,
-        wizardData: { ...formData, floorPlan: floorPlanUrl },
+        wizardData: { ...formData, floorPlan: floorPlanUrl, floorPlanPreviewUrl },
         aiReport: formData.aiReport,
         floorPlanDetection: detectionPayload,
         propertyId: formData.propertyId ?? null,
