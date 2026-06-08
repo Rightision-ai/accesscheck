@@ -17,7 +17,7 @@ export const compressBase64Image = (base64: string, maxDim = 1024, quality = 0.7
 };
 
 /** Fetches an image URL and returns it as a base64 data URL for Gemini. */
-const urlToBase64 = async (url: string): Promise<string | null> => {
+export const urlToBase64 = async (url: string): Promise<string | null> => {
     try {
         const res = await fetch(url);
         const blob = await res.blob();

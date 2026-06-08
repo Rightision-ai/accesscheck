@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Trash2, CheckCircle, RefreshCw } from "lucide-react";
+import { Camera, Trash2, CheckCircle, RefreshCw, Sparkles } from "lucide-react";
 import { WizardStepProps } from "../types";
 import { cn } from "@/lib/utils/cn";
 
@@ -55,6 +55,7 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
   isAnalyzing,
   categoryResults,
   onPhotosChanged,
+  streetViewSeededUrl,
 }) => {
   const categoryPhotos = formData.categoryPhotos || {};
 
@@ -191,6 +192,14 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
                     )}
                   </h4>
                   <p className="text-[11px] text-slate-500">{cat.desc}</p>
+                  {cat.id === "entrance" &&
+                    streetViewSeededUrl &&
+                    currentPhotos[0] === streetViewSeededUrl && (
+                      <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary-light py-0.5 px-1.5 rounded">
+                        <Sparkles size={10} />
+                        Detected with our AI — replace if inaccurate
+                      </div>
+                    )}
                   {hasError && (
                     <div className="mt-1 text-[10px] text-amber-600 font-bold">
                       ⚠️ Unrelated photo

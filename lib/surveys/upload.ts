@@ -38,6 +38,29 @@ export async function uploadBase64ToStorage(
 }
 
 /**
+ * Upload a File/Blob (e.g. an original PDF floor plan) directly to storage.
+ * Unlike uploadBase64ToStorage this preserves any mime type (PDFs included).
+ */
+export async function uploadFileToStorage(
+  file: File | Blob,
+  path: string,
+  bucket: string = "evidences",
+): Promise<string> {
+  const supabase = createClient();
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, {
+      contentType: (file as File).type || "application/octet-stream",
+      upsert: true,
+    });
+  if (error) throw error;
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(bucket).getPublicUrl(data.path);
+  return publicUrl;
+}
+
+/**
  * Recursively find all base64 data URLs, upload to Supabase Storage,
  * and return a new object with URLs replacing base64. Deduplicates same images.
  */
