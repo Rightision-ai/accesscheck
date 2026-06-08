@@ -543,10 +543,12 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     }
   };
 
-  // Seed the Step-4 "Main Entrance" photo with the property's Street View image
-  // (detected in Step 1). Runs once; never overwrites a user replacement.
+  // Prepare the "Main Entrance" photo from the property's Street View image as
+  // soon as the address is selected in Step 1 (streetViewUrl becomes available) —
+  // so it's ready for the image-analysis step, independent of step navigation.
+  // Runs once; never overwrites a user replacement.
   useEffect(() => {
-    if (step !== 4 || !formData.streetViewUrl || formData.entranceSeeded) return;
+    if (!formData.streetViewUrl || formData.entranceSeeded) return;
     if (formData.categoryPhotos?.entrance?.length) return;
     let cancelled = false;
     (async () => {
@@ -583,7 +585,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, formData.streetViewUrl]);
+  }, [formData.streetViewUrl]);
 
   /**
    * Upload the original floor-plan file to storage — deferred until save. Returns
