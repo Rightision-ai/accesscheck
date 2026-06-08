@@ -1582,8 +1582,9 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
       return !formData.fullName || !formData.street || !formData.postcode;
     // Step 2 (Section B) has no required fields
     if (step === 3) return !formData.floorPlan && !formData.hasNoFloorPlan;
-    if (step === 4)
-      return (formData.photos || []).length < 1 || !step3AnalysisComplete;
+    // At least one photo is enough — including the AI-detected entrance image.
+    // (Running the batch analysis is optional, not a gate.)
+    if (step === 4) return (formData.photos || []).length < 1;
     if (step === 5) return !formData.propertyType || !formData.entranceLevel;
     if (step === 6) return !formData.internalStairs;
     if (step === 7) return !formData.bathroomLocation;

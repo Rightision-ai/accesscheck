@@ -107,16 +107,9 @@ const FloorPlanStep: React.FC<WizardStepProps> = ({
   };
 
   async function runFloorplanSearch() {
+    if (!formData.propertyId) return; // button stays disabled until the id arrives
     setSearchingPlans(true);
     try {
-      // Without a matched property there's nothing to query — show the loading
-      // state briefly, then fall through to the "nothing found" empty state.
-      if (!formData.propertyId) {
-        await new Promise((r) => setTimeout(r, 800));
-        setPlanSources([]);
-        setSearchedPlans(true);
-        return;
-      }
       await fetch(
         `/api/evidence-harvester/properties/${formData.propertyId}/floorplans`,
         { method: "POST" },
@@ -428,11 +421,20 @@ const FloorPlanStep: React.FC<WizardStepProps> = ({
                   )
                 ) : (
                   <>
+                    {!formData.propertyId && (
+                      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                        <Loader2 size={14} className="animate-spin shrink-0" />
+                        Preparing property details — the floor-plan search will be
+                        available once the property is matched.
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={runFloorplanSearch}
-                      disabled={searchingPlans || isAnalyzing}
-                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60 self-start"
+                      disabled={
+                        searchingPlans || isAnalyzing || !formData.propertyId
+                      }
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed self-start"
                     >
                       {searchingPlans ? (
                         <Loader2 size={16} className="animate-spin" />
