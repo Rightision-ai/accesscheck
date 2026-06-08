@@ -1,7 +1,7 @@
 /**
  * Shared HTTP helper for Evidence Harvester external API calls.
  *
- * Extracted from the pattern in app/api/gemini/cost-estimation/route.ts: retry transient failures
+ * Extracted from the pattern in app/api/engine/cost-estimation/route.ts: retry transient failures
  * (network errors and 429/5xx) with exponential backoff + jitter. External integrations
  * (Postcodes.io, EPC, Land Registry, Street View) all funnel through this so per-row enrichment
  * fails gracefully rather than aborting the whole harvest job.

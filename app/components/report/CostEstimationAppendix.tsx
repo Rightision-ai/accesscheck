@@ -80,7 +80,7 @@ export default function CostEstimationAppendix({
     setIsRefreshing(true);
     setError(null);
     try {
-      const res = await fetch("/api/gemini/cost-estimation", {
+      const res = await fetch("/api/engine/cost-estimation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ surveyId }),
@@ -468,7 +468,7 @@ function NarrativeBlock({ estimation }: { estimation: CostEstimation }) {
         <span className="text-[10px] font-semibold text-slate-600">{confidencePct}%</span>
       </div>
       <p className="text-[10px] text-slate-400">
-        Generated {new Date(estimation.generatedAt).toLocaleString()} · {estimation.geminiModel}
+        Generated {new Date(estimation.generatedAt).toLocaleString()} · AI engine
       </p>
     </section>
   );

@@ -15,7 +15,7 @@ import {
 import {
   buildCostEstimationPrompt,
   collectTriggeredRules,
-} from "@/lib/gemini/prompts/costEstimationPrompt";
+} from "@/lib/engine/prompts/costEstimationPrompt";
 import {
   DFG_BUDGET_TIERS,
   DFG_MAX_BUDGET,
@@ -30,11 +30,11 @@ import type { Database } from "@/types/supabase";
 
 type SurveyRow = Database["public"]["Tables"]["surveys"]["Row"];
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const ENGINE_API_KEY = process.env.ENGINE_API_KEY;
 // Flash returns ~5-10s vs ~30s for Pro, with comparable quality on this structured prompt.
-// Override via GEMINI_COST_MODEL if you want to test Pro again.
-const GEMINI_MODEL = process.env.GEMINI_COST_MODEL || "gemini-2.5-flash";
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+// Override via ENGINE_COST_MODEL if you want to test Pro again.
+const ENGINE_MODEL = process.env.ENGINE_COST_MODEL || "gemini-2.5-flash";
+const ENGINE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${ENGINE_MODEL}:generateContent`;
 const MAX_PHOTO_INPUTS = 3;
 const DIFFICULTIES: Difficulty[] = ["minor", "moderate", "major"];
 
@@ -95,7 +95,7 @@ type JobStatus = {
  * runs in the background via Next 16's `after()`, which on Vercel Pro Fluid keeps the function
  * alive after the HTTP response. This sidesteps the 60s gateway timeout that was producing 504s.
  *
- * The client polls GET /api/gemini/cost-estimation?surveyId=N for the result.
+ * The client polls GET /api/engine/cost-estimation?surveyId=N for the result.
  */
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
@@ -125,9 +125,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ applicable: false, currentBand: "A" });
   }
 
-  if (!GEMINI_API_KEY) {
+  if (!ENGINE_API_KEY) {
     return NextResponse.json(
-      { error: "Cost estimation requires GEMINI_API_KEY to be configured." },
+      { error: "Cost estimation requires ENGINE_API_KEY to be configured." },
       { status: 503 },
     );
   }
@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
   await writeJobStatus(supabase, surveyId, {
     status: "pending",
     startedAt,
-    model: GEMINI_MODEL,
+    model: ENGINE_MODEL,
   });
 
   // Background work — runs after the response is sent.
@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
           `Current Accessible Housing Rules band is ${evaluation.band}. The plan above bundles bespoke adaptations to lift the property toward a higher band within each DFG tier.`,
         confidence: clamp01(gemini.confidence ?? (validImageParts.length > 0 ? 0.65 : 0.45)),
         generatedAt: new Date().toISOString(),
-        geminiModel: GEMINI_MODEL,
+        geminiModel: ENGINE_MODEL,
         budgetCapGbp: DFG_MAX_BUDGET,
       };
 
@@ -221,7 +221,7 @@ export async function POST(req: NextRequest) {
         status: "ready",
         startedAt,
         finishedAt: new Date().toISOString(),
-        model: GEMINI_MODEL,
+        model: ENGINE_MODEL,
       });
     } catch (err) {
       const e = err as Error;
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
         finishedAt: new Date().toISOString(),
         error: (e?.message ?? String(err)).slice(0, 500),
         step,
-        model: GEMINI_MODEL,
+        model: ENGINE_MODEL,
       });
     }
   });
@@ -586,7 +586,7 @@ async function callGemini(args: {
 
   const parts: GeminiPart[] = [{ text: prompt }, ...args.imageParts];
 
-  const res = await fetchWithRetry(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+  const res = await fetchWithRetry(`${ENGINE_API_URL}?key=${ENGINE_API_KEY}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -603,7 +603,7 @@ async function callGemini(args: {
 
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(`Gemini ${res.status}: ${errorText.slice(0, 300)}`);
+    throw new Error(`Engine ${res.status}: ${errorText.slice(0, 300)}`);
   }
 
   const data = await res.json();
@@ -612,7 +612,7 @@ async function callGemini(args: {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error(
-      `Gemini returned no JSON object${finishReason ? ` (finishReason=${finishReason})` : ""}`,
+      `Engine returned no JSON object${finishReason ? ` (finishReason=${finishReason})` : ""}`,
     );
   }
   const raw = jsonMatch[0];
@@ -625,7 +625,7 @@ async function callGemini(args: {
     } catch {
       const reason = (parseErr as Error).message;
       throw new Error(
-        `Gemini returned malformed JSON (${reason})${finishReason ? `; finishReason=${finishReason}` : ""}; length=${raw.length}`,
+        `Engine returned malformed JSON (${reason})${finishReason ? `; finishReason=${finishReason}` : ""}; length=${raw.length}`,
       );
     }
   }
@@ -706,5 +706,5 @@ async function fetchWithRetry(url: string, init: RequestInit, retries = 3): Prom
       await new Promise((r) => setTimeout(r, wait));
     }
   }
-  throw lastErr instanceof Error ? lastErr : new Error("Gemini fetch failed");
+  throw lastErr instanceof Error ? lastErr : new Error("Engine fetch failed");
 }

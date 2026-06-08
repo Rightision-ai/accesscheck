@@ -1,22 +1,22 @@
 /**
  * ExteriorVisionService — runs Gemini vision over Street View images to extract exterior
  * accessibility features as strict JSON. Mirrors the Gemini call/parse approach used in
- * app/api/gemini/cost-estimation/route.ts (responseMimeType JSON + defensive parsing).
+ * app/api/engine/cost-estimation/route.ts (responseMimeType JSON + defensive parsing).
  *
  * Returns null on any failure or weak evidence so the harvest pipeline degrades gracefully.
  */
 import { fetchWithRetry } from './http';
-import { buildExteriorVisionPrompt } from '@/lib/gemini/prompts/exteriorVisionPrompt';
+import { buildExteriorVisionPrompt } from '@/lib/engine/prompts/exteriorVisionPrompt';
 import type { ExteriorObservations, FrontPathSlope } from './types';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = process.env.GEMINI_VISION_MODEL || 'gemini-2.5-flash';
+const ENGINE_API_KEY = process.env.ENGINE_API_KEY;
+const MODEL = process.env.ENGINE_VISION_MODEL || 'gemini-2.5-flash';
 const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 type ImageInput = { mime: string; base64: string };
 
 export async function analyseExterior(images: ImageInput[]): Promise<ExteriorObservations | null> {
-  if (!GEMINI_API_KEY || images.length === 0) return null;
+  if (!ENGINE_API_KEY || images.length === 0) return null;
 
   const parts = [
     { text: buildExteriorVisionPrompt() },
@@ -24,7 +24,7 @@ export async function analyseExterior(images: ImageInput[]): Promise<ExteriorObs
   ];
 
   const res = await fetchWithRetry(
-    `${API_URL}?key=${GEMINI_API_KEY}`,
+    `${API_URL}?key=${ENGINE_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

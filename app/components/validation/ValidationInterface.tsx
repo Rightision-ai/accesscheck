@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils/cn";
 import {
   buildFinalReportPrompt,
   deriveInferredAnswersFromAssessment,
-} from "@/lib/gemini/prompts";
+} from "@/lib/engine/prompts";
 
 const getScoreColor = (score: string | number): string => {
   const s = typeof score === "string" ? parseFloat(score) : score;
@@ -377,7 +377,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
         },
     });
 
-    const response = await fetch("/api/gemini/analyze", {
+    const response = await fetch("/api/engine/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, images: [] }),

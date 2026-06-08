@@ -549,7 +549,7 @@ export const analyzeAllCategoryPhotos = async (
 
         if (images.length === 0) return null;
 
-        const response = await fetch("/api/gemini/floor-images", {
+        const response = await fetch("/api/engine/floor-images", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ images, categories: categoriesPresent }),
@@ -600,7 +600,7 @@ export const analyzeCategoryPhoto = async (file: File, categoryId: string): Prom
             }]
         };
 
-        const response = await fetch('/api/gemini/floor-images', {
+        const response = await fetch('/api/engine/floor-images', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),

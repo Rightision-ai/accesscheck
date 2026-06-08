@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildReportFillPrompt } from "@/lib/gemini/prompts/reportFillPrompt";
+import { buildFloorPlanPrompt } from "@/lib/engine/prompts/floorPlanPrompt";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_API_URL =
+const ENGINE_API_KEY = process.env.ENGINE_API_KEY;
+const ENGINE_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  if (!GEMINI_API_KEY) {
+  if (!ENGINE_API_KEY) {
     return NextResponse.json(
       { error: "Server configuration error" },
       { status: 500 },
@@ -16,32 +16,36 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { prompt, wizardData, analysisData, observations } = await req.json();
-    const finalPrompt =
-      typeof prompt === "string" && prompt.trim().length > 0
-        ? prompt
-        : buildReportFillPrompt({
-            wizardData: wizardData ?? {},
-            analysisData: analysisData ?? {},
-            observations: observations ?? [],
-          });
+    const { images } = await req.json();
 
-    if (!finalPrompt) {
+    if (!Array.isArray(images) || images.length === 0) {
       return NextResponse.json(
-        { error: "Prompt is required" },
+        { error: "At least one image is required" },
         { status: 400 },
       );
     }
 
+    const parts: Array<{ text: string } | { inline_data: { mime_type: string; data: string } }> =
+      [{ text: buildFloorPlanPrompt() }];
+
+    for (const img of images) {
+      parts.push({
+        inline_data: {
+          mime_type: img.mime_type,
+          data: img.data,
+        },
+      });
+    }
+
     const requestBody = {
-      contents: [{ parts: [{ text: finalPrompt }] }],
+      contents: [{ parts }],
       generationConfig: {
         temperature: 0.2,
         maxOutputTokens: 8192,
       },
     };
 
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`${ENGINE_API_URL}?key=${ENGINE_API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
@@ -51,7 +55,7 @@ export async function POST(req: NextRequest) {
       const errorText = await response.text();
       return NextResponse.json(
         {
-          error: "Gemini API Error",
+          error: "Analysis service error",
           details: errorText,
           code: response.status,
         },

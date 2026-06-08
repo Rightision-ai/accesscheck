@@ -75,7 +75,7 @@ export default function CostEstimationRows({
     setIsRefreshing(true);
     setError(null);
     try {
-      const res = await fetch("/api/gemini/cost-estimation", {
+      const res = await fetch("/api/engine/cost-estimation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ surveyId }),

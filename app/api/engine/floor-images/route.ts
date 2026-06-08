@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildFloorImagesPrompt } from "@/lib/gemini/prompts/floorImagesPrompt";
+import { buildFloorImagesPrompt } from "@/lib/engine/prompts/floorImagesPrompt";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_API_URL =
+const ENGINE_API_KEY = process.env.ENGINE_API_KEY;
+const ENGINE_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  if (!GEMINI_API_KEY) {
+  if (!ENGINE_API_KEY) {
     return NextResponse.json(
       { error: "Server configuration error" },
       { status: 500 },
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`${ENGINE_API_URL}?key=${ENGINE_API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       const errorText = await response.text();
       return NextResponse.json(
         {
-          error: "Gemini API Error",
+          error: "Analysis service error",
           details: errorText,
           code: response.status,
         },

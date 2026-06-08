@@ -35,7 +35,7 @@ import {
   normalizeReportFillPayload,
   urlToBase64,
 } from "@/lib/utils/ImageAnalysisUtils";
-import { deriveInferredAnswersFromAssessment } from "@/lib/gemini/prompts";
+import { deriveInferredAnswersFromAssessment } from "@/lib/engine/prompts";
 import { uploadBase64ToStorage, uploadFileToStorage } from "@/lib/surveys/upload";
 import { convertHeicToJpegIfNeeded } from "@/lib/utils/imageUtils";
 import { renderPdfFirstPageToJpeg } from "@/lib/utils/pdfToImage";
@@ -1602,7 +1602,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         floorPlan: floorPlanAnalysis || {},
       };
       console.log("Starting final AI analysis report...");
-      const response = await fetch("/api/gemini/report-fill", {
+      const response = await fetch("/api/engine/report-fill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

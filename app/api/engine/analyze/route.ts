@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_API_URL =
+const ENGINE_API_KEY = process.env.ENGINE_API_KEY;
+const ENGINE_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
 
 export const maxDuration = 60; // Set max duration for Vercel/Next.js
 
 export async function POST(req: NextRequest) {
-  if (!GEMINI_API_KEY) {
-    console.error("GEMINI_API_KEY is not set");
+  if (!ENGINE_API_KEY) {
+    console.error("ENGINE_API_KEY is not set");
     return NextResponse.json(
       { error: "Server configuration error" },
       { status: 500 },
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     console.log("[Gemini API] Sending request to analyze API...");
     // Call Gemini API with verification
     const response = await fetchWithRetry(
-      `${GEMINI_API_URL}?key=${GEMINI_API_KEY}`,
+      `${ENGINE_API_URL}?key=${ENGINE_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -282,7 +282,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json(
         {
-          error: "Gemini API Error",
+          error: "Analysis service error",
           details: errorText,
           code: response.status,
         },
