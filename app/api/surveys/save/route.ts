@@ -110,11 +110,12 @@ export async function POST(req: NextRequest) {
       // Floor plan as evidence (only when AI-approved)
       if (wizardData.floorPlan && wizardData.floorPlanApproved !== false && typeof wizardData.floorPlan === 'string' && !wizardData.floorPlan.startsWith('data:')) {
         const fpMapping = CATEGORY_SECTION_MAP['floorPlan'];
+        const isPdf = wizardData.floorPlanIsPdf === true || /\.pdf(\?|$)/i.test(wizardData.floorPlan);
         evidenceRecords.push({
           survey_id: surveyId,
-          file_name: wizardData.floorPlan.split('/').pop() || 'floor-plan.jpg',
-          file_type: 'JPEG',
-          mime_type: 'image/jpeg',
+          file_name: wizardData.floorPlan.split('/').pop() || (isPdf ? 'floor-plan.pdf' : 'floor-plan.jpg'),
+          file_type: isPdf ? 'PDF' : 'JPEG',
+          mime_type: isPdf ? 'application/pdf' : 'image/jpeg',
           file_url: wizardData.floorPlan,
           section: fpMapping.section,
           field_reference: fpMapping.field_reference,

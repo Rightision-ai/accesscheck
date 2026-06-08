@@ -23,6 +23,75 @@ export const normalizeEntranceLevel = (value: unknown): string | null => {
   return null;
 };
 
+/**
+ * Map an EPC `dwelling_type` string (e.g. "Ground-floor flat", "Top-floor flat",
+ * "Detached house") to the wizard's exact entrance-level option labels. Houses /
+ * bungalows enter at grade, so they map to "Ground Floor". Returns null when unknown.
+ */
+export const normalizeEntranceLevelFromDwelling = (
+  value: unknown,
+): string | null => {
+  const v = norm(value);
+  if (!v) return null;
+  if (v.includes("basement") || v.includes("lower ground")) return "Basement";
+  if (v.includes("ground")) return "Ground Floor";
+  if (
+    v.includes("mid-floor") ||
+    v.includes("mid floor") ||
+    v.includes("top-floor") ||
+    v.includes("top floor") ||
+    v.includes("upper") ||
+    v.includes("first floor") ||
+    /\b\d+(st|nd|rd|th)\b/.test(v)
+  )
+    return "Upper Floor";
+  if (
+    v.includes("house") ||
+    v.includes("bungalow") ||
+    v.includes("detached") ||
+    v.includes("semi") ||
+    v.includes("terrace")
+  )
+    return "Ground Floor";
+  return null;
+};
+
+/**
+ * Best-effort parse of a comma-joined address string (as returned by the EPC API),
+ * e.g. "12, Baker Street, London" → { doorNo: "12", street: "Baker Street" }.
+ * A leading part that is a building name (no leading number) is returned as buildingName.
+ */
+export const parseAddressString = (
+  address: unknown,
+): { doorNo?: string; street?: string; buildingName?: string } => {
+  const raw = String(address ?? "").trim();
+  if (!raw) return {};
+  const parts = raw
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return {};
+
+  const out: { doorNo?: string; street?: string; buildingName?: string } = {};
+  const first = parts[0];
+  // Leading "12" or "12A" → door number; the next part is the street.
+  const doorMatch = first.match(/^(\d+[a-z]?)$/i);
+  const inlineMatch = first.match(/^(\d+[a-z]?)\s+(.*)$/i);
+  if (doorMatch) {
+    out.doorNo = doorMatch[1];
+    if (parts[1]) out.street = parts[1];
+  } else if (inlineMatch) {
+    // "12 Baker Street" all in the first part.
+    out.doorNo = inlineMatch[1];
+    out.street = inlineMatch[2];
+  } else {
+    // No leading number → treat the first part as a building/flat name, second as street.
+    out.buildingName = first;
+    if (parts[1]) out.street = parts[1];
+  }
+  return out;
+};
+
 export const normalizeStairGeometry = (value: unknown): string | null => {
   const v = norm(value);
   if (!v) return null;

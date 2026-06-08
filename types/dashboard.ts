@@ -49,5 +49,6 @@ export interface Case {
         floorPlanDetection?: any;
         surveyUpdatedAt?: string | null;
         surveyRow?: any;
+        propertyId?: string | null;
     };
 }

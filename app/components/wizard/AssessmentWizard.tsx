@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -33,10 +33,12 @@ import {
   ImageAnalysisResult,
   BatchAnalysisResult,
   normalizeReportFillPayload,
+  urlToBase64,
 } from "@/lib/utils/ImageAnalysisUtils";
 import { deriveInferredAnswersFromAssessment } from "@/lib/gemini/prompts";
-import { uploadBase64ToStorage } from "@/lib/surveys/upload";
+import { uploadBase64ToStorage, uploadFileToStorage } from "@/lib/surveys/upload";
 import { convertHeicToJpegIfNeeded } from "@/lib/utils/imageUtils";
+import { renderPdfFirstPageToJpeg } from "@/lib/utils/pdfToImage";
 import { saveSurveyClient } from "@/lib/surveys/client";
 import {
   deriveBathroomLocation,
@@ -110,7 +112,18 @@ const initialFormData = {
   categoryPhotos: {},
   floorPlan: null,
   floorPlanApproved: false,
+  floorPlanIsPdf: false,
+  floorPlanName: "",
+  floorPlanOpenUrl: null as string | null,
   hasNoFloorPlan: false,
+  // Property-search (evidence harvester) linkage
+  propertyId: null as string | null,
+  streetViewUrl: null as string | null,
+  propertyLat: null as number | null,
+  propertyLng: null as number | null,
+  evidenceLoaded: false,
+  floorPlanSource: null as string | null, // 'upload' | 'ai-search' | null
+  entranceSeeded: false,
   bathroomLocation: "",
   secondExit: "",
   secondExitLocation: "",
@@ -183,6 +196,15 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     null,
   );
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Floor plan is held in memory during the wizard and only uploaded at save.
+  // floorPlanFileRef: the original file (image OR pdf) to persist at save time.
+  // floorPlanImageRef: a raster image (base64) for analysis annotation — for PDFs
+  // this is the rendered first page (the PDF itself can't be drawn on a canvas).
+  const floorPlanFileRef = useRef<File | null>(null);
+  const floorPlanImageRef = useRef<string | null>(null);
+  // Caches the storage URL after the original file is uploaded at save time.
+  const floorPlanUploadedUrlRef = useRef<string | null>(null);
 
   const steps = STEPS;
   const totalSteps = steps.length;
@@ -296,13 +318,305 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   const handleClearFloorPlan = () => {
     handleUpdateField("floorPlan", null);
     handleUpdateField("floorPlanApproved", false);
+    handleUpdateField("floorPlanSource", null);
+    handleUpdateField("floorPlanIsPdf", false);
+    handleUpdateField("floorPlanName", "");
+    handleUpdateField("floorPlanOpenUrl", null);
+    floorPlanFileRef.current = null;
+    floorPlanImageRef.current = null;
+    floorPlanUploadedUrlRef.current = null;
     setFloorPlanAnalysis(null);
     setFloorPlanDetection(null);
   };
 
+  const toBase64 = (file: File | Blob): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  /**
+   * Store a floor-plan File (from manual upload OR a selected planning document),
+   * run the Gemini + detection pipeline, and auto-fill the structural fields.
+   * The original file is held in a ref and only uploaded to storage at save time.
+   * PDFs are rendered to an image (first page) for analysis. Shared by
+   * handlePhotoUpload (Step 3) and handleSelectPlanningDoc (AI search).
+   */
+  const processFloorPlanFile = async (
+    rawFile: File,
+    opts?: { openUrl?: string; source?: "upload" | "ai-search" },
+  ) => {
+    setIsProcessing(true);
+    try {
+      const isPdf = (rawFile.type || "").includes("pdf");
+      // The image actually analysed (rendered first page for PDFs).
+      let imageFile: File;
+      if (isPdf) {
+        imageFile = await renderPdfFirstPageToJpeg(rawFile);
+      } else {
+        imageFile = await convertHeicToJpegIfNeeded(rawFile);
+      }
+
+      const imageBase64 = await toBase64(imageFile);
+      floorPlanFileRef.current = rawFile; // original, uploaded at save
+      floorPlanImageRef.current = imageBase64; // raster for annotation
+      floorPlanUploadedUrlRef.current = null; // new file → re-upload at save
+
+      handleUpdateField("floorPlanIsPdf", isPdf);
+      handleUpdateField(
+        "floorPlanName",
+        rawFile.name || (isPdf ? "floor-plan.pdf" : "floor-plan.jpg"),
+      );
+      // Set the source now (with the preview fields) so the preview renders
+      // before analysis — the AI-search panel only shows it when source==='ai-search'.
+      handleUpdateField("floorPlanSource", opts?.source ?? "upload");
+      // Original kept for "Open"/download; rendered image used for the preview.
+      handleUpdateField("floorPlanOpenUrl", opts?.openUrl ?? URL.createObjectURL(rawFile));
+      handleUpdateField("floorPlan", imageBase64);
+
+      // Show the preview first: let the browser paint before the (slower, and
+      // sometimes rate-limited) analysis request fires.
+      await new Promise<void>((resolve) =>
+        typeof requestAnimationFrame !== "undefined"
+          ? requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+          : setTimeout(resolve, 0),
+      );
+      setIsAnalyzing(true);
+
+      // Analyse with the raster image (Gemini + detection only handle images).
+      try {
+        const detected = await analyzeFloorPlan(imageFile);
+        const result = detected?.analysis ?? null;
+        if (detected && result) {
+          setFloorPlanAnalysis(result);
+          setFloorPlanDetection(detected.raw);
+          handleUpdateField("floorPlanApproved", result.is_floor_plan !== false);
+          if (result.bedroom_count?.value !== undefined)
+            handleUpdateField("bedrooms", Number(result.bedroom_count.value));
+          if (result.section_measurements) {
+            const m = result.section_measurements;
+            const setWidth = (field: string, cm: number | null | undefined) => {
+              if (cm !== null && cm !== undefined && Number.isFinite(Number(cm))) {
+                handleUpdateField(field, String(cm));
+              }
+            };
+            setWidth("doorLivingWidth", m.door_opening_width_living_room_cm);
+            setWidth("doorKitchenWidth", m.door_opening_width_kitchen_cm);
+            setWidth("doorBed1Width", m.door_opening_width_bed_1_cm);
+            setWidth("doorBed2Width", m.door_opening_width_bed_2_cm);
+            setWidth("doorBed3Width", m.door_opening_width_bed_3_cm);
+            setWidth("doorBathroomWidth", m.door_opening_width_bathroom_cm);
+            setWidth("doorToiletWidth", m.door_opening_width_separate_toilet_cm);
+            setWidth("doorBalconyWidth", m.door_opening_width_balcony_cm);
+            setWidth("communalDoorWidth", m.communal_front_door_opening_width_cm);
+            setWidth("propertyDoorWidth", m.property_front_door_opening_width_cm);
+            setWidth("communalLiftDoorWidth", m.communal_lift_door_opening_width_cm);
+            setWidth("secondExitWidth", m.second_exit_door_opening_width_cm);
+          }
+          if (result.entrance_level) {
+            const normalizedEntrance = normalizeEntranceLevel(
+              result.entrance_level.value,
+            );
+            if (normalizedEntrance)
+              handleUpdateField("entranceLevel", normalizedEntrance);
+          }
+          if (result.internal_stairs)
+            handleUpdateField(
+              "internalStairs",
+              result.internal_stairs.detected ? "Yes" : "No",
+            );
+          if (result.floor_level_number)
+            handleUpdateField(
+              "floorLevelNumber",
+              String(result.floor_level_number),
+            );
+          if (result.stair_geometry) {
+            const normalizedStairGeometry = normalizeStairGeometry(
+              result.stair_geometry,
+            );
+            if (normalizedStairGeometry)
+              handleUpdateField("internalStairsType", normalizedStairGeometry);
+          }
+          if (result.external_access) {
+            handleUpdateField(
+              "gardenAccess",
+              result.external_access.garden_present ? "Yes" : "No",
+            );
+            handleUpdateField(
+              "balconyPresent",
+              result.external_access.balcony_present ? "Yes" : "No",
+            );
+            handleUpdateField(
+              "parkingPresent",
+              result.external_access.parking_present ? "Yes" : "No",
+            );
+          }
+          if (result.second_exit)
+            handleUpdateField(
+              "secondExit",
+              result.second_exit.detected ? "Yes" : "No",
+            );
+          if (result.lift?.detected !== undefined) {
+            const normalizedLift = normalizeCommunalLiftOption(
+              result.lift.detected,
+            );
+            if (normalizedLift) handleUpdateField("communalLifts", normalizedLift);
+          }
+          if (result.communal) {
+            handleUpdateField(
+              "communalDoorPresent",
+              result.communal.communal_door_present ? "Y" : "N",
+            );
+            handleUpdateField(
+              "communalLiftCount",
+              String(result.communal.communal_lift_count ?? 0),
+            );
+          }
+          if (result.facilities_per_floor) {
+            const normalizedAccess = normalizeFacilitiesList(
+              result.facilities_per_floor.access_level ?? [],
+            );
+            const normalizedAbove = normalizeFacilitiesList(
+              result.facilities_per_floor.above ?? [],
+            );
+            const normalizedBelow = normalizeFacilitiesList(
+              result.facilities_per_floor.below ?? [],
+            );
+            handleUpdateField("facilitiesAccessLevel", normalizedAccess);
+            handleUpdateField("facilitiesAboveLevel", normalizedAbove);
+            handleUpdateField("facilitiesBelowLevel", normalizedBelow);
+            const derivedBathroomLocation = deriveBathroomLocation({
+              accessFacilities: result.facilities_per_floor.access_level ?? [],
+              aboveFacilities: result.facilities_per_floor.above ?? [],
+              belowFacilities: result.facilities_per_floor.below ?? [],
+              floorLevelNumber: result.floor_level_number,
+            });
+            if (derivedBathroomLocation)
+              handleUpdateField("bathroomLocation", derivedBathroomLocation);
+          }
+        } else {
+          setFloorPlanAnalysis(null);
+          setFloorPlanDetection(null);
+          handleUpdateField("floorPlanApproved", false);
+          toast.warning("Detection service unavailable — fill fields manually.");
+        }
+      } catch (err) {
+        console.error("Floor plan analysis error:", err);
+        setFloorPlanAnalysis(null);
+        setFloorPlanDetection(null);
+        handleUpdateField("floorPlanApproved", false);
+        toast.warning("Detection service unavailable — fill fields manually.");
+      }
+    } catch (err) {
+      console.error("Floor plan processing error:", err);
+      toast.error("Could not process this file. Please try another.");
+    } finally {
+      setIsProcessing(false);
+      setIsAnalyzing(false);
+    }
+  };
+
+  /**
+   * Select a council planning document as the floor plan: fetch it through the
+   * authenticated proxy, wrap it in a File, and run the standard detection pipeline.
+   */
+  const handleSelectPlanningDoc = async (sourceId: string) => {
+    try {
+      const res = await fetch(
+        `/api/evidence-harvester/floorplan-file/${sourceId}`,
+      );
+      if (!res.ok) throw new Error("fetch failed");
+      const blob = await res.blob();
+      const type = blob.type || "application/pdf";
+      const ext = type.includes("pdf") ? "pdf" : "jpg";
+      const file = new File([blob], `planning-floorplan.${ext}`, { type });
+      await processFloorPlanFile(file, {
+        openUrl: `/api/evidence-harvester/floorplan-file/${sourceId}`,
+        source: "ai-search",
+      });
+    } catch {
+      toast.warning(
+        "Couldn't load that document automatically — open it in a new tab and upload it instead.",
+      );
+    }
+  };
+
+  // Seed the Step-4 "Main Entrance" photo with the property's Street View image
+  // (detected in Step 1). Runs once; never overwrites a user replacement.
+  useEffect(() => {
+    if (step !== 4 || !formData.streetViewUrl || formData.entranceSeeded) return;
+    if (formData.categoryPhotos?.entrance?.length) return;
+    let cancelled = false;
+    (async () => {
+      let stableUrl: string = formData.streetViewUrl;
+      try {
+        // The signed Street View URL expires in ~1h — persist a stable copy so
+        // batch analysis later in the step can still fetch it.
+        const base64 = await urlToBase64(formData.streetViewUrl);
+        if (base64) {
+          try {
+            const compressed = await compressBase64Image(base64);
+            stableUrl = await uploadBase64ToStorage(
+              compressed,
+              `wizard/streetview-${Date.now()}.jpg`,
+            );
+          } catch {
+            stableUrl = base64;
+          }
+        }
+      } catch {
+        /* fall back to the raw signed URL */
+      }
+      if (cancelled) return;
+      const updated = {
+        ...(formData.categoryPhotos || {}),
+        entrance: [stableUrl],
+      };
+      handleUpdateField("categoryPhotos", updated);
+      handleUpdateField("photos", Object.values(updated).flat());
+      handleUpdateField("entranceSeeded", true);
+      handleStep3PhotosChanged(updated);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, formData.streetViewUrl]);
+
+  /**
+   * Upload the original floor-plan file to storage — deferred until save. Returns
+   * the stored URL (or the existing URL / null). Idempotent across re-saves.
+   */
+  const persistFloorPlan = async (): Promise<string | null> => {
+    // Already uploaded this session (e.g. a prior draft save) → reuse the URL.
+    if (floorPlanUploadedUrlRef.current) return floorPlanUploadedUrlRef.current;
+    const file = floorPlanFileRef.current;
+    if (file) {
+      const ext = (file.type || "").includes("pdf") ? "pdf" : "jpg";
+      try {
+        const url = await uploadFileToStorage(
+          file,
+          `survey/${formData.id || "new"}/floorplan-${Date.now()}.${ext}`,
+        );
+        floorPlanUploadedUrlRef.current = url;
+        handleUpdateField("floorPlanOpenUrl", url);
+        return url;
+      } catch (err) {
+        console.warn("Floor plan upload failed:", err);
+      }
+    }
+    // No original held (e.g. reopened draft) or upload failed: keep whatever the
+    // form has (a stored URL stays as-is; a base64 image is uploaded by saveSurveyClient).
+    const current = formData.floorPlan;
+    return typeof current === "string" ? current : null;
+  };
+
   const buildFloorPlanDetectionPayload = async () => {
     if (!floorPlanDetection) return null;
-    const src = formData.floorPlan;
+    // Annotate the raster image (a PDF floorPlan URL can't be drawn on a canvas).
+    const src = floorPlanImageRef.current || formData.floorPlan;
     if (!src || typeof src !== "string") return floorPlanDetection;
     try {
       const annotated = await renderAnnotatedFloorPlan(src, floorPlanDetection);
@@ -322,6 +636,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   const handleSaveDraft = async () => {
     setIsSavingDraft(true);
     try {
+      const floorPlanUrl = await persistFloorPlan();
       const detectionPayload = await buildFloorPlanDetectionPayload();
       const draftCase: Case = {
         id: formData.id || `H-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -343,10 +658,11 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         observations: [],
         mlData: {
           imageCount: formData.photos?.length || 0,
-          floorPlanAvailable: !!formData.floorPlan,
-          wizardData: formData,
+          floorPlanAvailable: !!floorPlanUrl,
+          wizardData: { ...formData, floorPlan: floorPlanUrl },
           aiReport: formData.aiReport,
           floorPlanDetection: detectionPayload,
+          propertyId: formData.propertyId ?? null,
         },
       };
 
@@ -377,7 +693,8 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     if (rawFiles.length === 0) return;
 
     setIsProcessing(true);
-    if (step === 3) setIsAnalyzing(true);
+    // Note: for step 3 (floor plan) processFloorPlanFile manages the analyzing
+    // state itself — it shows the preview first, then starts the API call.
 
     try {
       const files = await Promise.all(
@@ -402,179 +719,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
 
       // ── Floor plan (Step 3) ──────────────────────────────────────────────
       if (step === 3) {
-        const file = files[0];
-        const base64 = await toBase64(file);
-
-        // Upload to Supabase and store URL for display; fall back to base64
-        try {
-          const url = await uploadPhoto(base64);
-          handleUpdateField("floorPlan", url);
-        } catch {
-          handleUpdateField("floorPlan", base64);
-        }
-
-        // Analyse with original File object (Gemini needs the raw file here)
-        try {
-          const detected = await analyzeFloorPlan(file);
-          const result = detected?.analysis ?? null;
-          if (detected && result) {
-            setFloorPlanAnalysis(result);
-            setFloorPlanDetection(detected.raw);
-            handleUpdateField(
-              "floorPlanApproved",
-              result.is_floor_plan !== false,
-            );
-            if (result.bedroom_count?.value !== undefined)
-              handleUpdateField("bedrooms", Number(result.bedroom_count.value));
-            if (result.section_measurements) {
-              const m = result.section_measurements;
-              const setWidth = (
-                field: string,
-                cm: number | null | undefined,
-              ) => {
-                if (
-                  cm !== null &&
-                  cm !== undefined &&
-                  Number.isFinite(Number(cm))
-                ) {
-                  handleUpdateField(field, String(cm));
-                }
-              };
-              setWidth("doorLivingWidth", m.door_opening_width_living_room_cm);
-              setWidth("doorKitchenWidth", m.door_opening_width_kitchen_cm);
-              setWidth("doorBed1Width", m.door_opening_width_bed_1_cm);
-              setWidth("doorBed2Width", m.door_opening_width_bed_2_cm);
-              setWidth("doorBed3Width", m.door_opening_width_bed_3_cm);
-              setWidth("doorBathroomWidth", m.door_opening_width_bathroom_cm);
-              setWidth(
-                "doorToiletWidth",
-                m.door_opening_width_separate_toilet_cm,
-              );
-              setWidth("doorBalconyWidth", m.door_opening_width_balcony_cm);
-              setWidth(
-                "communalDoorWidth",
-                m.communal_front_door_opening_width_cm,
-              );
-              setWidth(
-                "propertyDoorWidth",
-                m.property_front_door_opening_width_cm,
-              );
-              setWidth(
-                "communalLiftDoorWidth",
-                m.communal_lift_door_opening_width_cm,
-              );
-              setWidth("secondExitWidth", m.second_exit_door_opening_width_cm);
-            }
-            if (result.entrance_level) {
-              const normalizedEntrance = normalizeEntranceLevel(
-                result.entrance_level.value,
-              );
-              if (normalizedEntrance) {
-                handleUpdateField("entranceLevel", normalizedEntrance);
-              }
-            }
-            if (result.internal_stairs)
-              handleUpdateField(
-                "internalStairs",
-                result.internal_stairs.detected ? "Yes" : "No",
-              );
-            // New floor plan fields
-            if (result.floor_level_number)
-              handleUpdateField(
-                "floorLevelNumber",
-                String(result.floor_level_number),
-              );
-            if (result.stair_geometry) {
-              const normalizedStairGeometry = normalizeStairGeometry(
-                result.stair_geometry,
-              );
-              if (normalizedStairGeometry) {
-                handleUpdateField(
-                  "internalStairsType",
-                  normalizedStairGeometry,
-                );
-              }
-            }
-            if (result.external_access) {
-              handleUpdateField(
-                "gardenAccess",
-                result.external_access.garden_present ? "Yes" : "No",
-              );
-              handleUpdateField(
-                "balconyPresent",
-                result.external_access.balcony_present ? "Yes" : "No",
-              );
-              handleUpdateField(
-                "parkingPresent",
-                result.external_access.parking_present ? "Yes" : "No",
-              );
-            }
-            if (result.second_exit) {
-              handleUpdateField(
-                "secondExit",
-                result.second_exit.detected ? "Yes" : "No",
-              );
-            }
-            if (result.lift?.detected !== undefined) {
-              const normalizedLift = normalizeCommunalLiftOption(
-                result.lift.detected,
-              );
-              if (normalizedLift)
-                handleUpdateField("communalLifts", normalizedLift);
-            }
-            // Communal
-            if (result.communal) {
-              handleUpdateField(
-                "communalDoorPresent",
-                result.communal.communal_door_present ? "Y" : "N",
-              );
-              handleUpdateField(
-                "communalLiftCount",
-                String(result.communal.communal_lift_count ?? 0),
-              );
-            }
-            // Facilities per floor
-            if (result.facilities_per_floor) {
-              const normalizedAccess = normalizeFacilitiesList(
-                result.facilities_per_floor.access_level ?? [],
-              );
-              const normalizedAbove = normalizeFacilitiesList(
-                result.facilities_per_floor.above ?? [],
-              );
-              const normalizedBelow = normalizeFacilitiesList(
-                result.facilities_per_floor.below ?? [],
-              );
-              handleUpdateField("facilitiesAccessLevel", normalizedAccess);
-              handleUpdateField("facilitiesAboveLevel", normalizedAbove);
-              handleUpdateField("facilitiesBelowLevel", normalizedBelow);
-              const derivedBathroomLocation = deriveBathroomLocation({
-                accessFacilities:
-                  result.facilities_per_floor.access_level ?? [],
-                aboveFacilities: result.facilities_per_floor.above ?? [],
-                belowFacilities: result.facilities_per_floor.below ?? [],
-                floorLevelNumber: result.floor_level_number,
-              });
-              if (derivedBathroomLocation) {
-                handleUpdateField("bathroomLocation", derivedBathroomLocation);
-              }
-            }
-          } else {
-            setFloorPlanAnalysis(null);
-            setFloorPlanDetection(null);
-            handleUpdateField("floorPlanApproved", false);
-            toast.warning(
-              "Detection service unavailable — fill fields manually.",
-            );
-          }
-        } catch (err) {
-          console.error("Floor plan analysis error:", err);
-          setFloorPlanAnalysis(null);
-          setFloorPlanDetection(null);
-          handleUpdateField("floorPlanApproved", false);
-          toast.warning(
-            "Detection service unavailable — fill fields manually.",
-          );
-        }
+        await processFloorPlanFile(files[0], { source: "upload" });
         e.target.value = "";
         return;
       }
@@ -1692,6 +1837,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                 isAnalyzing={isAnalyzing}
                 floorPlanAnalysis={floorPlanAnalysis}
                 onClearFloorPlan={handleClearFloorPlan}
+                onSelectPlanningDoc={handleSelectPlanningDoc}
               />
             )}
             {step === 4 && (
@@ -1714,6 +1860,11 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                 analysisComplete={step3AnalysisComplete}
                 categoryResults={categoryResults}
                 onPhotosChanged={handleStep3PhotosChanged}
+                streetViewSeededUrl={
+                  formData.entranceSeeded
+                    ? (formData.categoryPhotos?.entrance?.[0] ?? null)
+                    : null
+                }
               />
             )}
             {step === 5 && (
@@ -1897,6 +2048,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   );
 
   async function handleSafeClose() {
+    const floorPlanUrl = await persistFloorPlan();
     const detectionPayload = await buildFloorPlanDetectionPayload();
     const completedCase: Case = {
       id: formData.id || `H-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -1918,10 +2070,11 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
       observations: [],
       mlData: {
         imageCount: formData.photos?.length || 0,
-        floorPlanAvailable: !!formData.floorPlan,
-        wizardData: formData,
+        floorPlanAvailable: !!floorPlanUrl,
+        wizardData: { ...formData, floorPlan: floorPlanUrl },
         aiReport: formData.aiReport,
         floorPlanDetection: detectionPayload,
+        propertyId: formData.propertyId ?? null,
       },
     };
 

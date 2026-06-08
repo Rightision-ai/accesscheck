@@ -280,40 +280,40 @@ export const analyzeFloorPlan = async (
     const converted = await convertHeicToJpegIfNeeded(file);
     const payload = await fileToPayload(converted);
 
-    const geminiPromise = fetch("/api/gemini/floor-plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        images: [{ mime_type: payload.mime_type, data: payload.data }],
-      }),
-    })
-      .then(async (r) => (r.ok ? await r.json() : null))
-      .catch((err) => {
-        console.warn("Gemini floor-plan unavailable:", err);
-        return null;
-      });
-
-    const detectionPromise = detectFloorPlans([payload]).catch((err) => {
+    // Detection first. If it returns a result (200), use it alone and skip Gemini.
+    let detection: DetectionResponse | null = null;
+    try {
+      const detectionResults = await detectFloorPlans([payload]);
+      detection = detectionResults[0] ?? null;
+    } catch (err) {
       console.warn("YOLO floor-plan detection unavailable:", err);
-      return [] as DetectionResponse[];
-    });
+    }
+    if (detection) {
+      const analysis = mergeAnalysis({ is_floor_plan: true }, detection);
+      return { analysis, raw: detection };
+    }
 
-    const [geminiBody, detectionResults] = await Promise.all([
-      geminiPromise,
-      detectionPromise,
-    ]);
+    // Fallback: only call Gemini when detection didn't return a result.
+    let geminiResult: FloorPlanAnalysisResult | null = null;
+    try {
+      const r = await fetch("/api/gemini/floor-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          images: [{ mime_type: payload.mime_type, data: payload.data }],
+        }),
+      });
+      const geminiBody = r.ok ? await r.json() : null;
+      geminiResult =
+        geminiBody?.success && geminiBody.result
+          ? (geminiBody.result as FloorPlanAnalysisResult)
+          : null;
+    } catch (err) {
+      console.warn("Gemini floor-plan unavailable:", err);
+    }
 
-    const geminiResult: FloorPlanAnalysisResult | null =
-      geminiBody?.success && geminiBody.result
-        ? (geminiBody.result as FloorPlanAnalysisResult)
-        : null;
-    const detection = detectionResults[0] ?? null;
-
-    if (!geminiResult && !detection) return null;
-
-    const base: FloorPlanAnalysisResult = geminiResult ?? { is_floor_plan: true };
-    const analysis = mergeAnalysis(base, detection);
-    return { analysis, raw: detection };
+    if (!geminiResult) return null;
+    return { analysis: mergeAnalysis(geminiResult, null), raw: null };
   } catch (error) {
     console.warn("Floor-plan analysis unavailable:", error);
     return null;
