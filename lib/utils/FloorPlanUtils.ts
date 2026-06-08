@@ -296,7 +296,7 @@ export const analyzeFloorPlan = async (
     // Fallback: only call Gemini when detection didn't return a result.
     let geminiResult: FloorPlanAnalysisResult | null = null;
     try {
-      const r = await fetch("/api/gemini/floor-plan", {
+      const r = await fetch("/api/engine/floor-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

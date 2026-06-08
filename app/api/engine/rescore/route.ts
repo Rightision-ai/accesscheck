@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(
     {
       error:
-        "Rescore endpoint is deprecated. Use /api/gemini/analyze with analysis-only confidence report prompts.",
+        "Rescore endpoint is deprecated. Use /api/engine/analyze with analysis-only confidence report prompts.",
     },
     { status: 410 },
   );

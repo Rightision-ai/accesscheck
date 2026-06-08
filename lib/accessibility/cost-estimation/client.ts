@@ -7,7 +7,7 @@ type StatusResponse =
   | { status: "missing" };
 
 /**
- * Poll /api/gemini/cost-estimation?surveyId=N until the background job finishes. The POST
+ * Poll /api/engine/cost-estimation?surveyId=N until the background job finishes. The POST
  * returns 202 immediately and the actual Gemini work runs server-side via Next 16's `after()`.
  * Polls every 3 seconds for up to 2 minutes.
  */
@@ -22,7 +22,7 @@ export async function pollCostEstimation(
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, intervalMs));
     const res = await fetch(
-      `/api/gemini/cost-estimation?surveyId=${encodeURIComponent(String(surveyId))}`,
+      `/api/engine/cost-estimation?surveyId=${encodeURIComponent(String(surveyId))}`,
       { cache: "no-store" },
     );
     if (!res.ok) {
