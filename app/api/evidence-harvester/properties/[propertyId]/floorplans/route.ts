@@ -1,37 +1,49 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { findFloorplans } from '@/lib/evidence-harvester/floorPlanFinderService';
+import { storePlanDocsInBackground } from '@/lib/evidence-harvester/planningCacheService';
+import { normalisePostcode } from '@/lib/evidence-harvester/postcodesService';
 
 // Scrapes external council portals — must run on the Node runtime, never the edge/browser.
 export const runtime = 'nodejs';
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 /**
  * On-demand: find candidate floor-plan PDFs for a property from council planning portals, using the
- * property's stored (selected) address + postcode. Persisted idempotently as `planning_portal`
- * evidence_sources so the property page can render them.
+ * property's stored (selected) EXACT address + postcode (and address-level coordinates when geocoded).
+ * Persisted idempotently as `planning_portal` evidence_sources so the property page can render them.
+ * Add `?refresh=1` to bypass the shared cache and re-discover.
  */
-export async function POST(_req: Request, { params }: { params: Promise<{ propertyId: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ propertyId: string }> }) {
   const { propertyId } = await params;
+  const refresh = new URL(req.url).searchParams.get('refresh') === '1';
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { data: property } = await supabase
     .from('properties')
-    .select('id, address, postcode, latitude, longitude')
+    .select('id, address, postcode, latitude, longitude, address_latitude, address_longitude')
     .eq('id', propertyId)
     .single();
   if (!property) return NextResponse.json({ error: 'Property not found' }, { status: 404 });
 
+  // The shared planning cache is not user-scoped, so it is written with the service-role client.
+  const service = createServiceClient();
+
   let result;
   try {
-    result = await findFloorplans({
-      address: property.address,
-      postcode: property.postcode,
-      lat: property.latitude,
-      lon: property.longitude,
-    });
+    result = await findFloorplans(
+      {
+        address: property.address,
+        postcode: property.postcode,
+        // Prefer the exact address-level coordinates (geocoded) over the postcode centroid.
+        lat: property.address_latitude ?? property.latitude,
+        lon: property.address_longitude ?? property.longitude,
+      },
+      { db: service, refresh },
+    );
   } catch (err) {
     return NextResponse.json({ error: `Floorplan search failed: ${(err as Error).message}` }, { status: 502 });
   }
@@ -64,6 +76,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ proper
     })),
   ];
   if (rows.length > 0) await supabase.from('evidence_sources').insert(rows);
+
+  // Cache the actual PDF bytes in the background so repeat opens don't re-hit the council session.
+  after(() => storePlanDocsInBackground(service, normalisePostcode(property.postcode)));
 
   return NextResponse.json({
     planCount: result.plans.length,

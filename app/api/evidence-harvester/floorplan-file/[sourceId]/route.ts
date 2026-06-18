@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
+
+const PLANNING_DOCS_BUCKET = 'planning-docs';
 
 // Streams a planning-portal document. Idox (and similar) serve /files/ URLs only within an active
 // portal session, so a cold direct link 404s. We re-establish the session by first fetching the
@@ -39,6 +42,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ sourceI
 
   const fileUrl = source.source_url;
   const docsUrl = (source.raw_metadata_json as { docs_url?: string } | null)?.docs_url ?? null;
+
+  // Prefer a cached copy from the planning-docs bucket (no live council session needed).
+  if (fileUrl) {
+    const cached = await serveCachedDoc(fileUrl);
+    if (cached) return cached;
+  }
+
   if (!isPortalUrl(fileUrl)) {
     // Old rows (saved before the session fix) may lack a usable file URL — send the user to the
     // application page if we have one, otherwise report it.
@@ -84,5 +94,36 @@ export async function GET(_req: Request, { params }: { params: Promise<{ sourceI
   } catch {
     if (isPortalUrl(docsUrl)) return NextResponse.redirect(docsUrl);
     return NextResponse.json({ error: 'Failed to fetch document' }, { status: 502 });
+  }
+}
+
+/** Serve the PDF from the planning-docs bucket if we've cached it; otherwise null (fall through to live fetch). */
+async function serveCachedDoc(fileUrl: string): Promise<NextResponse | null> {
+  try {
+    const service = createServiceClient();
+    const { data: doc } = await service
+      .from('planning_application_documents')
+      .select('stored_path')
+      .eq('doc_url', fileUrl)
+      .not('stored_path', 'is', null)
+      .limit(1)
+      .maybeSingle();
+    const path = doc?.stored_path;
+    if (!path) return null;
+    const { data: blob } = await service.storage.from(PLANNING_DOCS_BUCKET).download(path);
+    if (!blob) return null;
+    const buf = Buffer.from(await blob.arrayBuffer());
+    const ext = path.split('.').pop()?.toLowerCase() ?? 'pdf';
+    const contentType = ext === 'pdf' ? 'application/pdf' : ext === 'png' ? 'image/png' : 'image/jpeg';
+    return new NextResponse(buf, {
+      headers: {
+        'Content-Type': contentType,
+        'Content-Disposition': `inline; filename="floorplan.${ext}"`,
+        'Content-Length': String(buf.byteLength),
+        'Cache-Control': 'private, max-age=3600',
+      },
+    });
+  } catch {
+    return null;
   }
 }

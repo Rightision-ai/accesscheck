@@ -22,6 +22,7 @@ import {
   type FetchedImage,
 } from './streetViewService';
 import { analyseExterior } from './exteriorVisionService';
+import { geocodeAddress, isPreciseGeocode } from './geocodingService';
 import { computeEvidenceStatus, buildDerivedFeatures } from './evidenceStatusService';
 import type {
   ColumnMapping,
@@ -179,7 +180,8 @@ export async function runJobBatch(
         .single();
       if (!property) throw new Error('Property not found');
 
-      await enrichProperty(db, item.user_id, property as PropertyRow);
+      // Bulk harvest has no survey, so exterior vision is its only source of exterior observations.
+      await enrichProperty(db, item.user_id, property as PropertyRow, { withExteriorVision: true });
       await db.from('harvest_job_items').update({ status: 'done', error_message: null }).eq('id', item.id);
     } catch (err) {
       failed++;
@@ -204,8 +206,21 @@ export async function runJobBatch(
   return { done: remaining === 0, processedThisBatch: items.length, failedThisBatch: failed };
 }
 
-/** Run the full enrichment pipeline for one property and persist all evidence. */
-async function enrichProperty(db: DB, userId: string, property: PropertyRow): Promise<void> {
+/**
+ * Run the full enrichment pipeline for one property and persist all evidence.
+ *
+ * `withExteriorVision` opts into the PAID Gemini exterior analysis of the Street View image. Only the
+ * bulk harvest (and on-demand recompute) use it, because those have no survey — it's their only
+ * source of exterior observations. The interactive wizard does NOT (it seeds the same Street View
+ * image as the "Main Entrance" photo and analyses it at the Capture step). The free Street View
+ * metadata check and the screenshot capture (which feeds the entrance photo) always run.
+ */
+async function enrichProperty(
+  db: DB,
+  userId: string,
+  property: PropertyRow,
+  opts: { withExteriorVision?: boolean } = {},
+): Promise<void> {
   const address = property.address ?? '';
 
   // 1) Postcode validation + geography
@@ -256,6 +271,37 @@ async function enrichProperty(db: DB, userId: string, property: PropertyRow): Pr
     }
   }
 
+  // 2b) Geocode the EXACT address (Google) so imagery frames the right building, not the postcode
+  // centroid. Best-effort: fall back to the centroid when unavailable or imprecise.
+  let imgLat = lat;
+  let imgLon = lon;
+  try {
+    const geo = await geocodeAddress(db, {
+      uprn: epc?.uprn ?? property.uprn,
+      address,
+      postcode: property.postcode,
+    });
+    if (geo) {
+      await db.from('properties').update({
+        address_latitude: geo.lat,
+        address_longitude: geo.lon,
+        geocode_source: geo.source,
+        geocode_precision: geo.precision,
+      }).eq('id', property.id);
+      if (isPreciseGeocode(geo.precision)) {
+        imgLat = geo.lat;
+        imgLon = geo.lon;
+        console.info(`[enrich] ${property.id}: imagery uses ADDRESS geocode (${geo.precision}) ${imgLat},${imgLon}`);
+      } else {
+        console.info(`[enrich] ${property.id}: geocode precision '${geo.precision}' too coarse — imagery uses postcode centroid ${imgLat},${imgLon}`);
+      }
+    } else {
+      console.info(`[enrich] ${property.id}: no address geocode — imagery uses postcode centroid ${imgLat},${imgLon}`);
+    }
+  } catch (err) {
+    console.warn(`[enrich] ${property.id}: geocode failed (${(err as Error)?.message}) — imagery uses postcode centroid`);
+  }
+
   // 3) Listing history (sale: Land Registry free; rent: optional provider)
   let listings: ListingRecord[] = [];
   try {
@@ -288,8 +334,8 @@ async function enrichProperty(db: DB, userId: string, property: PropertyRow): Pr
   // 4) Street View metadata (free) + optional exterior AI vision (paid, gated)
   let exterior: ExteriorObservations | null = null;
   let streetViewAvailable = false;
-  if (isStreetViewEnabled() && lat != null && lon != null) {
-    const meta = await checkMetadata(lat, lon);
+  if (isStreetViewEnabled() && imgLat != null && imgLon != null) {
+    const meta = await checkMetadata(imgLat, imgLon);
     streetViewAvailable = meta.available;
     if (meta.available) {
       await addSource(db, userId, property.id, {
@@ -299,18 +345,22 @@ async function enrichProperty(db: DB, userId: string, property: PropertyRow): Pr
         external_reference: meta.pano_id,
         raw_metadata_json: meta as unknown as Record<string, unknown>,
       });
-      const images = await getImagesForHeadings(lat, lon);
-      if (images.length > 0) {
-        exterior = await analyseExterior(images.map((i) => ({ mime: i.mime, base64: i.base64 })));
+      // Paid Gemini exterior analysis — bulk-harvest/recompute only. The wizard skips it (the entrance
+      // photo, seeded from this same Street View image, is analysed at the Capture step instead).
+      if (opts.withExteriorVision) {
+        const images = await getImagesForHeadings(imgLat, imgLon);
+        if (images.length > 0) {
+          exterior = await analyseExterior(images.map((i) => ({ mime: i.mime, base64: i.base64 })));
+        }
       }
     }
   }
 
   // 4b) Save a Street View screenshot + a static map to storage (signed-URL display on the page).
-  if (lat != null && lon != null && hasMapsKey()) {
+  if (imgLat != null && imgLon != null && hasMapsKey()) {
     const [sv, map] = await Promise.all([
-      getStreetViewScreenshot(lat, lon).catch(() => null),
-      getStaticMap(lat, lon).catch(() => null),
+      getStreetViewScreenshot(imgLat, imgLon).catch(() => null),
+      getStaticMap(imgLat, imgLon).catch(() => null),
     ]);
     const patch: Record<string, string> = {};
     const svPath = sv && (await uploadImage(db, userId, property.id, 'streetview', sv));
@@ -385,6 +435,8 @@ export async function createAndEnrichProperty(
     .select('*')
     .single();
   if (error || !property) throw new Error(`Failed to create property: ${error?.message}`);
+  // Wizard path: no exterior vision. The Street View screenshot is still captured (it seeds the Main
+  // Entrance photo) and that image is analysed at the Capture step.
   await enrichProperty(db, userId, property as PropertyRow);
   return property.id;
 }
@@ -393,7 +445,7 @@ export async function createAndEnrichProperty(
 export async function recomputePropertyStatus(db: DB, userId: string, propertyId: string): Promise<void> {
   const { data: property } = await db.from('properties').select('*').eq('id', propertyId).single();
   if (!property) throw new Error('Property not found');
-  await enrichProperty(db, userId, property as PropertyRow);
+  await enrichProperty(db, userId, property as PropertyRow, { withExteriorVision: true });
 }
 
 /** Re-queue only failed items for re-processing. */

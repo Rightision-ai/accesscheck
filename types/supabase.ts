@@ -62,6 +62,10 @@ export type Database = {
           known_adaptations: string | null
           street_view_image_path: string | null
           map_image_path: string | null
+          address_latitude: number | null
+          address_longitude: number | null
+          geocode_source: string | null
+          geocode_precision: string | null
           created_at: string
           updated_at: string
         }
@@ -87,6 +91,10 @@ export type Database = {
           known_adaptations?: string | null
           street_view_image_path?: string | null
           map_image_path?: string | null
+          address_latitude?: number | null
+          address_longitude?: number | null
+          geocode_source?: string | null
+          geocode_precision?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -112,8 +120,209 @@ export type Database = {
           known_adaptations?: string | null
           street_view_image_path?: string | null
           map_image_path?: string | null
+          address_latitude?: number | null
+          address_longitude?: number | null
+          geocode_source?: string | null
+          geocode_precision?: string | null
           created_at?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      council_portals: {
+        Row: {
+          id: string
+          lpa_code: string | null
+          lpa_name: string
+          software: string
+          base_url: string
+          search_path: string
+          enabled: boolean
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          lpa_code?: string | null
+          lpa_name: string
+          software: string
+          base_url: string
+          search_path?: string
+          enabled?: boolean
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          lpa_code?: string | null
+          lpa_name?: string
+          software?: string
+          base_url?: string
+          search_path?: string
+          enabled?: boolean
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      planning_applications: {
+        Row: {
+          id: string
+          lpa_code: string | null
+          council: string | null
+          reference: string
+          address: string | null
+          postcode_normalised: string | null
+          description: string | null
+          app_type: string | null
+          application_url: string | null
+          docs_url: string | null
+          software: string | null
+          n_documents: number | null
+          raw: Json
+          first_seen_at: string
+          last_checked_at: string
+        }
+        Insert: {
+          id?: string
+          lpa_code?: string | null
+          council?: string | null
+          reference: string
+          address?: string | null
+          postcode_normalised?: string | null
+          description?: string | null
+          app_type?: string | null
+          application_url?: string | null
+          docs_url?: string | null
+          software?: string | null
+          n_documents?: number | null
+          raw?: Json
+          first_seen_at?: string
+          last_checked_at?: string
+        }
+        Update: {
+          id?: string
+          lpa_code?: string | null
+          council?: string | null
+          reference?: string
+          address?: string | null
+          postcode_normalised?: string | null
+          description?: string | null
+          app_type?: string | null
+          application_url?: string | null
+          docs_url?: string | null
+          software?: string | null
+          n_documents?: number | null
+          raw?: Json
+          first_seen_at?: string
+          last_checked_at?: string
+        }
+        Relationships: []
+      }
+      planning_application_documents: {
+        Row: {
+          id: string
+          application_id: string
+          description: string | null
+          doc_url: string
+          doc_kind: string | null
+          stored_path: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          application_id: string
+          description?: string | null
+          doc_url: string
+          doc_kind?: string | null
+          stored_path?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          application_id?: string
+          description?: string | null
+          doc_url?: string
+          doc_kind?: string | null
+          stored_path?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_application_documents_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "planning_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planning_searches: {
+        Row: {
+          id: string
+          postcode_normalised: string
+          lpa_code: string | null
+          source: string
+          status: string
+          application_count: number
+          error: string | null
+          searched_at: string
+        }
+        Insert: {
+          id?: string
+          postcode_normalised: string
+          lpa_code?: string | null
+          source: string
+          status: string
+          application_count?: number
+          error?: string | null
+          searched_at?: string
+        }
+        Update: {
+          id?: string
+          postcode_normalised?: string
+          lpa_code?: string | null
+          source?: string
+          status?: string
+          application_count?: number
+          error?: string | null
+          searched_at?: string
+        }
+        Relationships: []
+      }
+      address_geocodes: {
+        Row: {
+          id: string
+          address_key: string
+          formatted_address: string | null
+          latitude: number | null
+          longitude: number | null
+          precision: string | null
+          source: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          address_key: string
+          formatted_address?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          precision?: string | null
+          source?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          address_key?: string
+          formatted_address?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          precision?: string | null
+          source?: string
+          created_at?: string
         }
         Relationships: []
       }
