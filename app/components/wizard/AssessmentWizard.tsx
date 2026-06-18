@@ -100,6 +100,7 @@ const initialFormData = {
   street: "",
   postcode: "",
   propertyType: "",
+  epcPropertyType: "", // EPC-derived property type (authoritative; AI photo is only a fallback)
   tenureType: "",
   housingAssociationName: "",
   entranceLevel: "",
@@ -318,6 +319,46 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
+  // Fields the user has manually chosen — AI auto-fill must never override a human selection.
+  const userEditedFieldsRef = useRef<Set<string>>(new Set());
+  const handleUserEdit = (field: string, value: any) => {
+    userEditedFieldsRef.current.add(field);
+    handleUpdateField(field, value);
+  };
+
+  // Keep the AI-confirmation selections in sync with detection, so the detected value IS the selected
+  // option (until the user overrides it). Property type is special: the EPC record is authoritative —
+  // when we have it, use it and ignore the photo AI; only fall back to AI when there is no EPC.
+  useEffect(() => {
+    setFormData((prev: any) => {
+      const epcPropertyType = normalizePropertyType(prev.epcPropertyType);
+      const detected: Record<string, string | null> = {
+        // EPC wins; AI photo is only a fallback when there is no EPC property type.
+        propertyType: epcPropertyType || normalizePropertyType(aiSuggestions?.property_type),
+        entranceLevel:
+          normalizeEntranceLevel(aiSuggestions?.entrance_level) ||
+          normalizeEntranceLevel(floorPlanAnalysis?.entrance_level?.value) ||
+          null,
+        communalLifts:
+          normalizeCommunalLiftOption(
+            aiSuggestions?.communal_lift_present ??
+              aiSuggestions?.communal_lifts_option ??
+              floorPlanAnalysis?.lift?.detected,
+            aiSuggestions?.communal_lift_type,
+          ) || null,
+      };
+      let changed = false;
+      const next = { ...prev };
+      for (const [field, val] of Object.entries(detected)) {
+        if (val && !userEditedFieldsRef.current.has(field) && prev[field] !== val) {
+          next[field] = val;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [aiSuggestions, floorPlanAnalysis, formData.epcPropertyType]);
+
   const handleClearFloorPlan = () => {
     handleUpdateField("floorPlan", null);
     handleUpdateField("floorPlanApproved", false);
@@ -529,19 +570,36 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
    * authenticated proxy, wrap it in a File, and run the standard detection pipeline.
    */
   const handleSelectPlanningDoc = async (sourceId: string) => {
+    const fileUrl = `/api/evidence-harvester/floorplan-file/${sourceId}`;
     try {
-      const res = await fetch(
-        `/api/evidence-harvester/floorplan-file/${sourceId}`,
-      );
-      if (!res.ok) throw new Error("fetch failed");
+      // `redirect: "manual"` so a cross-origin fallback redirect can never throw a CORS error.
+      const res = await fetch(fileUrl, { redirect: "manual" });
+      if (!res.ok) {
+        // The council file isn't directly fetchable (portal session / cross-origin). The API returns
+        // the application page URL as JSON — open it so the user can grab the plan manually.
+        let applicationUrl: string | null = null;
+        try {
+          applicationUrl = ((await res.json()) as { applicationUrl?: string })?.applicationUrl ?? null;
+        } catch {
+          /* opaque redirect or non-JSON body */
+        }
+        if (applicationUrl) {
+          window.open(applicationUrl, "_blank", "noopener");
+          toast.warning(
+            "Opened the planning application page — download the plan there and upload it here.",
+          );
+        } else {
+          toast.warning(
+            "Couldn't load that document automatically — open it in a new tab and upload it instead.",
+          );
+        }
+        return;
+      }
       const blob = await res.blob();
       const type = blob.type || "application/pdf";
       const ext = type.includes("pdf") ? "pdf" : "jpg";
       const file = new File([blob], `planning-floorplan.${ext}`, { type });
-      await processFloorPlanFile(file, {
-        openUrl: `/api/evidence-harvester/floorplan-file/${sourceId}`,
-        source: "ai-search",
-      });
+      await processFloorPlanFile(file, { openUrl: fileUrl, source: "ai-search" });
     } catch {
       toast.warning(
         "Couldn't load that document automatically — open it in a new tab and upload it instead.",
@@ -1906,7 +1964,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
               <PropertyAccessStep
                 key="s5"
                 formData={formData}
-                handleUpdateField={handleUpdateField}
+                handleUpdateField={handleUserEdit}
                 floorPlanAnalysis={floorPlanAnalysis}
                 aiSuggestions={aiSuggestions}
               />

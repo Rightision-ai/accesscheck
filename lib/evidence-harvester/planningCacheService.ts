@@ -13,15 +13,13 @@ import { createHash } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 import type { Candidate, FoundApplication, FoundPlan, PortalDoc } from './floorPlanFinderService';
-import { addressScore } from './addressUtils';
-import { fetchWithRetry } from './http';
+import { addressScore, isExactAddressMatch } from './addressUtils';
+import { fetchPortalFile } from './portalSession';
 
 type Db = SupabaseClient<Database>;
 
 const PLANNING_DOCS_BUCKET = 'planning-docs';
 const MAX_APPLICATIONS = 50; // how many same-postcode applications to surface (PlanIt returns up to ~200)
-const SESSION_UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 
 export type DiscoverySource = 'idox' | 'northgate' | 'planwire' | 'planit' | 'none';
 export type SearchStatus = 'ok' | 'no_portal' | 'error';
@@ -33,12 +31,27 @@ export type CachedSearch = {
   searchedAt: string;
 };
 
-/** Read the per-postcode freshness row; null = never searched. */
-export async function readSearchCache(db: Db, postcodeNormalised: string): Promise<CachedSearch | null> {
+/**
+ * Stable per-ADDRESS cache key: the UPRN when known (the exact-address identifier), otherwise the
+ * normalised address + postcode. Floor-plan discovery/extraction is address-specific, so freshness is
+ * tracked per address — a second address in the same postcode does its own search.
+ */
+export function addressCacheKey(
+  uprn: string | null | undefined,
+  address: string,
+  postcodeNormalised: string,
+): string {
+  if (uprn) return `uprn:${uprn}`;
+  const norm = (address ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
+  return `addr:${norm}|${postcodeNormalised}`;
+}
+
+/** Read the per-address freshness row; null = this address was never searched. */
+export async function readSearchCache(db: Db, addressKey: string): Promise<CachedSearch | null> {
   const { data } = await db
     .from('planning_searches')
     .select('status, source, application_count, searched_at')
-    .eq('postcode_normalised', postcodeNormalised)
+    .eq('address_key', addressKey)
     .maybeSingle();
   if (!data) return null;
   return {
@@ -99,10 +112,11 @@ export async function loadCachedResult(
     }
   }
 
-  // Plans = every stored document, tagged with its application's address-match score (closest first),
-  // so the UI can rank the documents most likely to belong to this property at the top.
+  // Plans = stored documents from applications that EXACTLY match this address (door/building number
+  // + street), so a neighbour's plans in the same postcode are never shown as this property's.
   const plans: FoundPlan[] = [];
   for (const { a, score } of top) {
+    if (!isExactAddressMatch(targetAddress, a.address ?? '', outcode)) continue;
     for (const doc of docsByApp.get(a.id) ?? []) {
       plans.push({
         description: doc.description ?? 'Plan',
@@ -111,14 +125,16 @@ export async function loadCachedResult(
         application: a.reference,
         council: a.council,
         matchScore: score,
+        exact: true,
       });
     }
   }
 
-  // Applications: closest address first, each flagged with whether we have its documents.
+  // Applications: only this EXACT address's application(s) — nearby postcode applications are not shown.
   const applications: FoundApplication[] = [];
   const seen = new Set<string>();
   for (const { a, score } of top) {
+    if (!isExactAddressMatch(targetAddress, a.address ?? '', outcode)) continue;
     const url = a.docs_url ?? a.application_url ?? '';
     if (!url || seen.has(url)) continue;
     seen.add(url);
@@ -129,6 +145,7 @@ export async function loadCachedResult(
       council: a.council,
       matchScore: score,
       extracted: (docsByApp.get(a.id)?.length ?? 0) > 0,
+      exact: true,
     });
   }
 
@@ -137,11 +154,12 @@ export async function loadCachedResult(
 
 /**
  * Persist a discovery result to the shared cache. Upserts one row per application, their plan docs,
- * and the postcode freshness row. `ranked[].plans` are the extracted plan/elevation docs for that app.
+ * and the per-ADDRESS freshness row. `ranked[].plans` are the extracted plan/elevation docs for that app.
  */
 export async function persistDiscovery(
   db: Db,
   args: {
+    addressKey: string;
     postcodeNormalised: string;
     lpaCode: string | null;
     council: string | null;
@@ -198,6 +216,7 @@ export async function persistDiscovery(
 
   await db.from('planning_searches').upsert(
     {
+      address_key: args.addressKey,
       postcode_normalised: args.postcodeNormalised,
       lpa_code: args.lpaCode,
       source: args.source,
@@ -206,7 +225,7 @@ export async function persistDiscovery(
       error: args.error ?? null,
       searched_at: now,
     },
-    { onConflict: 'postcode_normalised' },
+    { onConflict: 'address_key' },
   );
 }
 
@@ -217,10 +236,30 @@ function extFor(mime: string): string {
 }
 
 /**
+ * Upload already-fetched document bytes to the planning-docs bucket and record the path on every
+ * matching (not-yet-cached) document row. Returns the stored path, or null on failure.
+ */
+export async function cacheDocBytes(
+  db: Db,
+  docUrl: string,
+  buffer: Buffer,
+  mime: string,
+): Promise<string | null> {
+  const path = `docs/${createHash('sha1').update(docUrl).digest('hex')}.${extFor(mime)}`;
+  const { error } = await db.storage.from(PLANNING_DOCS_BUCKET).upload(path, buffer, {
+    contentType: mime,
+    upsert: true,
+  });
+  if (error) return null;
+  await db.from('planning_application_documents').update({ stored_path: path }).eq('doc_url', docUrl).is('stored_path', null);
+  return path;
+}
+
+/**
  * Download not-yet-cached plan documents for a postcode and store the bytes in the planning-docs
- * bucket (so repeat opens don't re-hit the council session). Runs in the route's after() task, so a
- * failure here never affects the user's response. Idox/Northgate files are session-bound, so we
- * re-establish a session from the application docs page before fetching each file.
+ * bucket (so repeat opens are served from our storage, never the council). Runs in the route's
+ * after() task, so a failure here never affects the user's response. Files are session-bound, so
+ * fetchPortalFile re-establishes the portal session (cookie jar across redirects) per document.
  */
 export async function storePlanDocsInBackground(db: Db, postcodeNormalised: string): Promise<void> {
   const { data: docs } = await db
@@ -235,44 +274,12 @@ export async function storePlanDocsInBackground(db: Db, postcodeNormalised: stri
     // The nested relation comes back as an object (single FK); guard for the array shape too.
     const rel = doc.planning_applications as unknown as { docs_url: string | null } | { docs_url: string | null }[] | null;
     const docsUrl = Array.isArray(rel) ? rel[0]?.docs_url : rel?.docs_url;
-    if (!docsUrl) continue;
     try {
-      const buffer = await fetchWithSession(docsUrl, doc.doc_url);
-      if (!buffer) continue;
-      const mime = sniffMime(buffer);
-      const path = `${postcodeNormalised.replace(/\s+/g, '_')}/${createHash('sha1').update(doc.doc_url).digest('hex')}.${extFor(mime)}`;
-      const { error } = await db.storage.from(PLANNING_DOCS_BUCKET).upload(path, buffer, {
-        contentType: mime,
-        upsert: true,
-      });
-      if (error) continue;
-      await db.from('planning_application_documents').update({ stored_path: path }).eq('id', doc.id);
+      const file = await fetchPortalFile(docsUrl ?? null, doc.doc_url);
+      if (!file) continue;
+      await cacheDocBytes(db, doc.doc_url, file.buffer, file.contentType);
     } catch {
       /* best-effort cache; skip this doc */
     }
   }
-}
-
-/** Re-establish the portal session (cookies from the docs page), then fetch the file. */
-async function fetchWithSession(docsUrl: string, fileUrl: string): Promise<Buffer | null> {
-  const pageRes = await fetchWithRetry(docsUrl, { headers: { 'User-Agent': SESSION_UA } }, { timeoutMs: 15000, retries: 2 });
-  const cookie = pageRes.headers.get('set-cookie') ?? '';
-  const fileRes = await fetchWithRetry(
-    fileUrl,
-    { headers: { 'User-Agent': SESSION_UA, Referer: docsUrl, Accept: 'application/pdf,image/*,*/*', ...(cookie ? { Cookie: cookie } : {}) }, redirect: 'follow' },
-    { timeoutMs: 20000, retries: 2 },
-  );
-  if (!fileRes.ok) return null;
-  const buf = Buffer.from(await fileRes.arrayBuffer());
-  if (buf.byteLength < 1024) return null; // portal error page / placeholder
-  if (!sniffMime(buf)) return null; // not a PDF/image (likely an HTML login page)
-  return buf;
-}
-
-/** Magic-byte sniff; returns '' for anything that isn't a PDF or image (so we don't cache HTML). */
-function sniffMime(buf: Buffer): string {
-  if (buf.length >= 4 && buf.toString('ascii', 0, 4) === '%PDF') return 'application/pdf';
-  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
-  if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return 'image/png';
-  return '';
 }

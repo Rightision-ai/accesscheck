@@ -12,577 +12,253 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
-      properties: {
-        Row: {
-          id: string
-          user_id: string
-          council_id: string | null
-          property_ref: string | null
-          uprn: string | null
-          uprn_source: string | null
-          address: string
-          postcode: string
-          postcode_normalised: string | null
-          latitude: number | null
-          longitude: number | null
-          local_authority: string | null
-          local_authority_code: string | null
-          region: string | null
-          ward: string | null
-          bedrooms: number | null
-          floor_level: string | null
-          property_type: string | null
-          known_adaptations: string | null
-          street_view_image_path: string | null
-          map_image_path: string | null
-          address_latitude: number | null
-          address_longitude: number | null
-          geocode_source: string | null
-          geocode_precision: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          council_id?: string | null
-          property_ref?: string | null
-          uprn?: string | null
-          uprn_source?: string | null
-          address: string
-          postcode: string
-          postcode_normalised?: string | null
-          latitude?: number | null
-          longitude?: number | null
-          local_authority?: string | null
-          local_authority_code?: string | null
-          region?: string | null
-          ward?: string | null
-          bedrooms?: number | null
-          floor_level?: string | null
-          property_type?: string | null
-          known_adaptations?: string | null
-          street_view_image_path?: string | null
-          map_image_path?: string | null
-          address_latitude?: number | null
-          address_longitude?: number | null
-          geocode_source?: string | null
-          geocode_precision?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          council_id?: string | null
-          property_ref?: string | null
-          uprn?: string | null
-          uprn_source?: string | null
-          address?: string
-          postcode?: string
-          postcode_normalised?: string | null
-          latitude?: number | null
-          longitude?: number | null
-          local_authority?: string | null
-          local_authority_code?: string | null
-          region?: string | null
-          ward?: string | null
-          bedrooms?: number | null
-          floor_level?: string | null
-          property_type?: string | null
-          known_adaptations?: string | null
-          street_view_image_path?: string | null
-          map_image_path?: string | null
-          address_latitude?: number | null
-          address_longitude?: number | null
-          geocode_source?: string | null
-          geocode_precision?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      council_portals: {
-        Row: {
-          id: string
-          lpa_code: string | null
-          lpa_name: string
-          software: string
-          base_url: string
-          search_path: string
-          enabled: boolean
-          notes: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          lpa_code?: string | null
-          lpa_name: string
-          software: string
-          base_url: string
-          search_path?: string
-          enabled?: boolean
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          lpa_code?: string | null
-          lpa_name?: string
-          software?: string
-          base_url?: string
-          search_path?: string
-          enabled?: boolean
-          notes?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      planning_applications: {
-        Row: {
-          id: string
-          lpa_code: string | null
-          council: string | null
-          reference: string
-          address: string | null
-          postcode_normalised: string | null
-          description: string | null
-          app_type: string | null
-          application_url: string | null
-          docs_url: string | null
-          software: string | null
-          n_documents: number | null
-          raw: Json
-          first_seen_at: string
-          last_checked_at: string
-        }
-        Insert: {
-          id?: string
-          lpa_code?: string | null
-          council?: string | null
-          reference: string
-          address?: string | null
-          postcode_normalised?: string | null
-          description?: string | null
-          app_type?: string | null
-          application_url?: string | null
-          docs_url?: string | null
-          software?: string | null
-          n_documents?: number | null
-          raw?: Json
-          first_seen_at?: string
-          last_checked_at?: string
-        }
-        Update: {
-          id?: string
-          lpa_code?: string | null
-          council?: string | null
-          reference?: string
-          address?: string | null
-          postcode_normalised?: string | null
-          description?: string | null
-          app_type?: string | null
-          application_url?: string | null
-          docs_url?: string | null
-          software?: string | null
-          n_documents?: number | null
-          raw?: Json
-          first_seen_at?: string
-          last_checked_at?: string
-        }
-        Relationships: []
-      }
-      planning_application_documents: {
-        Row: {
-          id: string
-          application_id: string
-          description: string | null
-          doc_url: string
-          doc_kind: string | null
-          stored_path: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          application_id: string
-          description?: string | null
-          doc_url: string
-          doc_kind?: string | null
-          stored_path?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          application_id?: string
-          description?: string | null
-          doc_url?: string
-          doc_kind?: string | null
-          stored_path?: string | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "planning_application_documents_application_id_fkey"
-            columns: ["application_id"]
-            isOneToOne: false
-            referencedRelation: "planning_applications"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      planning_searches: {
-        Row: {
-          id: string
-          postcode_normalised: string
-          lpa_code: string | null
-          source: string
-          status: string
-          application_count: number
-          error: string | null
-          searched_at: string
-        }
-        Insert: {
-          id?: string
-          postcode_normalised: string
-          lpa_code?: string | null
-          source: string
-          status: string
-          application_count?: number
-          error?: string | null
-          searched_at?: string
-        }
-        Update: {
-          id?: string
-          postcode_normalised?: string
-          lpa_code?: string | null
-          source?: string
-          status?: string
-          application_count?: number
-          error?: string | null
-          searched_at?: string
-        }
-        Relationships: []
-      }
       address_geocodes: {
         Row: {
-          id: string
           address_key: string
+          created_at: string
           formatted_address: string | null
+          id: string
           latitude: number | null
           longitude: number | null
           precision: string | null
           source: string
-          created_at: string
         }
         Insert: {
-          id?: string
           address_key: string
+          created_at?: string
           formatted_address?: string | null
+          id?: string
           latitude?: number | null
           longitude?: number | null
           precision?: string | null
           source?: string
-          created_at?: string
         }
         Update: {
-          id?: string
           address_key?: string
+          created_at?: string
           formatted_address?: string | null
+          id?: string
           latitude?: number | null
           longitude?: number | null
           precision?: string | null
           source?: string
-          created_at?: string
         }
         Relationships: []
       }
-      harvest_jobs: {
+      cost_estimation_adaptations: {
         Row: {
+          addresses_rules: number[]
+          cost_gbp: number
+          difficulty: string
+          duration_days: number
+          field_patches: Json
           id: string
-          user_id: string
-          council_id: string | null
-          uploaded_file_url: string | null
-          original_filename: string | null
-          column_mapping: Json
-          status: string
-          job_status: Json | null
-          total_properties: number
-          processed_count: number
-          failed_count: number
-          started_at: string | null
-          finished_at: string | null
-          error_log: Json
-          created_at: string
-          updated_at: string
+          label: string
+          narrative: string | null
+          plan_id: string
+          position: number
+          preconditions: string | null
+          trades: string[]
+          visual_evidence_confidence: number | null
         }
         Insert: {
+          addresses_rules?: number[]
+          cost_gbp: number
+          difficulty: string
+          duration_days: number
+          field_patches?: Json
           id?: string
-          user_id: string
-          council_id?: string | null
-          uploaded_file_url?: string | null
-          original_filename?: string | null
-          column_mapping?: Json
-          status?: string
-          job_status?: Json | null
-          total_properties?: number
-          processed_count?: number
-          failed_count?: number
-          started_at?: string | null
-          finished_at?: string | null
-          error_log?: Json
-          created_at?: string
-          updated_at?: string
+          label: string
+          narrative?: string | null
+          plan_id: string
+          position: number
+          preconditions?: string | null
+          trades?: string[]
+          visual_evidence_confidence?: number | null
         }
         Update: {
+          addresses_rules?: number[]
+          cost_gbp?: number
+          difficulty?: string
+          duration_days?: number
+          field_patches?: Json
           id?: string
-          user_id?: string
-          council_id?: string | null
-          uploaded_file_url?: string | null
-          original_filename?: string | null
-          column_mapping?: Json
-          status?: string
-          job_status?: Json | null
-          total_properties?: number
-          processed_count?: number
-          failed_count?: number
-          started_at?: string | null
-          finished_at?: string | null
-          error_log?: Json
-          created_at?: string
-          updated_at?: string
+          label?: string
+          narrative?: string | null
+          plan_id?: string
+          position?: number
+          preconditions?: string | null
+          trades?: string[]
+          visual_evidence_confidence?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cost_estimation_adaptations_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "cost_estimation_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      harvest_job_items: {
+      cost_estimation_plans: {
         Row: {
+          budget_cap_gbp: number
+          budget_gbp: number
+          confidence: number
+          current_band: string
+          dropped_candidates: Json
+          gemini_model: string
+          generated_at: string
           id: string
-          user_id: string
-          job_id: string
-          property_id: string | null
-          row_number: number | null
-          status: string
-          error_message: string | null
+          overall_difficulty: string
+          overall_narrative: string
+          potential_band: string
+          rationale_if_not_band_a: string | null
+          reaches_band_a_at_30k: boolean
+          survey_id: number
+          total_cost_gbp: number
+          total_duration_days: number
+          unavailable_reason: string | null
+        }
+        Insert: {
+          budget_cap_gbp: number
+          budget_gbp: number
+          confidence?: number
+          current_band: string
+          dropped_candidates?: Json
+          gemini_model: string
+          generated_at?: string
+          id?: string
+          overall_difficulty: string
+          overall_narrative?: string
+          potential_band: string
+          rationale_if_not_band_a?: string | null
+          reaches_band_a_at_30k?: boolean
+          survey_id: number
+          total_cost_gbp?: number
+          total_duration_days?: number
+          unavailable_reason?: string | null
+        }
+        Update: {
+          budget_cap_gbp?: number
+          budget_gbp?: number
+          confidence?: number
+          current_band?: string
+          dropped_candidates?: Json
+          gemini_model?: string
+          generated_at?: string
+          id?: string
+          overall_difficulty?: string
+          overall_narrative?: string
+          potential_band?: string
+          rationale_if_not_band_a?: string | null
+          reaches_band_a_at_30k?: boolean
+          survey_id?: number
+          total_cost_gbp?: number
+          total_duration_days?: number
+          unavailable_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_estimation_plans_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      council_portals: {
+        Row: {
+          base_url: string
           created_at: string
+          enabled: boolean
+          id: string
+          lpa_code: string | null
+          lpa_name: string
+          notes: string | null
+          search_path: string
+          software: string
           updated_at: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          job_id: string
-          property_id?: string | null
-          row_number?: number | null
-          status?: string
-          error_message?: string | null
+          base_url: string
           created_at?: string
+          enabled?: boolean
+          id?: string
+          lpa_code?: string | null
+          lpa_name: string
+          notes?: string | null
+          search_path?: string
+          software: string
           updated_at?: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          job_id?: string
-          property_id?: string | null
-          row_number?: number | null
-          status?: string
-          error_message?: string | null
+          base_url?: string
           created_at?: string
+          enabled?: boolean
+          id?: string
+          lpa_code?: string | null
+          lpa_name?: string
+          notes?: string | null
+          search_path?: string
+          software?: string
           updated_at?: string
         }
         Relationships: []
       }
       evidence_sources: {
         Row: {
-          id: string
-          user_id: string
-          property_id: string
-          source_type: string
-          source_name: string | null
-          source_url: string | null
-          source_date: string | null
+          confidence: number | null
+          created_at: string
           external_reference: string | null
+          id: string
+          property_id: string
           raw_metadata_json: Json
-          confidence: number | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          property_id: string
-          source_type: string
-          source_name?: string | null
-          source_url?: string | null
-          source_date?: string | null
-          external_reference?: string | null
-          raw_metadata_json?: Json
-          confidence?: number | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          property_id?: string
-          source_type?: string
-          source_name?: string | null
-          source_url?: string | null
-          source_date?: string | null
-          external_reference?: string | null
-          raw_metadata_json?: Json
-          confidence?: number | null
-          created_at?: string
-        }
-        Relationships: []
-      }
-      property_features: {
-        Row: {
-          id: string
-          user_id: string
-          property_id: string
-          evidence_source_id: string | null
-          feature_name: string
-          feature_value: Json
-          source_type: string | null
-          confidence: number | null
-          inferred: boolean
-          justification: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          property_id: string
-          evidence_source_id?: string | null
-          feature_name: string
-          feature_value: Json
-          source_type?: string | null
-          confidence?: number | null
-          inferred?: boolean
-          justification?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          property_id?: string
-          evidence_source_id?: string | null
-          feature_name?: string
-          feature_value?: Json
-          source_type?: string | null
-          confidence?: number | null
-          inferred?: boolean
-          justification?: string | null
-          created_at?: string
-        }
-        Relationships: []
-      }
-      property_listings: {
-        Row: {
-          id: string
-          user_id: string
-          property_id: string
-          evidence_source_id: string | null
-          listing_type: string
-          event_date: string | null
-          price_gbp: number | null
-          status: string | null
+          source_date: string | null
           source_name: string | null
+          source_type: string
           source_url: string | null
-          raw_metadata: Json
-          created_at: string
+          user_id: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          property_id: string
-          evidence_source_id?: string | null
-          listing_type: string
-          event_date?: string | null
-          price_gbp?: number | null
-          status?: string | null
-          source_name?: string | null
-          source_url?: string | null
-          raw_metadata?: Json
+          confidence?: number | null
           created_at?: string
+          external_reference?: string | null
+          id?: string
+          property_id: string
+          raw_metadata_json?: Json
+          source_date?: string | null
+          source_name?: string | null
+          source_type: string
+          source_url?: string | null
+          user_id: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          property_id?: string
-          evidence_source_id?: string | null
-          listing_type?: string
-          event_date?: string | null
-          price_gbp?: number | null
-          status?: string | null
-          source_name?: string | null
-          source_url?: string | null
-          raw_metadata?: Json
+          confidence?: number | null
           created_at?: string
-        }
-        Relationships: []
-      }
-      property_assessment_status: {
-        Row: {
-          property_id: string
-          user_id: string
-          evidence_status: string
-          assessment_readiness: string
-          overall_confidence: number | null
-          missing_evidence: Json
-          question_mapping: Json
-          recommended_action: string | null
-          updated_at: string
-        }
-        Insert: {
-          property_id: string
-          user_id: string
-          evidence_status: string
-          assessment_readiness: string
-          overall_confidence?: number | null
-          missing_evidence?: Json
-          question_mapping?: Json
-          recommended_action?: string | null
-          updated_at?: string
-        }
-        Update: {
+          external_reference?: string | null
+          id?: string
           property_id?: string
+          raw_metadata_json?: Json
+          source_date?: string | null
+          source_name?: string | null
+          source_type?: string
+          source_url?: string | null
           user_id?: string
-          evidence_status?: string
-          assessment_readiness?: string
-          overall_confidence?: number | null
-          missing_evidence?: Json
-          question_mapping?: Json
-          recommended_action?: string | null
-          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "evidence_sources_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       floor_plan_detections: {
         Row: {
@@ -624,6 +300,493 @@ export type Database = {
             columns: ["survey_id"]
             isOneToOne: false
             referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      harvest_job_items: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          job_id: string
+          property_id: string | null
+          row_number: number | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_id: string
+          property_id?: string | null
+          row_number?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_id?: string
+          property_id?: string | null
+          row_number?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "harvest_job_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "harvest_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "harvest_job_items_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      harvest_jobs: {
+        Row: {
+          column_mapping: Json
+          council_id: string | null
+          created_at: string
+          error_log: Json
+          failed_count: number
+          finished_at: string | null
+          id: string
+          job_status: Json | null
+          original_filename: string | null
+          processed_count: number
+          started_at: string | null
+          status: string
+          total_properties: number
+          updated_at: string
+          uploaded_file_url: string | null
+          user_id: string
+        }
+        Insert: {
+          column_mapping?: Json
+          council_id?: string | null
+          created_at?: string
+          error_log?: Json
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          job_status?: Json | null
+          original_filename?: string | null
+          processed_count?: number
+          started_at?: string | null
+          status?: string
+          total_properties?: number
+          updated_at?: string
+          uploaded_file_url?: string | null
+          user_id: string
+        }
+        Update: {
+          column_mapping?: Json
+          council_id?: string | null
+          created_at?: string
+          error_log?: Json
+          failed_count?: number
+          finished_at?: string | null
+          id?: string
+          job_status?: Json | null
+          original_filename?: string | null
+          processed_count?: number
+          started_at?: string | null
+          status?: string
+          total_properties?: number
+          updated_at?: string
+          uploaded_file_url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      planning_application_documents: {
+        Row: {
+          application_id: string
+          created_at: string
+          description: string | null
+          doc_kind: string | null
+          doc_url: string
+          id: string
+          stored_path: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          description?: string | null
+          doc_kind?: string | null
+          doc_url: string
+          id?: string
+          stored_path?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          description?: string | null
+          doc_kind?: string | null
+          doc_url?: string
+          id?: string
+          stored_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_application_documents_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "planning_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planning_applications: {
+        Row: {
+          address: string | null
+          app_type: string | null
+          application_url: string | null
+          council: string | null
+          description: string | null
+          docs_url: string | null
+          first_seen_at: string
+          id: string
+          last_checked_at: string
+          lpa_code: string | null
+          n_documents: number | null
+          postcode_normalised: string | null
+          raw: Json
+          reference: string
+          software: string | null
+        }
+        Insert: {
+          address?: string | null
+          app_type?: string | null
+          application_url?: string | null
+          council?: string | null
+          description?: string | null
+          docs_url?: string | null
+          first_seen_at?: string
+          id?: string
+          last_checked_at?: string
+          lpa_code?: string | null
+          n_documents?: number | null
+          postcode_normalised?: string | null
+          raw?: Json
+          reference: string
+          software?: string | null
+        }
+        Update: {
+          address?: string | null
+          app_type?: string | null
+          application_url?: string | null
+          council?: string | null
+          description?: string | null
+          docs_url?: string | null
+          first_seen_at?: string
+          id?: string
+          last_checked_at?: string
+          lpa_code?: string | null
+          n_documents?: number | null
+          postcode_normalised?: string | null
+          raw?: Json
+          reference?: string
+          software?: string | null
+        }
+        Relationships: []
+      }
+      planning_searches: {
+        Row: {
+          address_key: string
+          application_count: number
+          error: string | null
+          id: string
+          lpa_code: string | null
+          postcode_normalised: string
+          searched_at: string
+          source: string
+          status: string
+        }
+        Insert: {
+          address_key: string
+          application_count?: number
+          error?: string | null
+          id?: string
+          lpa_code?: string | null
+          postcode_normalised: string
+          searched_at?: string
+          source: string
+          status: string
+        }
+        Update: {
+          address_key?: string
+          application_count?: number
+          error?: string | null
+          id?: string
+          lpa_code?: string | null
+          postcode_normalised?: string
+          searched_at?: string
+          source?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      properties: {
+        Row: {
+          address: string
+          address_latitude: number | null
+          address_longitude: number | null
+          bedrooms: number | null
+          council_id: string | null
+          created_at: string
+          floor_level: string | null
+          geocode_precision: string | null
+          geocode_source: string | null
+          id: string
+          known_adaptations: string | null
+          latitude: number | null
+          local_authority: string | null
+          local_authority_code: string | null
+          longitude: number | null
+          map_image_path: string | null
+          postcode: string
+          postcode_normalised: string | null
+          property_ref: string | null
+          property_type: string | null
+          region: string | null
+          street_view_image_path: string | null
+          updated_at: string
+          uprn: string | null
+          uprn_source: string | null
+          user_id: string
+          ward: string | null
+        }
+        Insert: {
+          address: string
+          address_latitude?: number | null
+          address_longitude?: number | null
+          bedrooms?: number | null
+          council_id?: string | null
+          created_at?: string
+          floor_level?: string | null
+          geocode_precision?: string | null
+          geocode_source?: string | null
+          id?: string
+          known_adaptations?: string | null
+          latitude?: number | null
+          local_authority?: string | null
+          local_authority_code?: string | null
+          longitude?: number | null
+          map_image_path?: string | null
+          postcode: string
+          postcode_normalised?: string | null
+          property_ref?: string | null
+          property_type?: string | null
+          region?: string | null
+          street_view_image_path?: string | null
+          updated_at?: string
+          uprn?: string | null
+          uprn_source?: string | null
+          user_id: string
+          ward?: string | null
+        }
+        Update: {
+          address?: string
+          address_latitude?: number | null
+          address_longitude?: number | null
+          bedrooms?: number | null
+          council_id?: string | null
+          created_at?: string
+          floor_level?: string | null
+          geocode_precision?: string | null
+          geocode_source?: string | null
+          id?: string
+          known_adaptations?: string | null
+          latitude?: number | null
+          local_authority?: string | null
+          local_authority_code?: string | null
+          longitude?: number | null
+          map_image_path?: string | null
+          postcode?: string
+          postcode_normalised?: string | null
+          property_ref?: string | null
+          property_type?: string | null
+          region?: string | null
+          street_view_image_path?: string | null
+          updated_at?: string
+          uprn?: string | null
+          uprn_source?: string | null
+          user_id?: string
+          ward?: string | null
+        }
+        Relationships: []
+      }
+      property_assessment_status: {
+        Row: {
+          assessment_readiness: string
+          evidence_status: string
+          missing_evidence: Json
+          overall_confidence: number | null
+          property_id: string
+          question_mapping: Json
+          recommended_action: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assessment_readiness: string
+          evidence_status: string
+          missing_evidence?: Json
+          overall_confidence?: number | null
+          property_id: string
+          question_mapping?: Json
+          recommended_action?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assessment_readiness?: string
+          evidence_status?: string
+          missing_evidence?: Json
+          overall_confidence?: number | null
+          property_id?: string
+          question_mapping?: Json
+          recommended_action?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_assessment_status_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: true
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_features: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          evidence_source_id: string | null
+          feature_name: string
+          feature_value: Json
+          id: string
+          inferred: boolean
+          justification: string | null
+          property_id: string
+          source_type: string | null
+          user_id: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          evidence_source_id?: string | null
+          feature_name: string
+          feature_value: Json
+          id?: string
+          inferred?: boolean
+          justification?: string | null
+          property_id: string
+          source_type?: string | null
+          user_id: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          evidence_source_id?: string | null
+          feature_name?: string
+          feature_value?: Json
+          id?: string
+          inferred?: boolean
+          justification?: string | null
+          property_id?: string
+          source_type?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_features_evidence_source_id_fkey"
+            columns: ["evidence_source_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_features_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_listings: {
+        Row: {
+          created_at: string
+          event_date: string | null
+          evidence_source_id: string | null
+          id: string
+          listing_type: string
+          price_gbp: number | null
+          property_id: string
+          raw_metadata: Json
+          source_name: string | null
+          source_url: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_date?: string | null
+          evidence_source_id?: string | null
+          id?: string
+          listing_type: string
+          price_gbp?: number | null
+          property_id: string
+          raw_metadata?: Json
+          source_name?: string | null
+          source_url?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_date?: string | null
+          evidence_source_id?: string | null
+          id?: string
+          listing_type?: string
+          price_gbp?: number | null
+          property_id?: string
+          raw_metadata?: Json
+          source_name?: string | null
+          source_url?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_listings_evidence_source_id_fkey"
+            columns: ["evidence_source_id"]
+            isOneToOne: false
+            referencedRelation: "evidence_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_listings_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
             referencedColumns: ["id"]
           },
         ]
@@ -796,6 +959,7 @@ export type Database = {
           communal_ramp_bl: number | null
           communal_ramp_type: string | null
           compliance_score: number | null
+          cost_estimation_status: Json | null
           created_at: string | null
           door_number: string | null
           door_width_balcony: number | null
@@ -957,6 +1121,7 @@ export type Database = {
           communal_ramp_bl?: number | null
           communal_ramp_type?: string | null
           compliance_score?: number | null
+          cost_estimation_status?: Json | null
           created_at?: string | null
           door_number?: string | null
           door_width_balcony?: number | null
@@ -1118,6 +1283,7 @@ export type Database = {
           communal_ramp_bl?: number | null
           communal_ramp_type?: string | null
           compliance_score?: number | null
+          cost_estimation_status?: Json | null
           created_at?: string | null
           door_number?: string | null
           door_width_balcony?: number | null
@@ -1361,9 +1527,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },

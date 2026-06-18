@@ -23,8 +23,9 @@ import { fetchWithRetry } from './http';
 import { lookupPostcode, normalisePostcode } from './postcodesService';
 import { addressScore, isExactAddressMatch } from './addressUtils';
 import { getPortalForCouncil, type CouncilPortal } from './councilPortalRegistry';
+import { fetchPortalHtml } from './portalSession';
 import {
-  readSearchCache, isFresh, loadCachedResult, persistDiscovery,
+  readSearchCache, isFresh, loadCachedResult, persistDiscovery, addressCacheKey,
   type DiscoverySource,
 } from './planningCacheService';
 
@@ -39,11 +40,10 @@ const HTML_HEADERS = {
   Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
 };
 const PORTAL_DELAY_MS = 800;   // be polite to council servers
-const MAX_EXTRACT = 8;         // applications we scrape documents from (closest address first) — budget-bound
-const MAX_SURFACE = 50;        // applications we surface as browsable links (PlanIt returns up to ~200)
-const MAX_PERSIST = 50;        // cap rows persisted per postcode discovery
+const MAX_EXTRACT = 8;         // exact-address applications we scrape documents from — budget-bound
+const MAX_PERSIST = 50;        // cap rows persisted per postcode discovery (shared index)
 const MIN_STAGE_MS = 8_000;    // don't start a new network stage with less budget than this
-const DEFAULT_TTL_MS = (Number(process.env.PLANNING_CACHE_TTL_DAYS) || 30) * 86_400_000;
+const DEFAULT_TTL_MS = (Number(process.env.PLANNING_CACHE_TTL_DAYS) || 14) * 86_400_000;
 const BUDGET_MS = Number(process.env.FLOORPLAN_BUDGET_MS) || 90_000;
 
 // ---------------------------------------------------------------------------
@@ -79,6 +79,7 @@ export type FoundPlan = {
   application: string | null;
   council: string | null;
   matchScore: number;
+  exact: boolean;         // belongs to THIS exact address (not just the postcode)
 };
 /** A candidate planning application page (works for any council, even where we can't scrape PDFs). */
 export type FoundApplication = {
@@ -88,6 +89,7 @@ export type FoundApplication = {
   council: string | null;
   matchScore: number;
   extracted: boolean;     // did we manage to auto-pull plan PDFs from it?
+  exact: boolean;         // belongs to THIS exact address (vs. nearby in the postcode)
 };
 export type FloorplanResult = {
   plans: FoundPlan[];
@@ -168,11 +170,6 @@ function anchorsToDocs(html: string, baseUrl: string, hrefTest: (href: string) =
   return docs;
 }
 
-async function fetchHtml(url: string, timeoutMs = 15000): Promise<string> {
-  const res = await fetchWithRetry(url, { headers: HTML_HEADERS }, { timeoutMs, retries: 2 });
-  if (!res.ok) throw new Error(`portal ${res.status}`);
-  return res.text();
-}
 
 /** Parse an Idox simple-search results page into candidates. Tolerant of layout variations. */
 function parseIdoxResults(html: string, baseUrl: string): Candidate[] {
@@ -226,7 +223,11 @@ const idoxAdapter: PortalAdapter = {
   name: 'idox',
   matches: (url) => /\/online-applications\//i.test(url),
   async extract(docsUrl) {
-    const html = await fetchHtml(docsUrl);
+    // The documents tab needs the portal session — warm it on the application summary page first so
+    // the file (/files/…) links render, then scrape the documents tab.
+    const summaryUrl = docsUrl.replace(/activeTab=\w+/, 'activeTab=summary');
+    const html = await fetchPortalHtml(docsUrl, { warmUrl: summaryUrl });
+    if (!html) return [];
     return anchorsToDocs(html, docsUrl, (h) => h.includes('/files/') || h.toLowerCase().endsWith('.pdf'));
   },
   async search(portal, postcode) {
@@ -281,7 +282,8 @@ const northgateAdapter: PortalAdapter = {
   name: 'northgate',
   matches: (url) => /\/PlanningExplorer\/|\/Northgate\/|\/generic\//i.test(url),
   async extract(docsUrl) {
-    const html = await fetchHtml(docsUrl);
+    const html = await fetchPortalHtml(docsUrl);
+    if (!html) return [];
     return anchorsToDocs(html, docsUrl, (h) =>
       /\.pdf$|getDocument|ViewDocument|\/Document\//i.test(h),
     );
@@ -475,7 +477,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * plan PDFs, and persists the whole postcode's applications to the shared cache for reuse.
  */
 export async function findFloorplans(
-  input: { postcode: string; address: string; lat?: number | null; lon?: number | null },
+  input: { postcode: string; address: string; uprn?: string | null; lat?: number | null; lon?: number | null },
   deps: FindFloorplansDeps,
 ): Promise<FloorplanResult> {
   const { db } = deps;
@@ -489,10 +491,13 @@ export async function findFloorplans(
   const lon = input.lon ?? pc?.longitude ?? null;
   const council = pc?.local_authority ?? null;
   const lpaCode = pc?.local_authority_code ?? null;
+  // Freshness is tracked per ADDRESS (not postcode): each address does its own search + extraction.
+  const addressKey = addressCacheKey(input.uprn, input.address, pcn);
 
-  // 1. Cache hit — re-match the cached postcode applications against this exact address. No network.
+  // 1. Cache hit for THIS address — re-match the cached postcode applications against the exact
+  //    address (no network). A different address in the same postcode won't hit this; it searches itself.
   if (!deps.refresh) {
-    const cached = await readSearchCache(db, pcn);
+    const cached = await readSearchCache(db, addressKey);
     if (cached && cached.status === 'ok' && isFresh(cached.searchedAt, ttlMs)) {
       console.info(
         `[floorplans] ${pcn}: cache hit — serving cached results (originally discovered via ${SOURCE_LABEL[cached.source]}); pass refresh to re-discover`,
@@ -536,10 +541,12 @@ export async function findFloorplans(
   const plans: FoundPlan[] = [];
   const applications: FoundApplication[] = [];
   let portalFetches = 0;
-  for (const [i, { c, score }] of ordered.slice(0, MAX_SURFACE).entries()) {
+  // Scrape documents from the EXACT-address applications only — these become this property's floor
+  // plans (shown in the Floor plans / Others tabs).
+  for (const { c, score } of exact.slice(0, MAX_EXTRACT)) {
     let docs: PortalDoc[] = [];
     const adapter = getAdapter(c.docsUrl);
-    if (i < MAX_EXTRACT && adapter && budget.remaining() > MIN_STAGE_MS) {
+    if (adapter && budget.remaining() > MIN_STAGE_MS) {
       if (portalFetches > 0) await sleep(PORTAL_DELAY_MS);
       portalFetches++;
       try {
@@ -550,13 +557,15 @@ export async function findFloorplans(
     }
     docsByCandidate.set(c, docs);
     for (const p of docs) {
-      plans.push({ description: p.description, url: p.url, docsUrl: c.docsUrl, application: c.reference, council, matchScore: score });
+      plans.push({ description: p.description, url: p.url, docsUrl: c.docsUrl, application: c.reference, council, matchScore: score, exact: true });
     }
     applications.push({
       description: c.description, url: c.docsUrl || c.applicationUrl, application: c.reference,
-      council, matchScore: score, extracted: docs.length > 0,
+      council, matchScore: score, extracted: docs.length > 0, exact: true,
     });
   }
+  // Nearby same-postcode applications are NOT surfaced — only this exact address's plans + application
+  // are shown. (They're still persisted below to build the shared discovery index.)
 
   // 7. Persist the whole postcode's discovery to the shared cache (reused by other addresses).
   try {
@@ -568,6 +577,7 @@ export async function findFloorplans(
     const status: 'ok' | 'no_portal' | 'error' =
       candidates.length || clean ? 'ok' : portal ? 'error' : 'no_portal';
     await persistDiscovery(db, {
+      addressKey,
       postcodeNormalised: pcn,
       lpaCode,
       council,

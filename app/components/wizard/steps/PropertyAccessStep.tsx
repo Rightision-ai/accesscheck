@@ -37,7 +37,11 @@ const PropertyAccessStep: React.FC<WizardStepProps> = ({
           label="Property Type"
           description="The architectural style of the dwelling."
           icon={<Home size={18} />}
-          detectedValue={normalizePropertyType(aiSuggestions?.property_type)}
+          // EPC record is authoritative; the AI photo guess is only a fallback when there's no EPC.
+          detectedValue={
+            normalizePropertyType(formData.epcPropertyType) ||
+            normalizePropertyType(aiSuggestions?.property_type)
+          }
           userValue={formData.propertyType}
           options={["House", "Bungalow", "Flat", "Maisonette"]}
           onConfirm={(val) => handleUpdateField("propertyType", val)}
