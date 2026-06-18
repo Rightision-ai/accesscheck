@@ -11,16 +11,11 @@ export type PlanningSource = {
 type Meta = { kind?: string; description?: string; match_score?: number };
 const metaOf = (s: PlanningSource) => (s.raw_metadata_json ?? {}) as Meta;
 
-// Tab categories, in priority order. `test` runs against the document description.
+// Tab categories, in priority order. `test` runs against the document description. Floor plans are
+// the primary evidence; everything else falls into "Others".
 const CATEGORIES: { key: string; label: string; test: (desc: string) => boolean }[] = [
-  { key: "floor", label: "Floor plans", test: (d) => /floor ?plan/i.test(d) },
-  { key: "elevation", label: "Elevations & sections", test: (d) => /elevation|section/i.test(d) },
-  {
-    key: "site",
-    label: "Site & location",
-    test: (d) => /site plan|block plan|location plan|general arrangement/i.test(d),
-  },
-  { key: "other", label: "Other drawings", test: () => true },
+  { key: "floor", label: "Floor plans", test: (d) => /floor ?plan|floorplan/i.test(d) },
+  { key: "other", label: "Others", test: () => true },
 ];
 
 /**
