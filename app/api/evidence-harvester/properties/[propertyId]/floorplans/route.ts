@@ -24,7 +24,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ propert
 
   const { data: property } = await supabase
     .from('properties')
-    .select('id, address, postcode, latitude, longitude, address_latitude, address_longitude')
+    .select('id, address, postcode, uprn, latitude, longitude, address_latitude, address_longitude')
     .eq('id', propertyId)
     .single();
   if (!property) return NextResponse.json({ error: 'Property not found' }, { status: 404 });
@@ -38,6 +38,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ propert
       {
         address: property.address,
         postcode: property.postcode,
+        uprn: property.uprn,
         // Prefer the exact address-level coordinates (geocoded) over the postcode centroid.
         lat: property.address_latitude ?? property.latitude,
         lon: property.address_longitude ?? property.longitude,
@@ -60,7 +61,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ propert
       source_name: p.council,
       source_url: p.url,
       external_reference: p.application,
-      raw_metadata_json: { kind: 'plan', description: p.description, match_score: p.matchScore, council: p.council, docs_url: p.docsUrl } as never,
+      raw_metadata_json: { kind: 'plan', description: p.description, match_score: p.matchScore, council: p.council, docs_url: p.docsUrl, exact: p.exact } as never,
       confidence: p.matchScore > 0 ? Math.min(0.9, p.matchScore / 100) : null,
     })),
     // Candidate planning-application pages (works for any council — direct link to view docs manually).
@@ -71,7 +72,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ propert
       source_name: a.council,
       source_url: a.url,
       external_reference: a.application,
-      raw_metadata_json: { kind: 'application', description: a.description, match_score: a.matchScore, council: a.council, extracted: a.extracted } as never,
+      raw_metadata_json: { kind: 'application', description: a.description, match_score: a.matchScore, council: a.council, extracted: a.extracted, exact: a.exact } as never,
       confidence: a.matchScore > 0 ? Math.min(0.9, a.matchScore / 100) : null,
     })),
   ];

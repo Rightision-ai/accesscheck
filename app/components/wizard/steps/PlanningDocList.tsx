@@ -8,7 +8,7 @@ export type PlanningSource = {
   raw_metadata_json?: Record<string, unknown> | null;
 };
 
-type Meta = { kind?: string; description?: string; match_score?: number };
+type Meta = { kind?: string; description?: string; match_score?: number; exact?: boolean };
 const metaOf = (s: PlanningSource) => (s.raw_metadata_json ?? {}) as Meta;
 
 // Tab categories, in priority order. `test` runs against the document description. Floor plans are
@@ -98,6 +98,7 @@ export default function PlanningDocList({
                   {typeof meta.match_score === "number" &&
                     meta.match_score > 0 &&
                     ` · match ${meta.match_score}`}
+                  {current.isApp && (meta.exact ? " · this address" : " · nearby")}
                 </div>
               </div>
 

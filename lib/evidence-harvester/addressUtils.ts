@@ -66,10 +66,14 @@ export function extractDoorNumber(address: string, outcode?: string | null): str
 }
 
 /**
- * True only when the candidate application plausibly belongs to the EXACT target address:
- * its door number must match AND the street must overlap enough to exclude same-number addresses on
- * a different street. When the target has no parseable door number we cannot be strict, so we treat
- * a strong street/name similarity (>= nameThreshold) as a match instead.
+ * True only when the candidate application plausibly belongs to the EXACT target address: a building
+ * number must match AND the street must overlap enough to exclude same-number addresses on a different
+ * street.
+ *
+ * We compare the FULL set of numbers in each address (not just the first), so "Flat 2, 14 High Street"
+ * matches a council application addressed "14 High Street" on the building number 14 — and a block
+ * application "12-16 High Street" (tokens 12,16) still matches its own units. When the target has no
+ * parseable number (e.g. "Rose Cottage") we fall back to a strong street/name similarity.
  */
 export function isExactAddressMatch(
   target: string,
@@ -78,9 +82,10 @@ export function isExactAddressMatch(
   opts: { streetThreshold?: number; nameThreshold?: number } = {},
 ): boolean {
   const { streetThreshold = 45, nameThreshold = 80 } = opts;
-  const door = extractDoorNumber(target, outcode);
+  const targetNums = new Set(numberTokens(target, outcode));
   const score = addressScore(target, candidate, outcode);
-  if (!door) return score >= nameThreshold; // name-only address — lean on strong similarity
-  const candDoors = new Set(numberTokens(candidate, outcode));
-  return candDoors.has(door) && score >= streetThreshold;
+  if (targetNums.size === 0) return score >= nameThreshold; // name-only address — lean on similarity
+  const candNums = new Set(numberTokens(candidate, outcode));
+  const numberMatch = [...targetNums].some((n) => candNums.has(n));
+  return numberMatch && score >= streetThreshold;
 }

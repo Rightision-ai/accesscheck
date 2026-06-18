@@ -1,17 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { fetchPortalFile } from '@/lib/evidence-harvester/portalSession';
+import { cacheDocBytes } from '@/lib/evidence-harvester/planningCacheService';
 
 const PLANNING_DOCS_BUCKET = 'planning-docs';
 
 // Streams a planning-portal document. Idox (and similar) serve /files/ URLs only within an active
-// portal session, so a cold direct link 404s. We re-establish the session by first fetching the
-// application's documents page (to obtain its cookie), then fetch the file with that cookie.
+// portal session, so a cold direct link 404s. fetchPortalFile re-establishes the session (cookie jar
+// across redirect hops), then we cache the bytes so repeat opens are served from our own storage.
 export const runtime = 'nodejs';
 export const maxDuration = 60;
-
-const UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 
 // Only proxy council planning-portal URLs (these are the only URLs we ever store) — guards against SSRF.
 const ALLOWED = /\/online-applications\/|\/PlanningExplorer\/|\/Northgate\/|\/generic\//i;
@@ -26,7 +25,30 @@ function isPortalUrl(u: string | null): u is string {
   }
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ sourceId: string }> }) {
+/**
+ * When we can't serve the file itself, hand back the council application page. For a top-level
+ * navigation (the "Open"/"Download" links) a redirect is ideal; but for a programmatic fetch()
+ * (the "Use as floor plan" action) a cross-origin redirect is blocked by CORS — so return the URL
+ * as same-origin JSON instead and let the client open it.
+ */
+function fallback(req: Request, applicationUrl: string | null): NextResponse {
+  const isFetch = req.headers.get('sec-fetch-dest') === 'empty';
+  if (isPortalUrl(applicationUrl)) {
+    if (isFetch) {
+      return NextResponse.json(
+        { error: 'Document is only available on the council portal.', applicationUrl },
+        { status: 409 },
+      );
+    }
+    return NextResponse.redirect(applicationUrl);
+  }
+  return NextResponse.json(
+    { error: 'Re-run "Find floor plans" to refresh this document link.' },
+    { status: 409 },
+  );
+}
+
+export async function GET(req: Request, { params }: { params: Promise<{ sourceId: string }> }) {
   const { sourceId } = await params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -50,51 +72,27 @@ export async function GET(_req: Request, { params }: { params: Promise<{ sourceI
   }
 
   if (!isPortalUrl(fileUrl)) {
-    // Old rows (saved before the session fix) may lack a usable file URL — send the user to the
-    // application page if we have one, otherwise report it.
-    return isPortalUrl(docsUrl)
-      ? NextResponse.redirect(docsUrl)
-      : NextResponse.json({ error: 'Re-run "Find floorplans" to refresh this document link.' }, { status: 409 });
+    // Old rows (saved before the session fix) may lack a usable file URL — hand back the
+    // application page (redirect for navigation, JSON for fetch).
+    return fallback(req, docsUrl);
   }
 
-  try {
-    // 1) Establish the portal session by visiting the documents page; capture its cookies.
-    let cookie = '';
-    if (isPortalUrl(docsUrl)) {
-      const session = await fetch(docsUrl, { headers: { 'User-Agent': UA }, redirect: 'follow' });
-      const setCookies = session.headers.getSetCookie?.() ?? [];
-      cookie = setCookies.map((c) => c.split(';')[0]).join('; ');
-    }
+  // Fetch the file through an established portal session (cookie jar across redirects).
+  const file = await fetchPortalFile(isPortalUrl(docsUrl) ? docsUrl : null, fileUrl, { timeoutMs: 25000 });
+  if (!file) return fallback(req, docsUrl);
 
-    // 2) Fetch the file with that session cookie.
-    const headers: Record<string, string> = { 'User-Agent': UA, Accept: 'application/pdf,image/*,*/*' };
-    if (cookie) headers.Cookie = cookie;
-    if (docsUrl) headers.Referer = docsUrl;
-    const res = await fetch(fileUrl, { headers, redirect: 'follow' });
-    const contentType = res.headers.get('content-type') || '';
+  // Cache the bytes so the next open is served from our bucket and never touches the council again.
+  after(() => cacheDocBytes(createServiceClient(), fileUrl, file.buffer, file.contentType).catch(() => null));
 
-    // If the portal still returned an error/HTML page, send the user to the application page instead.
-    if (!res.ok || /text\/html/i.test(contentType)) {
-      if (isPortalUrl(docsUrl)) return NextResponse.redirect(docsUrl);
-      return NextResponse.json({ error: 'Document unavailable on the portal' }, { status: 404 });
-    }
-
-    // Buffer the file (planning docs are small) — more reliable than piping an external stream.
-    const buf = Buffer.from(await res.arrayBuffer());
-    const isPdf = /pdf/i.test(contentType) || buf.subarray(0, 4).toString() === '%PDF';
-    const ext = isPdf ? 'pdf' : contentType.includes('png') ? 'png' : 'jpg';
-    return new NextResponse(buf, {
-      headers: {
-        'Content-Type': isPdf ? 'application/pdf' : contentType || 'application/octet-stream',
-        'Content-Disposition': `inline; filename="floorplan.${ext}"`,
-        'Content-Length': String(buf.byteLength),
-        'Cache-Control': 'private, max-age=300',
-      },
-    });
-  } catch {
-    if (isPortalUrl(docsUrl)) return NextResponse.redirect(docsUrl);
-    return NextResponse.json({ error: 'Failed to fetch document' }, { status: 502 });
-  }
+  const ext = file.contentType.includes('pdf') ? 'pdf' : file.contentType.includes('png') ? 'png' : 'jpg';
+  return new NextResponse(new Uint8Array(file.buffer), {
+    headers: {
+      'Content-Type': file.contentType,
+      'Content-Disposition': `inline; filename="floorplan.${ext}"`,
+      'Content-Length': String(file.buffer.byteLength),
+      'Cache-Control': 'private, max-age=300',
+    },
+  });
 }
 
 /** Serve the PDF from the planning-docs bucket if we've cached it; otherwise null (fall through to live fetch). */

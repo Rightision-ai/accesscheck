@@ -79,8 +79,11 @@ const ClientInfoStep: React.FC<WizardStepProps> = ({
     const propertyType = normalizePropertyType(
       epc?.property_type ?? ev?.property?.property_type,
     );
-    if (propertyType && !formData.propertyType)
+    // EPC is authoritative for property type — record it so the AI photo guess never overrides it.
+    if (propertyType) {
+      handleUpdateField("epcPropertyType", propertyType);
       handleUpdateField("propertyType", propertyType);
+    }
     const entranceLevel = normalizeEntranceLevelFromDwelling(
       epc?.details?.dwelling_type,
     );
