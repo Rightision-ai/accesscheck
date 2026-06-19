@@ -38,9 +38,11 @@ const InternalCirculationStep: React.FC<WizardStepProps> = ({
               ? aiSuggestions.has_stairs
                 ? "Yes"
                 : "No"
-              : floorPlanAnalysis?.internal_stairs?.detected
-                ? "Yes"
-                : "No"
+              : floorPlanAnalysis?.internal_stairs?.detected !== undefined
+                ? floorPlanAnalysis.internal_stairs.detected
+                  ? "Yes"
+                  : "No"
+                : null
           }
           confidence={floorPlanAnalysis?.internal_stairs?.confidence}
           userValue={formData.internalStairs}

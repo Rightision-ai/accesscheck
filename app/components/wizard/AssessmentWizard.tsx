@@ -346,6 +346,30 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
               floorPlanAnalysis?.lift?.detected,
             aiSuggestions?.communal_lift_type,
           ) || null,
+        // Internal circulation (step 6) — same rule: the AI-detected value is the default selection
+        // until the user changes it.
+        internalStairs:
+          aiSuggestions?.has_stairs !== undefined
+            ? aiSuggestions.has_stairs
+              ? "Yes"
+              : "No"
+            : floorPlanAnalysis?.internal_stairs?.detected !== undefined
+              ? floorPlanAnalysis.internal_stairs.detected
+                ? "Yes"
+                : "No"
+              : null,
+        internalStairsType: normalizeStairGeometry(aiSuggestions?.stair_type) || null,
+        internalHandrails: normalizeHandrailSide(aiSuggestions?.handrails) || null,
+        internalLift:
+          aiSuggestions?.internal_lift_option !== undefined ||
+          aiSuggestions?.stair_lift_present !== undefined ||
+          aiSuggestions?.through_floor_lift_present !== undefined
+            ? normalizeInternalLiftOption({
+                stairLift: aiSuggestions?.stair_lift_present,
+                throughFloorLift: aiSuggestions?.through_floor_lift_present,
+                internalLiftRaw: aiSuggestions?.internal_lift_option,
+              })
+            : null,
       };
       let changed = false;
       const next = { ...prev };
@@ -1973,7 +1997,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
               <InternalCirculationStep
                 key="s6"
                 formData={formData}
-                handleUpdateField={handleUpdateField}
+                handleUpdateField={handleUserEdit}
                 floorPlanAnalysis={floorPlanAnalysis}
                 aiSuggestions={aiSuggestions}
               />
