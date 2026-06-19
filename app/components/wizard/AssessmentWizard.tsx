@@ -417,7 +417,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   const processFloorPlanFile = async (
     rawFile: File,
     opts?: { openUrl?: string; source?: "upload" | "ai-search" },
-  ) => {
+  ): Promise<boolean> => {
     setIsProcessing(true);
     try {
       const isPdf = (rawFile.type || "").includes("pdf");
@@ -580,9 +580,13 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         handleUpdateField("floorPlanApproved", false);
         toast.warning("Detection service unavailable — fill fields manually.");
       }
+      // The file was loaded as the floor plan (analysis may have degraded, but the
+      // document itself is in place) — a successful selection.
+      return true;
     } catch (err) {
       console.error("Floor plan processing error:", err);
       toast.error("Could not process this file. Please try another.");
+      return false;
     } finally {
       setIsProcessing(false);
       setIsAnalyzing(false);
@@ -592,42 +596,33 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   /**
    * Select a council planning document as the floor plan: fetch it through the
    * authenticated proxy, wrap it in a File, and run the standard detection pipeline.
+   * Resolves `true` only when the document was loaded and processed — the caller uses
+   * this to decide whether to mark the document as selected. On any problem we show a
+   * message and never redirect off-site or mark the document selected.
    */
-  const handleSelectPlanningDoc = async (sourceId: string) => {
+  const handleSelectPlanningDoc = async (sourceId: string): Promise<boolean> => {
     const fileUrl = `/api/evidence-harvester/floorplan-file/${sourceId}`;
     try {
       // `redirect: "manual"` so a cross-origin fallback redirect can never throw a CORS error.
       const res = await fetch(fileUrl, { redirect: "manual" });
       if (!res.ok) {
-        // The council file isn't directly fetchable (portal session / cross-origin). The API returns
-        // the application page URL as JSON — open it so the user can grab the plan manually.
-        let applicationUrl: string | null = null;
-        try {
-          applicationUrl = ((await res.json()) as { applicationUrl?: string })?.applicationUrl ?? null;
-        } catch {
-          /* opaque redirect or non-JSON body */
-        }
-        if (applicationUrl) {
-          window.open(applicationUrl, "_blank", "noopener");
-          toast.warning(
-            "Opened the planning application page — download the plan there and upload it here.",
-          );
-        } else {
-          toast.warning(
-            "Couldn't load that document automatically — open it in a new tab and upload it instead.",
-          );
-        }
-        return;
+        // The council file isn't directly fetchable (portal session expired / cross-origin).
+        // Don't navigate the user away — just tell them and leave the document unselected.
+        toast.warning(
+          "Couldn't load that document automatically. Open it from the list and upload it here instead.",
+        );
+        return false;
       }
       const blob = await res.blob();
       const type = blob.type || "application/pdf";
       const ext = type.includes("pdf") ? "pdf" : "jpg";
       const file = new File([blob], `planning-floorplan.${ext}`, { type });
-      await processFloorPlanFile(file, { openUrl: fileUrl, source: "ai-search" });
+      return await processFloorPlanFile(file, { openUrl: fileUrl, source: "ai-search" });
     } catch {
       toast.warning(
-        "Couldn't load that document automatically — open it in a new tab and upload it instead.",
+        "Couldn't load that document automatically. Open it from the list and upload it here instead.",
       );
+      return false;
     }
   };
 

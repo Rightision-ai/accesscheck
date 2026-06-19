@@ -21,6 +21,6 @@ export interface WizardStepProps {
   categoryResults?: Record<string, 'valid' | 'invalid'>;
   onPhotosChanged?: (updatedCategoryPhotos: Record<string, string[]>) => void;
   onClearFloorPlan?: () => void;
-  onSelectPlanningDoc?: (sourceId: string, description?: string) => Promise<void>;
+  onSelectPlanningDoc?: (sourceId: string, description?: string) => Promise<boolean>;
   streetViewSeededUrl?: string | null;
 }

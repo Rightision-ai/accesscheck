@@ -137,8 +137,10 @@ const FloorPlanStep: React.FC<WizardStepProps> = ({
     if (!onSelectPlanningDoc) return;
     setSelectingId(sourceId);
     try {
-      await onSelectPlanningDoc(sourceId);
-      setSelectedSourceId(sourceId);
+      // Only mark the document as selected when it was actually loaded. On any
+      // problem onSelectPlanningDoc resolves false (and has shown its own message).
+      const ok = await onSelectPlanningDoc(sourceId);
+      if (ok) setSelectedSourceId(sourceId);
     } finally {
       setSelectingId(null);
     }
