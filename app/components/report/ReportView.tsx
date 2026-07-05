@@ -57,6 +57,80 @@ const AHR_ACCENT = "#E6F8EE";
 const AHR_BORDER = "#e2e8f0";
 const AHR_MODIFIED = "#059669"; // Override Green
 
+// --- PDF pagination (html2canvas → jsPDF continuous flow) ---
+const PDF_MARGIN_MM = 10; // top & bottom page margin
+const PDF_PAGE_CONTENT_MM = 297 - 2 * PDF_MARGIN_MM;
+const PDF_EPS_MM = 1; // remaining space below this ⇒ page is full
+const PDF_CHUNK_GAP_MM = 8; // gap between .ahr-page chunks sharing a page
+const PDF_MIN_CHUNK_START_MM = 40; // don't start a chunk in less space than this
+const PDF_MIN_TAIL_MM = 13; // min useful partial slice when continuing mid-page
+const PDF_MIN_PROGRESS_PX = 32; // canvas px; a resolved cut below this is "stuck"
+const PDF_KEEP_WITH_NEXT_PX = 120; // extend heading zones downward (canvas px @ scale 2)
+const PDF_MAX_ZONE_FRACTION = 0.85; // zones taller than this × page capacity are dropped
+
+/** Wait for every <img> under root to be decoded (or errored/timed out) so layout is
+ *  settled before measuring break zones — an undecoded image without an intrinsic
+ *  aspect ratio collapses to ~0 height and shifts everything below it. */
+const waitForImages = (root: HTMLElement, timeoutMs = 3000): Promise<void> => {
+  const images = Array.from(root.querySelectorAll("img"));
+  return Promise.all(
+    images.map((img) => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        const done = () => resolve();
+        img.addEventListener("load", done, { once: true });
+        img.addEventListener("error", done, { once: true });
+        setTimeout(done, timeoutMs);
+      });
+    }),
+  ).then(() => undefined);
+};
+
+/** Vertical spans (in canvas px) a page cut must not bisect: text lines, table rows,
+ *  images and anything marked .pdf-avoid-break. Headings and .pdf-keep-with-next
+ *  elements extend downward so a title is never orphaned at a page bottom. */
+const collectBreakZones = (
+  clone: HTMLElement,
+  scale: number,
+): { top: number; bottom: number }[] => {
+  const cloneTop = clone.getBoundingClientRect().top;
+  const selector =
+    "p, li, tr, img, svg, h1, h2, h3, h4, h5, h6, .pdf-avoid-break, .pdf-keep-with-next";
+  return Array.from(clone.querySelectorAll(selector))
+    .map((el) => {
+      const r = (el as HTMLElement).getBoundingClientRect();
+      if (r.height <= 0) return null; // display:none → zero rect
+      const keepWithNext =
+        /^H[1-6]$/.test(el.tagName) || el.classList.contains("pdf-keep-with-next");
+      return {
+        top: Math.max(0, (r.top - cloneTop) * scale),
+        bottom: (r.bottom - cloneTop) * scale + (keepWithNext ? PDF_KEEP_WITH_NEXT_PX : 0),
+      };
+    })
+    .filter((z): z is { top: number; bottom: number } => !!z && z.bottom > z.top);
+};
+
+/** Move a proposed cut upward until it sits inside no zone. Loop-until-stable so a cut
+ *  relocated to one zone's top keeps moving if that lands inside another (nested/
+ *  overlapping zones); bounded to guarantee termination. */
+const resolveCut = (
+  proposed: number,
+  zones: { top: number; bottom: number }[],
+): number => {
+  let cut = proposed;
+  for (let guard = 0; guard < 60; guard++) {
+    let changed = false;
+    for (const z of zones) {
+      if (cut > z.top && cut < z.bottom) {
+        cut = Math.floor(z.top);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  return cut;
+};
+
 // --- Premium Helper Components ---
 
 const AHR_Header = ({
@@ -110,7 +184,7 @@ const SectionBlock = ({
   sub?: string;
 }) => (
   <div className="mb-6 break-inside-avoid">
-    <div className="border-l-4 border-primary-dark pl-4 mb-3">
+    <div className="pdf-keep-with-next border-l-4 border-primary-dark pl-4 mb-3">
       <div className="flex items-baseline gap-2">
         {number && (
           <span className="text-lg font-black text-primary">{number}</span>
@@ -146,7 +220,7 @@ const CompactField = ({
   return (
     <div
       onClick={isLocked ? undefined : onClick}
-      className={`flex justify-between py-1 items-center border-b ${modified ? "border-emerald-600 text-emerald-600" : "border-slate-200"} ${onClick && !isLocked ? "cursor-pointer" : "cursor-default"}`}
+      className={`pdf-avoid-break flex justify-between py-1 items-center border-b ${modified ? "border-emerald-600 text-emerald-600" : "border-slate-200"} ${onClick && !isLocked ? "cursor-pointer" : "cursor-default"}`}
     >
       <span
         className={`text-[11px] font-medium uppercase ${modified ? "text-emerald-600" : "text-slate-500"}`}
@@ -287,6 +361,7 @@ const ComplianceSummary = ({
   summary: string;
 }) => (
   <div
+    className="pdf-avoid-break"
     style={{
       background: "#f8fafc",
       padding: "20px",
@@ -1487,10 +1562,26 @@ const ReportView: React.FC<ReportViewProps> = ({
     const pdfHeight = 297;
     // A4 at 96 DPI is approx 794 × 1123 px.
     const pixelWidth = 794;
-    const pixelHeight = 1123;
     const scale = 2;
 
-    let isFirstPdfPage = true;
+    // The signature uses a webfont (Dancing Script); rasterising before it loads
+    // would swap fonts between measurement and capture.
+    try {
+      await document.fonts.ready;
+    } catch {
+      /* non-blocking */
+    }
+
+    // Content flows continuously across PDF pages: `usedMm` tracks how much of the
+    // current page's printable height is consumed, so chunks share pages instead of
+    // each forcing a fresh one.
+    let usedMm = 0;
+    let pageHasContent = false;
+    const newPage = () => {
+      pdf.addPage();
+      usedMm = 0;
+      pageHasContent = false;
+    };
 
     for (let i = 0; i < pages.length; i++) {
       const page = pages[i] as HTMLElement;
@@ -1505,35 +1596,34 @@ const ReportView: React.FC<ReportViewProps> = ({
       const clone = page.cloneNode(true) as HTMLElement;
       clone.style.width = "100%";
       clone.style.margin = "0";
-      clone.style.padding = "40px";
+      // Horizontal padding only: vertical spacing comes from the PDF cursor (chunk
+      // gap + page margins), so on-screen page padding doesn't stack into dead space.
+      clone.style.padding = "0 40px";
+      clone.style.minHeight = "0";
       clone.style.boxShadow = "none";
       clone.style.borderRadius = "0";
       clone.style.background = "#fff";
 
       // Strip interactive/pdf-only-hidden elements from the clone before rasterising.
       clone.querySelectorAll(".pdf-hide").forEach((el) => el.remove());
+      // html2canvas paints <details> children even when collapsed, so expand them in
+      // the clone — otherwise the paint spills over whatever follows the element.
+      clone.querySelectorAll("details").forEach((d) => d.setAttribute("open", ""));
 
       tempContainer.appendChild(clone);
 
       try {
-        // Measure natural height; allow the page to be taller than A4 and split later.
-        const naturalHeight = Math.max(clone.scrollHeight, pixelHeight);
+        // Undecoded images collapse to ~0 height and would corrupt every measured
+        // zone below them — settle layout first.
+        await waitForImages(clone);
 
-        // Record break-unsafe zones (elements marked .pdf-avoid-break) BEFORE rasterising.
-        // Positions are converted to canvas-pixel space (× scale).
-        const cloneRect = clone.getBoundingClientRect();
-        const breakZones: { top: number; bottom: number }[] = Array.from(
-          clone.querySelectorAll(".pdf-avoid-break"),
-        )
-          .map((el) => {
-            const r = (el as HTMLElement).getBoundingClientRect();
-            return {
-              top: Math.max(0, (r.top - cloneRect.top) * scale),
-              bottom: (r.bottom - cloneRect.top) * scale,
-            };
-          })
-          .filter((z) => z.bottom > z.top)
-          .sort((a, b) => a.top - b.top);
+        const naturalHeight = Math.ceil(
+          Math.max(clone.scrollHeight, clone.getBoundingClientRect().height),
+        );
+        if (naturalHeight < 8) continue; // empty chunk — leave the cursor untouched
+
+        // Record break-unsafe zones BEFORE rasterising (canvas-pixel space, × scale).
+        const zones = collectBreakZones(clone, scale);
 
         const canvas = await html2canvas(clone, {
           scale,
@@ -1546,38 +1636,63 @@ const ReportView: React.FC<ReportViewProps> = ({
           windowWidth: pixelWidth,
           windowHeight: naturalHeight,
         });
+        if (canvas.width < 2 || canvas.height < 2) continue;
 
-        const tileHeightPx = pixelHeight * scale;
+        const pxPerMm = canvas.width / pdfWidth;
+        const fullCapacityPx = Math.floor(PDF_PAGE_CONTENT_MM * pxPerMm);
+        // Zones taller than a page can't be kept whole; drop them individually and
+        // let the finer-grained zones inside them take over.
+        const cutZones = zones.filter(
+          (z) => z.bottom - z.top <= PDF_MAX_ZONE_FRACTION * fullCapacityPx,
+        );
 
-        // Move a proposed slice boundary up to the top of any .pdf-avoid-break zone
-        // it would otherwise bisect.
-        const safeCutPoint = (proposed: number, minAdvance: number): number => {
-          let cut = proposed;
-          for (const z of breakZones) {
-            if (cut > z.top && cut < z.bottom) cut = Math.floor(z.top);
-          }
-          return Math.max(minAdvance, cut);
-        };
+        // Placement decisions happen only after a successful raster so a failed or
+        // empty chunk can't leave a stray gap or blank page behind.
+        if (page.classList.contains("pdf-break-before") && pageHasContent) {
+          newPage();
+        } else if (pageHasContent) {
+          usedMm += PDF_CHUNK_GAP_MM;
+          if (PDF_PAGE_CONTENT_MM - usedMm < PDF_MIN_CHUNK_START_MM) newPage();
+        }
 
         let cursorY = 0;
-        while (cursorY < canvas.height) {
-          const proposedEnd = cursorY + tileHeightPx;
-          const end =
-            proposedEnd >= canvas.height
-              ? canvas.height
-              : safeCutPoint(
-                  proposedEnd,
-                  cursorY + Math.round(tileHeightPx * 0.35),
-                );
-          const sliceHeight = Math.min(end, canvas.height) - cursorY;
-          if (sliceHeight <= 0) break;
+        while (cursorY < canvas.height - 1) {
+          const remainingPx = Math.floor(
+            (PDF_PAGE_CONTENT_MM - usedMm) * pxPerMm,
+          );
+          if (remainingPx < PDF_EPS_MM * pxPerMm) {
+            newPage();
+            continue;
+          }
 
+          const proposedEnd = cursorY + remainingPx;
+          let end: number;
+          if (proposedEnd >= canvas.height) {
+            end = canvas.height; // final slice — nothing left to cut around
+          } else {
+            end = resolveCut(proposedEnd, cutZones);
+            if (end <= cursorY + PDF_MIN_PROGRESS_PX) {
+              if (usedMm > 0.01) {
+                newPage(); // stuck mid-page → retry with a full page
+                continue;
+              }
+              end = proposedEnd; // stuck on a fresh page → hard cut, guarantees progress
+            } else if (
+              usedMm > 0.01 &&
+              end - cursorY < PDF_MIN_TAIL_MM * pxPerMm
+            ) {
+              newPage(); // sliver not worth squeezing into the page tail
+              continue;
+            }
+          }
+
+          const sliceHeight = end - cursorY;
           const tileCanvas = document.createElement("canvas");
           tileCanvas.width = canvas.width;
           tileCanvas.height = sliceHeight;
           const ctx = tileCanvas.getContext("2d");
           if (!ctx) {
-            cursorY += sliceHeight;
+            cursorY = end;
             continue;
           }
           ctx.fillStyle = "#ffffff";
@@ -1594,13 +1709,19 @@ const ReportView: React.FC<ReportViewProps> = ({
             sliceHeight,
           );
 
-          const renderedHeight = (sliceHeight / tileHeightPx) * pdfHeight;
           const imgData = tileCanvas.toDataURL("image/jpeg", 0.95);
-          if (!isFirstPdfPage) pdf.addPage();
-          pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, renderedHeight);
-          isFirstPdfPage = false;
-
-          cursorY += sliceHeight;
+          const yMm = PDF_MARGIN_MM + usedMm;
+          const hMm = Math.min(
+            sliceHeight / pxPerMm,
+            pdfHeight - PDF_MARGIN_MM - yMm,
+          );
+          pdf.addImage(imgData, "JPEG", 0, yMm, pdfWidth, hMm);
+          usedMm += hMm;
+          pageHasContent = true;
+          cursorY = end;
+          // A non-final slice means the page is spent (either filled, or cut short
+          // to keep a zone whole) — continue the chunk on a fresh page.
+          if (cursorY < canvas.height - 1) newPage();
         }
       } catch (e) {
         console.error("Page capture failed", e);
@@ -9985,6 +10106,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                 </div>
               </div>
               <div
+                className="pdf-avoid-break"
                 style={{
                   marginTop: "40px",
                   display: "flex",
@@ -10077,6 +10199,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       return (
                         <div
                           key={globalIdx}
+                          className="pdf-avoid-break"
                           style={{
                             borderRadius: "16px",
                             overflow: "hidden",
@@ -10134,7 +10257,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                       (fp && !isPdf ? fp : null);
                     if (!imgSrc) return null;
                     return (
-                    <div style={{ marginTop: "40px" }}>
+                    <div className="pdf-avoid-break" style={{ marginTop: "40px" }}>
                       <h4
                         style={{
                           fontSize: "13px",
@@ -10188,7 +10311,7 @@ const ReportView: React.FC<ReportViewProps> = ({
           {/* --- FINAL PAGE: ACCESSIBLE HOUSING RULES APPENDIX --- */}
           {lahrSurveySource ? (
             <div
-              className="ahr-page"
+              className="ahr-page pdf-break-before"
               style={{
                 background: "#fff",
                 padding: "50px 70px",
@@ -10208,7 +10331,7 @@ const ReportView: React.FC<ReportViewProps> = ({
           lahrEvaluation.band !== "A" &&
           Number.isFinite(Number(caseData.id)) ? (
             <div
-              className="ahr-page"
+              className="ahr-page pdf-break-before"
               style={{
                 background: "#fff",
                 padding: "50px 70px",
@@ -10272,7 +10395,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                         margin: 0 !important; 
                         padding: 20mm !important; 
                         width: 210mm !important; 
-                        height: 297mm !important;
+                        height: auto !important;
+                        min-height: 0 !important;
                         border-radius: 0 !important;
                         page-break-after: always;
                     }

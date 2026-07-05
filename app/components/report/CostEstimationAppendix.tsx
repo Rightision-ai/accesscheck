@@ -211,7 +211,7 @@ export default function CostEstimationAppendix({
       ) : (
         <>
           <SummaryRow estimation={estimation} currentBand={currentBand} />
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="flex flex-col gap-4">
             {estimation.tiers.map((tier) => (
               <TierCard
                 key={tier.budgetGbp}
@@ -275,15 +275,15 @@ function SummaryRow({
   const reachesA = estimation.reachesBandAAt30k;
 
   return (
-    <section className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
+    <section className="pdf-avoid-break grid grid-cols-[1fr_auto_1fr] items-center gap-4">
       <div className="flex flex-col items-start gap-1">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
           Current band
         </span>
         <LahrBandBadge band={currentBand} size="sm" showLabel={false} />
       </div>
-      <div className="hidden h-px bg-gradient-to-r from-slate-200 via-green-300 to-slate-200 md:block" />
-      <div className="flex flex-col items-start gap-1 md:items-end">
+      <div className="h-px bg-gradient-to-r from-slate-200 via-green-300 to-slate-200" />
+      <div className="flex flex-col items-end gap-1">
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
           Potential band at £30K
         </span>
@@ -323,44 +323,59 @@ function TierCard({
         isCap ? "border-green-300 bg-green-50/40" : "border-slate-200 bg-white"
       }`}
     >
-      <header className="flex items-baseline justify-between border-b border-slate-200 pb-2">
-        <h3 className="text-sm font-extrabold text-slate-900">
-          £{tier.budgetGbp.toLocaleString()}
-        </h3>
-        {isCap && (
-          <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
-            DFG cap
-          </span>
+      {/* Full-width meta row: budget on the left; stats and projected band inline on the
+          right. Stats only render when a plan exists — empty tiers show just the
+          "No adoption" reason, avoiding the implication of a £0 plan that uplifts the band. */}
+      <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-slate-200 pb-2">
+        <div className="flex items-center gap-2">
+          <h3 className="m-0 text-sm font-extrabold text-slate-900">
+            £{tier.budgetGbp.toLocaleString()}
+          </h3>
+          {isCap && (
+            <span className="rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+              DFG cap
+            </span>
+          )}
+        </div>
+        {!isEmpty && (
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Spend
+              </span>
+              <span className="text-[12px] font-extrabold text-slate-800">
+                £{tier.totalCostGbp.toLocaleString()}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Difficulty
+              </span>
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${diffColor}`}
+              >
+                {tier.overallDifficulty}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Projected band
+              </span>
+              <span
+                className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
+                style={{ backgroundColor: LAHR_BAND_BY_ID[tier.potentialBand].color }}
+              >
+                {tier.potentialBand}
+              </span>
+              {uplifted && (
+                <span className="text-[10px] text-emerald-700">
+                  ↑ from {currentBand}
+                </span>
+              )}
+            </div>
+          </div>
         )}
       </header>
-
-      {/* Stats and projected band only render when a plan exists. Empty tiers show just the
-          "No adoption" reason — hiding stats avoids implying a £0 plan that uplifts the band. */}
-      {!isEmpty && (
-        <>
-          <div className="grid grid-cols-2 gap-2 text-center">
-            <Stat label="Spend" value={`£${tier.totalCostGbp.toLocaleString()}`} />
-            <Stat label="Difficulty" value={tier.overallDifficulty} valueClass={diffColor} />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Projected band
-            </span>
-            <span
-              className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
-              style={{ backgroundColor: LAHR_BAND_BY_ID[tier.potentialBand].color }}
-            >
-              {tier.potentialBand}
-            </span>
-            {uplifted && (
-              <span className="text-[10px] text-emerald-700">
-                ↑ from {currentBand}
-              </span>
-            )}
-          </div>
-        </>
-      )}
 
       {isEmpty ? (
         <div className="rounded border border-amber-200 bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-900">
@@ -399,25 +414,6 @@ function TierCard({
   );
 }
 
-function Stat({
-  label,
-  value,
-  valueClass,
-}: {
-  label: string;
-  value: string;
-  valueClass?: string;
-}) {
-  return (
-    <div className="rounded border border-slate-100 bg-white py-1.5">
-      <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{label}</div>
-      <div className={`text-[12px] font-extrabold text-slate-800 ${valueClass ?? ""}`}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 function DroppedList({
   dropped,
 }: {
@@ -447,7 +443,7 @@ function DroppedList({
 function NarrativeBlock({ estimation }: { estimation: CostEstimation }) {
   const confidencePct = Math.round(estimation.confidence * 100);
   return (
-    <section className="space-y-3 rounded border border-slate-100 bg-slate-50 p-3 text-[11px] text-slate-700">
+    <section className="pdf-avoid-break space-y-3 rounded border border-slate-100 bg-slate-50 p-3 text-[11px] text-slate-700">
       <p>{estimation.overallNarrative}</p>
       {estimation.rationaleIfNotBandA && (
         <p className="text-slate-600">
