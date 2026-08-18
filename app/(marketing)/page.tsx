@@ -4,6 +4,7 @@ import StatsStrip from "@/app/components/marketing/StatsStrip";
 import AudienceCards from "@/app/components/marketing/AudienceCards";
 import FinalCTA from "@/app/components/marketing/FinalCTA";
 import DemoPreview from "@/app/components/marketing/DemoPreview";
+import ReportPreview from "@/app/components/marketing/ReportPreview";
 import AccessCheckMotionExplainer from "../components/marketing/AccessCheckMotionExplainer";
 import LandlordCapabilities from "@/app/components/marketing/LandlordCapabilities";
 
@@ -15,6 +16,7 @@ export default function HomePage() {
       <AccessCheckMotionExplainer />
       <LandlordCapabilities />
       <DemoPreview />
+      <ReportPreview />
       <TaglineQuote />
       <AudienceCards />
       <FinalCTA />

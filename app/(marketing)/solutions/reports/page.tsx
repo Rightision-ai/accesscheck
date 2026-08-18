@@ -7,6 +7,8 @@ export const metadata = {
     "Property-level accessibility reports with linked photo evidence, cost appendices and a clear accessibility category — supporting allocations, asset planning and adaptation decisions.",
 };
 
+const SAMPLE_REPORT_URL = process.env.NEXT_PUBLIC_SAMPLE_REPORT_URL || "";
+
 function ReportsHero() {
   return (
     <figure className="relative">
@@ -50,6 +52,15 @@ export default function ReportsPage() {
       title="One PDF. The whole accessibility picture for a home."
       intro="The AccessCheck report is built for the people who actually read it: allocations and asset teams, occupational therapists, panel members, grant officers, tenants and applicants. Each section is structured so the evidence behind every finding is one click away."
       hero={<ReportsHero />}
+      {...(SAMPLE_REPORT_URL
+        ? {
+            primaryCta: {
+              label: "View sample report",
+              href: SAMPLE_REPORT_URL,
+              external: true,
+            },
+          }
+        : {})}
       highlights={[
         "Accessibility category summary",
         "Linked photo evidence per finding",

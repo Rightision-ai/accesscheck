@@ -17,6 +17,12 @@ function AnimatedArrow() {
   );
 }
 
+interface CtaLink {
+  label: string;
+  href: string;
+  external?: boolean;
+}
+
 interface SolutionPageProps {
   eyebrow: string;
   title: string;
@@ -24,8 +30,8 @@ interface SolutionPageProps {
   highlights: string[];
   body: { heading: string; text: string }[];
   hero?: React.ReactNode;
-  primaryCta?: { label: string; href: string };
-  secondaryCta?: { label: string; href: string };
+  primaryCta?: CtaLink;
+  secondaryCta?: CtaLink;
 }
 
 export default function SolutionPage({
@@ -74,6 +80,8 @@ export default function SolutionPage({
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <Link
                 href={primaryCta.href}
+                target={primaryCta.external ? "_blank" : undefined}
+                rel={primaryCta.external ? "noopener noreferrer" : undefined}
                 className="group inline-flex items-center justify-center gap-2 min-h-12 px-6 rounded-lg bg-[var(--primary)] text-white font-semibold hover:bg-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
               >
                 {primaryCta.label}
@@ -81,6 +89,8 @@ export default function SolutionPage({
               </Link>
               <Link
                 href={secondaryCta.href}
+                target={secondaryCta.external ? "_blank" : undefined}
+                rel={secondaryCta.external ? "noopener noreferrer" : undefined}
                 className="inline-flex items-center justify-center min-h-12 px-6 rounded-lg border border-[var(--text-main)]/15 text-[var(--text-main)] font-semibold hover:border-[var(--primary-dark)] hover:text-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
               >
                 {secondaryCta.label}
@@ -114,6 +124,8 @@ export default function SolutionPage({
           <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href={primaryCta.href}
+              target={primaryCta.external ? "_blank" : undefined}
+              rel={primaryCta.external ? "noopener noreferrer" : undefined}
               className="inline-flex items-center justify-center gap-2 min-h-12 px-6 rounded-lg bg-[var(--primary)] text-white font-semibold hover:bg-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
             >
               {primaryCta.label}
@@ -121,6 +133,8 @@ export default function SolutionPage({
             </Link>
             <Link
               href={secondaryCta.href}
+              target={secondaryCta.external ? "_blank" : undefined}
+              rel={secondaryCta.external ? "noopener noreferrer" : undefined}
               className="inline-flex items-center justify-center min-h-12 px-6 rounded-lg border border-[var(--text-main)]/15 text-[var(--text-main)] font-semibold hover:border-[var(--primary-dark)] hover:text-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
             >
               {secondaryCta.label}
