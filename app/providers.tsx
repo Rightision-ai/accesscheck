@@ -22,12 +22,12 @@ import { PostHogProvider as PHProvider } from "posthog-js/react";
  */
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    const key = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     if (!key) return; // no key in this environment — stay silent, don't throw
 
     posthog.init(key, {
       api_host: "/ingest",
-      ui_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+      ui_host: "https://eu.posthog.com",
 
       persistence: "memory",
       disable_persistence: false,

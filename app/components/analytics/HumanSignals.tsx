@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { track } from "@vercel/analytics";
+import { useEmailIdentity } from "@/app/components/analytics/useEmailIdentity";
 
 /**
  * Engagement-depth instrumentation — the part that answers "was that a person?"
@@ -31,6 +32,7 @@ export function HumanSignals() {
   const posthog = usePostHog();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { cid, fromEmail, emailId } = useEmailIdentity(searchParams);
 
   const fired = useRef<Set<string>>(new Set());
   const verified = useRef(false);
@@ -40,13 +42,16 @@ export function HumanSignals() {
     fired.current = new Set();
     verified.current = false;
 
-    const fromEmail = searchParams?.get("utm_source") === "loops";
-    const emailId = searchParams?.get("utm_content") ?? null;
+    const campaign = searchParams?.get("utm_campaign") ?? null;
 
     const base = {
       from_email: fromEmail,
       email_id: emailId,
-      utm_campaign: searchParams?.get("utm_campaign") ?? null,
+      // The whole point of pairing these: cid says WHICH contact the link
+      // belongs to, verified_human says a person — not a scanner — was at the
+      // keyboard. Neither is sufficient alone.
+      cid,
+      utm_campaign: campaign,
       path: pathname,
     };
 
@@ -70,7 +75,10 @@ export function HumanSignals() {
         const summary = { ...base, signals: [...fired.current].join(",") };
         posthog?.capture("verified_human", summary);
         try {
-          track("verified_human", summary as Record<string, string | number | boolean | null>);
+          track(
+            "verified_human",
+            summary as Record<string, string | number | boolean | null>,
+          );
         } catch {
           /* no-op */
         }
@@ -112,7 +120,8 @@ export function HumanSignals() {
     document.addEventListener("visibilitychange", onVisibility);
 
     const dwellTimer = window.setInterval(() => {
-      const now = lastTick !== null ? visibleMs + (Date.now() - lastTick) : visibleMs;
+      const now =
+        lastTick !== null ? visibleMs + (Date.now() - lastTick) : visibleMs;
       if (now >= DWELL_MS) {
         emit("human_dwell", { seconds: Math.round(now / 1000) });
         window.clearInterval(dwellTimer);
@@ -127,7 +136,12 @@ export function HumanSignals() {
       emit("human_interact", { kind: e.type });
       cleanupInteract();
     };
-    const interactEvents = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
+    const interactEvents = [
+      "pointerdown",
+      "keydown",
+      "wheel",
+      "touchstart",
+    ] as const;
     const cleanupInteract = () => {
       interactEvents.forEach((t) => window.removeEventListener(t, onInteract));
     };
@@ -141,7 +155,7 @@ export function HumanSignals() {
       window.clearInterval(dwellTimer);
       cleanupInteract();
     };
-  }, [pathname, searchParams, posthog]);
+  }, [pathname, searchParams, posthog, cid, fromEmail, emailId]);
 
   return null;
 }
