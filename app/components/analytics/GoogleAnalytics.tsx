@@ -198,18 +198,17 @@ function GoogleAnalyticsConsentBanner({
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
           <button
             type="button"
-            onClick={() => updateConsent("denied")}
-            className="min-h-11 rounded-lg border border-[var(--border)] bg-white px-5 py-2 text-sm font-semibold text-[var(--text-main)] transition-colors hover:border-[var(--primary-dark)] hover:text-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
-          >
-            Reject
-          </button>
-
-          <button
-            type="button"
             onClick={() => updateConsent("granted")}
             className="min-h-11 rounded-lg bg-[var(--primary)] px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
           >
             Allow
+          </button>
+          <button
+            type="button"
+            onClick={() => updateConsent("denied")}
+            className="min-h-11 rounded-lg border border-[var(--border)] bg-white px-5 py-2 text-sm font-semibold text-[var(--text-main)] transition-colors hover:border-[var(--primary-dark)] hover:text-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
+          >
+            Reject
           </button>
         </div>
       </div>
