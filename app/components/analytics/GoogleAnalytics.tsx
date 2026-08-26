@@ -176,7 +176,7 @@ function GoogleAnalyticsConsentBanner({
             id="ga-consent-title"
             className="text-lg font-bold text-[var(--text-main)]"
           >
-            Cookie preferences
+            Cookie Preferences
           </h2>
 
           <p
