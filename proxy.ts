@@ -18,6 +18,6 @@ export const config = {
      * - _vercel (Vercel Web Analytics first-party endpoint)
      * Feel free to modify this pattern to include more paths.
      */
-    "/((?!_next/static|_next/image|favicon.ico|ingest|_vercel|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|ingest|_vercel|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
