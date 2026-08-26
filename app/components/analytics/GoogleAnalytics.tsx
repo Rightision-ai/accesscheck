@@ -176,16 +176,15 @@ function GoogleAnalyticsConsentBanner({
             id="ga-consent-title"
             className="text-lg font-bold text-[var(--text-main)]"
           >
-            Google Analytics preferences
+            Cookie preferences
           </h2>
 
           <p
             id="ga-consent-description"
             className="mt-2 text-sm leading-6 text-[var(--text-dim)]"
           >
-            We would like to use Google Analytics cookies to understand how
-            people use AccessCheck and how they found us. These cookies are
-            optional.
+            We would like to use cookies to understand how people use
+            AccessCheck services. These cookies are optional.
           </p>
 
           <a
@@ -202,7 +201,7 @@ function GoogleAnalyticsConsentBanner({
             onClick={() => updateConsent("denied")}
             className="min-h-11 rounded-lg border border-[var(--border)] bg-white px-5 py-2 text-sm font-semibold text-[var(--text-main)] transition-colors hover:border-[var(--primary-dark)] hover:text-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
           >
-            Reject Google Analytics
+            Reject
           </button>
 
           <button
@@ -210,7 +209,7 @@ function GoogleAnalyticsConsentBanner({
             onClick={() => updateConsent("granted")}
             className="min-h-11 rounded-lg bg-[var(--primary)] px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
           >
-            Allow Google Analytics
+            Allow
           </button>
         </div>
       </div>
