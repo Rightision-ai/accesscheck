@@ -49,11 +49,9 @@ export function GoogleAnalytics() {
         {`
           gtag('js', new Date());
           gtag('config', '${id}', {
-            client_storage: 'none',
-            anonymize_ip: true,
-            send_page_view: true
+          send_page_view: true,
           });
-        `}
+       `}
       </Script>
     </>
   );
