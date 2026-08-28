@@ -23,24 +23,28 @@ const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick }) => {
   const getStatusConfig = (status: string) => {
     switch (status) {
       case "Pending":
+      case "in_progress":
         return {
           icon: Clock,
           className: "bg-orange-50 text-orange-600 border-orange-200",
           label: "In Progress",
         };
       case "Completed":
+      case "complete":
         return {
           icon: Shield,
           className: "bg-emerald-50 text-emerald-600 border-emerald-200",
           label: "Finalized",
         };
       case "Review":
+      case "review":
         return {
           icon: Clock,
           className: "bg-amber-50 text-amber-600 border-amber-200",
           label: "In Review",
         };
       case "Draft":
+      case "draft":
         return {
           icon: FileText,
           className: "bg-slate-50 text-slate-500 border-slate-200",

@@ -1,46 +1,47 @@
-import { createClient } from '@/lib/supabase/server';
-import { getUser } from '@/lib/auth/actions';
-import { redirect } from 'next/navigation';
-import DashboardClient from './DashboardClient';
-import { Case } from '@/types/dashboard';
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { asLooseClient } from "@/lib/supabase/loose";
+import { getOrganisationContext } from "@/lib/organisations/access";
+import { buildAssessmentSummary, buildWeeklyTrend, type AssessmentAnalyticsRow } from "@/lib/assessments/analytics";
+import type { Case } from "@/types/dashboard";
+import type { AssessmentStatus } from "@/types/accesscheck";
+import DashboardClient from "./DashboardClient";
 
 export default async function DashboardPage() {
-  const user = await getUser();
-  if (!user) {
-    redirect('/login');
-  }
+  const context = await getOrganisationContext();
+  if (!context) redirect("/login");
+  const db = asLooseClient(await createClient());
+  const [surveysResult, recentResult] = await Promise.all([
+    db.from("surveys").select("id,created_at,updated_at,completed_at,status,assessment_readiness,overall_grade").eq("organisation_id", context.organisationId),
+    db.from("surveys").select("*").eq("organisation_id", context.organisationId).order("updated_at", { ascending: false }).limit(8),
+  ]);
+  const analytics = (surveysResult.data ?? []) as AssessmentAnalyticsRow[];
+  const cases: Case[] = ((recentResult.data ?? []) as Array<Record<string, unknown>>).map((survey) => {
+    const raw = (survey.raw_ai_data && typeof survey.raw_ai_data === "object" ? survey.raw_ai_data : {}) as Case["mlData"];
+    return {
+      id: String(survey.id),
+      applicantName: String(survey.inspector_name || "Not recorded"),
+      address: [survey.door_number, survey.street_number, survey.building_name, survey.street].filter(Boolean).join(" ") || "Address pending",
+      city: "",
+      postcode: String(survey.postcode || ""),
+      assessmentDate: String(survey.inspection_date || survey.created_at || ""),
+      aiScore: survey.compliance_score == null ? null : Number(survey.compliance_score),
+      status: String(survey.status || "draft") as AssessmentStatus,
+      source: "Assessment",
+      date: String(survey.created_at || ""),
+      thumbnail: String(survey.thumbnail_url || ""),
+      evidence: [],
+      description: String(survey.comments || ""),
+      mlData: { ...raw, surveyRow: survey },
+    };
+  });
 
-  const supabase = await createClient();
-  const { data: surveys, error } = await supabase
-    .from('surveys')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching surveys:', error);
-    // Handle error gracefully or redirect
-  }
-
-  const cases: Case[] = (surveys || []).map((s: any) => ({
-    id: s.id.toString(),
-    applicantName: s.inspector_name || 'Unknown',
-    address: [s.door_number, s.street_number, s.building_name, s.street].filter(Boolean).join(' ') || 'Address Pending',
-    city: s.city || '', 
-    postcode: s.postcode || '',
-    assessmentDate: s.inspection_date || s.created_at,
-    aiScore: s.compliance_score ? Number(s.compliance_score) : null,
-    status: s.status || 'Draft',
-    source: 'AI Assessment',
-    date: s.created_at,
-    thumbnail: s.thumbnail_url || '',
-    evidence: s.raw_ai_data?.evidence || [], 
-    description: s.comments || '',
-    mlData: s.raw_ai_data || {}
-  }));
-
-  // If no cases, we can use mockCases for demo if needed, but better to show empty state handled by DashboardClient
-  // The Dashboard component handles empty state.
-
-  return <DashboardClient user={{ name: user.email || 'User', role: 'OT' }} initialCases={cases} />;
+  return (
+    <DashboardClient
+      initialCases={cases}
+      summary={buildAssessmentSummary(analytics)}
+      weeklyTrend={buildWeeklyTrend(analytics)}
+      canAuthor={context.isPlatformAdmin || context.permissions.includes("author")}
+    />
+  );
 }

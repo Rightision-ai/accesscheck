@@ -42,6 +42,7 @@ export function buildSurveyData(
   rawAhr: Record<string, any>,
   caseData: Record<string, any>,
   userId: string,
+  organisationId?: string,
 ): Record<string, any> {
   // Mirror ReportView's getVal: override first, then original
   const get = (key: string, original: any) =>
@@ -103,10 +104,23 @@ export function buildSurveyData(
   const row: Record<string, any> = {
     // ── Meta ──
     user_id: userId,
+    ...(organisationId ? { organisation_id: organisationId } : {}),
     inspector_name: wizardData.fullName || null,
     inspector_phone: wizardData.phoneNumber || null,
     inspection_date: caseData.assessmentDate || new Date().toISOString(),
-    status: caseData.status,
+    status:
+      String(caseData.status || "draft")
+        .trim()
+        .toLowerCase()
+        .replaceAll(" ", "_") === "in_progress"
+        ? "in_progress"
+        : String(caseData.status || "draft").trim().toLowerCase() === "review"
+          ? "review"
+          : ["complete", "completed", "finalised", "finalized"].includes(
+                String(caseData.status || "draft").trim().toLowerCase(),
+              )
+            ? "complete"
+            : "draft",
     thumbnail_url: caseData.thumbnail || null,
     raw_ai_data: caseData.mlData,
     // overall_grade and compliance_score are set below from the Accessible Housing Rules band —

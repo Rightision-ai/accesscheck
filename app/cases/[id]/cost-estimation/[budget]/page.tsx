@@ -55,8 +55,8 @@ export default async function CostEstimationDetailPage({
   const caseData = mapSurveyToCase(survey);
   const surveyRow = buildSurveyData(
     caseData.mlData?.wizardData || {},
-    (caseData.mlData as any)?.userOverrides || {},
-    (caseData.mlData as any)?.rawAhr || {},
+    caseData.mlData?.userOverrides || {},
+    caseData.mlData?.rawAhr || {},
     caseData,
     "",
   );

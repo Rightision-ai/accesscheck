@@ -95,7 +95,7 @@ export default function CostEstimationRows({
     } finally {
       setIsRefreshing(false);
     }
-  }, [surveyId]);
+  }, [surveyId, setEstimation]);
 
   useEffect(() => {
     if (
@@ -133,7 +133,7 @@ export default function CostEstimationRows({
           <PoundSterling size={18} className="text-primary" />
           <div>
             <h2 className="text-base font-bold text-slate-900 m-0">
-              Adoption Plans
+              Adaptation Plans
             </h2>
             <p className="text-[11px] text-slate-500 m-0">
               Three funded tiers under the £30,000 Disabled Facilities Grant
@@ -204,10 +204,10 @@ function EmptyState({ isLoading }: { isLoading: boolean }) {
       {isLoading ? (
         <>
           <Loader2 size={18} className="animate-spin text-primary" />
-          <span>Generating adoption plan — this can take 30–60 seconds.</span>
+          <span>Generating Adaptation plan — this can take 30–60 seconds.</span>
         </>
       ) : (
-        <span>Adoption plan not generated yet. Click Generate above.</span>
+        <span>Adaptation plan not generated yet. Click Generate above.</span>
       )}
     </div>
   );
@@ -261,7 +261,7 @@ function TierRow({
              those would imply a plan that doesn't exist. */
           <div className="flex-1 min-w-0">
             <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
-              No adoption available
+              No Adaptation available
             </div>
             <div
               className="text-sm text-amber-800 truncate"

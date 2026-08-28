@@ -5,11 +5,12 @@ import AssessmentWizard from "@/app/components/wizard/AssessmentWizard";
 import { useRouter } from "next/navigation";
 import { saveSurveyClient } from "@/lib/surveys/client";
 import { toast } from "sonner";
+import type { Case } from "@/types/dashboard";
 
 export default function NewAssessmentPage() {
   const router = useRouter();
 
-  const handleComplete = async (newCase: any) => {
+  const handleComplete = async (newCase: Case) => {
     try {
       const result = await saveSurveyClient(newCase);
       if (result.error) {

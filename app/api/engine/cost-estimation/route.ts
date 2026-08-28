@@ -27,6 +27,7 @@ import {
 } from "@/lib/accessibility/cost-estimation/types";
 import { rankOf, type LahrBandId } from "@/lib/accessibility/lahr/types";
 import type { Database } from "@/types/supabase";
+import { isApiError, requireApiContext } from "@/lib/api/auth";
 
 type SurveyRow = Database["public"]["Tables"]["surveys"]["Row"];
 
@@ -104,12 +105,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "surveyId is required" }, { status: 400 });
   }
 
+  const context = await requireApiContext("author");
+  if (isApiError(context)) return context;
+
   const supabase = await createClient();
 
   const { data: survey, error: surveyErr } = await supabase
     .from("surveys")
     .select("*")
     .eq("id", surveyId)
+    .eq("organisation_id", context.organisationId)
     .single();
   if (surveyErr || !survey) {
     return NextResponse.json(
@@ -214,7 +219,12 @@ export async function POST(req: NextRequest) {
       };
 
       step = "persist_estimation";
-      await persistCostEstimation(supabase, surveyId, estimation);
+      await persistCostEstimation(
+        supabase,
+        surveyId,
+        context.organisationId,
+        estimation,
+      );
       log(step);
 
       await writeJobStatus(supabase, surveyId, {
@@ -253,7 +263,18 @@ export async function GET(req: NextRequest) {
   if (!surveyId || !Number.isFinite(surveyId)) {
     return NextResponse.json({ error: "surveyId is required" }, { status: 400 });
   }
+  const context = await requireApiContext();
+  if (isApiError(context)) return context;
   const supabase = await createClient();
+  const surveyResult = await supabase
+    .from("surveys")
+    .select("id")
+    .eq("id", surveyId)
+    .eq("organisation_id", context.organisationId)
+    .maybeSingle();
+  if (!surveyResult.data) {
+    return NextResponse.json({ error: "Survey not found" }, { status: 404 });
+  }
   const job = await readJobStatus(supabase, surveyId);
   const estimation = await loadCostEstimation(supabase, surveyId);
 

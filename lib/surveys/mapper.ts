@@ -83,7 +83,7 @@ export function mapSurveyToCase(s: any): Case {
     accessibilityGrade: null,
     accessibilityLabel: null,
     accessibilityReasons: [],
-    status: s.status || "Draft",
+    status: (s.status || "draft") as Case["status"],
     source: "AI Assessment",
     date: s.created_at,
     thumbnail: s.thumbnail_url || "",

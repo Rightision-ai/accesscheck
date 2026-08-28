@@ -1,127 +1,326 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
-import Header from '../components/dashboard/Header';
-import Dashboard from '../components/dashboard/Dashboard';
-import AssessmentWizard from '../components/wizard/AssessmentWizard';
-import { Case } from '@/types/dashboard';
-import { useRouter } from 'next/navigation';
-import { saveSurveyClient } from '@/lib/surveys/client';
-import { deleteSurvey } from '@/lib/surveys/actions';
-import { toast } from 'sonner';
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import {
+  ClipboardCheck,
+  Clock3,
+  FileCheck2,
+  FileText,
+  ListTodo,
+  Plus,
+} from "lucide-react";
+import { toast } from "sonner";
+import AssessmentWizard from "@/app/components/wizard/AssessmentWizard";
+import CaseCard from "@/app/components/dashboard/CaseCard";
+import { saveSurveyClient } from "@/lib/surveys/client";
+import type { Case } from "@/types/dashboard";
 
-interface DashboardClientProps {
-    initialCases: Case[];
-    user: { name: string; role: string } | null;
-}
+type Summary = {
+  open: number;
+  draft: number;
+  inProgress: number;
+  review: number;
+  complete: number;
+  completedInPeriod: number;
+  medianCompletionDays: number | null;
+  readiness: { ready: number; partial: number; incomplete: number };
+};
 
-export default function DashboardClient({ initialCases, user }: DashboardClientProps) {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isWizardOpen, setIsWizardOpen] = useState(false);
-    const [wizardInitialData, setWizardInitialData] = useState<Partial<Case> | null>(null);
-    const [cases, setCases] = useState<Case[]>(initialCases);
-    const router = useRouter();
+type Props = {
+  initialCases: Case[];
+  summary: Summary;
+  weeklyTrend: Array<{ week: string; started: number; completed: number }>;
+  canAuthor: boolean;
+};
 
-    const handleSelectCase = (id: string) => {
-        const selectedCase = cases.find(c => c.id === id);
-        if (!selectedCase) return;
+export default function DashboardClient({
+  initialCases,
+  summary,
+  weeklyTrend,
+  canAuthor,
+}: Props) {
+  const router = useRouter();
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardInitialData, setWizardInitialData] =
+    useState<Partial<Case> | null>(null);
+  const [cases, setCases] = useState(initialCases);
+  const maxTrend = Math.max(
+    1,
+    ...weeklyTrend.flatMap((week) => [week.started, week.completed]),
+  );
+  const readinessTotal = Math.max(
+    1,
+    summary.readiness.ready +
+      summary.readiness.partial +
+      summary.readiness.incomplete,
+  );
+  const summaryCards = [
+    {
+      label: "Open assessments",
+      value: summary.open,
+      icon: ClipboardCheck,
+      card: "border-primary-dark bg-gradient-to-br from-primary to-primary-dark text-white shadow-[0_8px_24px_rgba(15,183,91,0.2)]",
+      labelClass: "text-white/80",
+      iconClass: "bg-white/15 text-white",
+    },
+    {
+      label: "Draft queue",
+      value: summary.draft,
+      icon: FileText,
+      card: "border-slate-300 bg-slate-100 text-slate-800",
+      labelClass: "text-slate-500",
+      iconClass: "bg-white text-slate-500",
+    },
+    {
+      label: "In progress",
+      value: summary.inProgress,
+      icon: ListTodo,
+      card: "border-blue-200 bg-blue-50 text-blue-800",
+      labelClass: "text-blue-600",
+      iconClass: "bg-blue-100 text-blue-600",
+    },
+    {
+      label: "Awaiting review",
+      value: summary.review,
+      icon: Clock3,
+      card: "border-amber-200 bg-amber-50 text-amber-900",
+      labelClass: "text-amber-700",
+      iconClass: "bg-amber-100 text-amber-700",
+    },
+    {
+      label: "Completed · 30 days",
+      value: summary.completedInPeriod,
+      icon: FileCheck2,
+      card: "border-emerald-200 bg-emerald-50 text-emerald-900",
+      labelClass: "text-emerald-700",
+      iconClass: "bg-emerald-100 text-emerald-700",
+    },
+    /*|{ label: "Median completion", value: summary.medianCompletionDays == null ? "—" : `${Math.round(summary.medianCompletionDays)}d`, icon: Timer, card: "border-violet-200 bg-violet-50 text-violet-900", labelClass: "text-violet-700", iconClass: "bg-violet-100 text-violet-700" },
+     */
+  ];
 
-        if (selectedCase.status === 'Draft') {
-            setWizardInitialData({
-                id: selectedCase.id,
-                ...(selectedCase.mlData?.wizardData || {}),
-                evidence: selectedCase.evidence,
-                photos: selectedCase.evidence || (selectedCase.mlData?.wizardData as any)?.photos,
-            });
-            setIsWizardOpen(true);
-        } else {
-            router.push(`/cases/${id}`);
-        }
-    };
+  const recentCases = cases.slice(0, 4);
 
-    const handleOpenWizard = () => {
-        setWizardInitialData(null);
-        setIsWizardOpen(true);
-    };
+  const openAssessment = (assessment: Case) => {
+    if (canAuthor && ["draft", "in_progress"].includes(assessment.status)) {
+      setWizardInitialData({
+        id: assessment.id,
+        ...(assessment.mlData?.wizardData || {}),
+        evidence: assessment.evidence,
+        photos: assessment.evidence,
+      });
+      setWizardOpen(true);
+    } else router.push(`/cases/${assessment.id}`);
+  };
 
-    const handleCompleteWizard = async (newCase: Case) => {
-        setIsWizardOpen(false);
-        try {
+  return (
+    <div className="min-h-[calc(100vh-64px)] bg-gradient-to-b from-slate-50 to-white px-4 py-7 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1500px]">
+        <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">
+              Assessment overview
+            </h1>
+            <p className="mt-1 text-[15px] font-medium text-slate-500">
+              Council-wide assessment activity, evidence readiness and recent
+              work.
+            </p>
+          </div>
+          {canAuthor && (
+            <button
+              onClick={() => {
+                setWizardInitialData(null);
+                setWizardOpen(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-[0_4px_14px_rgba(15,183,91,0.25)] transition hover:bg-primary-dark"
+            >
+              <Plus size={18} /> New assessment
+            </button>
+          )}
+        </div>
+
+        <section
+          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+          aria-label="Assessment summary"
+        >
+          {summaryCards.map(
+            ({ label, value, icon: Icon, card, labelClass, iconClass }) => (
+              <div key={label} className={`rounded-2xl border p-5 ${card}`}>
+                <div
+                  className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl ${iconClass}`}
+                >
+                  <Icon size={20} />
+                </div>
+                <p
+                  className={`text-xs font-bold uppercase tracking-wide ${labelClass}`}
+                >
+                  {label}
+                </p>
+                <p className="mt-1 text-3xl font-extrabold leading-none">
+                  {value}
+                </p>
+              </div>
+            ),
+          )}
+        </section>
+
+        <div className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_1fr]">
+          <section className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
+            <h2 className="font-bold text-slate-950">Started and completed</h2>
+            <p className="mb-5 text-sm text-slate-500">
+              Weekly assessment activity
+            </p>
+            <div
+              className="flex h-52 items-end gap-2"
+              role="img"
+              aria-label="Weekly assessments started and completed"
+            >
+              {weeklyTrend.map((week) => (
+                <div
+                  key={week.week}
+                  className="flex min-w-0 flex-1 flex-col items-center gap-2"
+                >
+                  <div className="flex h-40 w-full items-end justify-center gap-1">
+                    <div
+                      className="w-2/5 rounded-t bg-blue-300"
+                      style={{
+                        height: `${Math.max(3, (week.started / maxTrend) * 100)}%`,
+                      }}
+                      title={`${week.started} started`}
+                    />
+                    <div
+                      className="w-2/5 rounded-t bg-emerald-500"
+                      style={{
+                        height: `${Math.max(3, (week.completed / maxTrend) * 100)}%`,
+                      }}
+                      title={`${week.completed} completed`}
+                    />
+                  </div>
+                  <span className="truncate text-[10px] text-slate-400">
+                    {new Date(week.week).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </span>
+                  <span className="sr-only">
+                    {week.started} started and {week.completed} completed
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-4 text-xs text-slate-500">
+              <span className="text-blue-600">■ Started</span>
+              <span className="text-emerald-600">■ Completed</span>
+            </div>
+          </section>
+          <section className="rounded-2xl border border-violet-100 bg-white p-5 shadow-sm">
+            <h2 className="font-bold text-slate-950">Evidence readiness</h2>
+            <p className="mb-6 text-sm text-slate-500">
+              Required assessment sections and supporting evidence
+            </p>
+            <div className="space-y-5">
+              {[
+                ["Ready", summary.readiness.ready, "bg-emerald-500"],
+                [
+                  "Partially complete",
+                  summary.readiness.partial,
+                  "bg-amber-400",
+                ],
+                [
+                  "Missing evidence",
+                  summary.readiness.incomplete,
+                  "bg-rose-400",
+                ],
+              ].map(([label, value, colour]) => (
+                <div key={label}>
+                  <div className="mb-1.5 flex justify-between text-sm">
+                    <span className="font-semibold text-slate-700">
+                      {label}
+                    </span>
+                    <span>{value}</span>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className={`h-full rounded-full ${colour}`}
+                      style={{
+                        width: `${(Number(value) / readinessTotal) * 100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        {recentCases.length > 0 && (
+          <section className="mt-6" aria-label="Recent cases">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 className="font-bold text-slate-950">Recent cases</h2>
+                <p className="text-sm text-slate-500">
+                  The properties your team last worked on
+                </p>
+              </div>
+              <Link
+                href="/assessments"
+                className="text-sm font-bold text-primary"
+              >
+                All assessments
+              </Link>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              {recentCases.map((assessment) => (
+                <CaseCard
+                  key={assessment.id}
+                  caseData={assessment}
+                  onClick={(id) => {
+                    const target = cases.find((item) => item.id === id);
+                    if (target) openAssessment(target);
+                  }}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        <AssessmentWizard
+          isOpen={wizardOpen}
+          initialData={wizardInitialData}
+          onClose={() => {
+            setWizardOpen(false);
+            setWizardInitialData(null);
+          }}
+          onComplete={async (newCase) => {
             const result = await saveSurveyClient(newCase);
             if (result.error) {
-                toast.error(`Failed to save: ${result.error}`);
-                return;
+              toast.error(result.error);
+              return;
             }
-            toast.success('Assessment saved successfully');
-            const realId = (result.id ?? newCase.id).toString();
-            setCases(prev => {
-                const exists = prev.find(c => c.id === realId);
-                if (exists) return prev.map(c => c.id === realId ? { ...newCase, id: realId } : c);
-                return [{ ...newCase, id: realId }, ...prev];
-            });
+            const realId = String(result.id ?? newCase.id);
+            setCases((current) =>
+              [
+                { ...newCase, id: realId },
+                ...current.filter((item) => item.id !== realId),
+              ].slice(0, 8),
+            );
+            setWizardOpen(false);
             router.push(`/cases/${realId}`);
-        } catch (error) {
-            console.error(error);
-            toast.error('An unexpected error occurred');
-        }
-    };
-
-    const handleDeleteCase = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this assessment? This cannot be undone.')) return;
-        const result = await deleteSurvey(id);
-        if (result.error) {
-            toast.error(result.error);
-            return;
-        }
-        setCases(prev => prev.filter(c => c.id !== id));
-        toast.success('Assessment deleted');
-    };
-
-    return (
-        <div className="app-container">
-            <Header
-                user={user}
-                onOpenWizard={handleOpenWizard}
-                onSearch={setSearchTerm}
-            />
-            <main className="min-h-[calc(100vh-80px)] pb-24 md:pb-0">
-                <Dashboard
-                    user={user}
-                    cases={cases}
-                    onSelectCase={handleSelectCase}
-                    onDeleteCase={handleDeleteCase}
-                    searchTerm={searchTerm}
-                />
-            </main>
-
-            <AssessmentWizard
-                isOpen={isWizardOpen}
-                onClose={() => {
-                    setIsWizardOpen(false);
-                    setWizardInitialData(null);
-                }}
-                onComplete={handleCompleteWizard}
-                initialData={wizardInitialData}
-                onSaveDraft={(draftCase) => {
-                    setCases(prev => {
-                        const exists = prev.find(c => c.id === draftCase.id);
-                        if (exists) return prev.map(c => c.id === draftCase.id ? draftCase : c);
-                        return [draftCase, ...prev];
-                    });
-                    setIsWizardOpen(false);
-                    setWizardInitialData(null);
-                }}
-            />
-
-            {/* Mobile FAB: New Assessment */}
-            <button
-                onClick={handleOpenWizard}
-                className="md:hidden fixed bottom-6 right-6 z-[90] w-14 h-14 rounded-full bg-primary text-white shadow-[0_4px_20px_rgba(99,102,241,0.4)] flex items-center justify-center cursor-pointer hover:bg-primary/90 active:scale-95 transition-all"
-                aria-label="New Assessment"
-            >
-                <Plus size={28} strokeWidth={2.5} />
-            </button>
-        </div>
-    );
+            router.refresh();
+          }}
+          onSaveDraft={(draft) => {
+            setCases((current) =>
+              [draft, ...current.filter((item) => item.id !== draft.id)].slice(
+                0,
+                8,
+              ),
+            );
+            setWizardOpen(false);
+          }}
+        />
+      </div>
+    </div>
+  );
 }

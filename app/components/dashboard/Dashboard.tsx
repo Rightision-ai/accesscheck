@@ -35,10 +35,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Calculate statistics
   const stats = useMemo(() => {
     const total = cases.length;
-    const finalized = cases.filter((c) => c.status === "Completed").length;
-    const inReview = cases.filter((c) => c.status === "Review").length;
-    const inProgress = cases.filter((c) => c.status === "Pending").length;
-    const drafts = cases.filter((c) => c.status === "Draft").length;
+    const finalized = cases.filter((c) => c.status === "complete").length;
+    const inReview = cases.filter((c) => c.status === "review").length;
+    const inProgress = cases.filter((c) => c.status === "in_progress").length;
+    const drafts = cases.filter((c) => c.status === "draft").length;
 
     return { total, finalized, inReview, inProgress, drafts };
   }, [cases]);
@@ -49,13 +49,13 @@ const Dashboard: React.FC<DashboardProps> = ({
 
     // Apply status filter
     if (activeFilter === "Finalized") {
-      filtered = filtered.filter((c) => c.status === "Completed");
+      filtered = filtered.filter((c) => c.status === "complete");
     } else if (activeFilter === "In Review") {
-      filtered = filtered.filter((c) => c.status === "Review");
+      filtered = filtered.filter((c) => c.status === "review");
     } else if (activeFilter === "In Progress") {
-      filtered = filtered.filter((c) => c.status === "Pending");
+      filtered = filtered.filter((c) => c.status === "in_progress");
     } else if (activeFilter === "Drafts") {
-      filtered = filtered.filter((c) => c.status === "Draft");
+      filtered = filtered.filter((c) => c.status === "draft");
     }
 
     // Apply search

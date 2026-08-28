@@ -6,6 +6,7 @@ const epc: EpcMatch = {
   uprn: '100', lmk_key: 'A', address: '10 X St', postcode: 'SW1A 2AA', property_type: 'House',
   built_form: 'Detached', total_floor_area: '90', construction_age_band: '2000', lodgement_date: '2022-01-01',
   inspection_date: '2022-01-01', local_authority: 'Westminster', current_energy_rating: 'C', match_confidence: 0.8,
+  details: null,
 };
 
 const exterior: ExteriorObservations = {

@@ -18,6 +18,8 @@ export interface AiReport {
 
 export type AccessibilityGrade = "A+" | "A-" | "B+" | "B-" | "C";
 
+import type { AssessmentStatus } from "@/types/accesscheck";
+
 export interface Case {
     id: string;
     applicantName: string;
@@ -30,7 +32,7 @@ export interface Case {
     accessibilityGrade?: AccessibilityGrade | null;
     accessibilityLabel?: string | null;
     accessibilityReasons?: string[];
-    status: string;
+    status: AssessmentStatus;
     source: string;
     date: string;
     thumbnail: string;

@@ -117,7 +117,10 @@ function GoogleAnalyticsConsentBanner({
   );
 
   useEffect(() => {
-    setConsent(getStoredConsent());
+    const frame = window.requestAnimationFrame(() => {
+      setConsent(getStoredConsent());
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   function updateConsent(value: AnalyticsConsent) {
@@ -150,17 +153,10 @@ function GoogleAnalyticsConsentBanner({
     return null;
   }
 
-  // Show a persistent way to change the decision.
+  // Once a visitor has made a choice, do not leave a persistent control over the app UI.
+  // Consent can still be changed by clearing site data and choosing again on the next visit.
   if (consent !== null) {
-    return (
-      <button
-        type="button"
-        onClick={() => setConsent(null)}
-        className="fixed bottom-4 left-4 z-[100] rounded-lg border border-[var(--border)] bg-white px-4 py-2 text-sm font-medium text-[var(--text-main)] shadow-lg transition-colors hover:border-[var(--primary-dark)] hover:text-[var(--primary-dark)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary-dark)] focus-visible:ring-offset-2"
-      >
-        Cookie settings
-      </button>
-    );
+    return null;
   }
 
   return (
