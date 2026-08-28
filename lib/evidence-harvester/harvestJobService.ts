@@ -24,6 +24,7 @@ import {
 import { analyseExterior } from './exteriorVisionService';
 import { geocodeAddress, isPreciseGeocode } from './geocodingService';
 import { computeEvidenceStatus, buildDerivedFeatures } from './evidenceStatusService';
+import { syncPropertyPlanningEvidence } from './propertyPlanningEvidenceService';
 import type {
   ColumnMapping,
   EvidenceBundle,
@@ -438,6 +439,25 @@ export async function createAndEnrichProperty(
   // Wizard path: no exterior vision. The Street View screenshot is still captured (it seeds the Main
   // Entrance photo) and that image is analysed at the Capture step.
   await enrichProperty(db, userId, property as PropertyRow);
+
+  // Planning evidence is part of the completed property check. Re-read the enriched identity because
+  // EPC/geocoding may have added the UPRN and exact coordinates used for strict address matching.
+  const { data: enrichedProperty } = await db
+    .from('properties')
+    .select('id, address, postcode, uprn, latitude, longitude, address_latitude, address_longitude')
+    .eq('id', property.id)
+    .single();
+  if (enrichedProperty) {
+    try {
+      await syncPropertyPlanningEvidence(db, userId, enrichedProperty);
+    } catch (err) {
+      // Other evidence remains useful when a council portal is temporarily unavailable. The user can
+      // retry the fresh online discovery from the evidence page.
+      console.warn(
+        `[enrich] ${property.id}: planning evidence failed (${(err as Error)?.message ?? 'unknown error'})`,
+      );
+    }
+  }
   return property.id;
 }
 

@@ -10,7 +10,6 @@ import {
 import LahrBandBadge from "@/app/components/common/LahrBandBadge";
 import type {
   CostEstimation,
-  DfgBudgetGbp,
   TierPlan,
 } from "@/lib/accessibility/cost-estimation/types";
 import { pollCostEstimation } from "@/lib/accessibility/cost-estimation/client";
@@ -106,7 +105,7 @@ export default function CostEstimationAppendix({
     } finally {
       setIsRefreshing(false);
     }
-  }, [surveyId]);
+  }, [surveyId, setEstimation]);
 
   useEffect(() => {
     if (

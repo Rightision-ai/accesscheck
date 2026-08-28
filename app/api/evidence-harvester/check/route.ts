@@ -1,11 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { createAndEnrichProperty } from '@/lib/evidence-harvester/harvestJobService';
+import { storePlanDocsInBackground } from '@/lib/evidence-harvester/planningCacheService';
+import { normalisePostcode } from '@/lib/evidence-harvester/postcodesService';
 
 // One property runs synchronously (postcode + EPC + listing history complete in a few seconds),
 // so the caller can redirect straight to the finished evidence profile.
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 /** Single-property check. Body: { address, postcode, uprn? } → { propertyId }. */
 export async function POST(req: NextRequest) {
@@ -25,6 +27,7 @@ export async function POST(req: NextRequest) {
   try {
     const service = createServiceClient();
     const propertyId = await createAndEnrichProperty(service, user.id, { address, postcode, uprn });
+    after(() => storePlanDocsInBackground(service, normalisePostcode(postcode)));
     return NextResponse.json({ propertyId }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

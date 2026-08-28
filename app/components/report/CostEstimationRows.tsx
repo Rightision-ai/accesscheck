@@ -95,7 +95,7 @@ export default function CostEstimationRows({
     } finally {
       setIsRefreshing(false);
     }
-  }, [surveyId]);
+  }, [surveyId, setEstimation]);
 
   useEffect(() => {
     if (

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { buildSurveyData } from "@/lib/surveys/buildSurveyData";
+import { getOrganisationContext } from "@/lib/organisations/access";
+import { asLooseClient } from "@/lib/supabase/loose";
+import { refreshAssessmentReadiness } from "@/lib/assessments/repository";
 
 // Allow larger payloads for case data with base64 images
 export const maxDuration = 60;
@@ -41,12 +44,26 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
+    const context = await getOrganisationContext();
+    if (!context) {
+      return NextResponse.json({ error: "No active organisation membership" }, { status: 403 });
+    }
+    if (!context.permissions.includes("author") && !context.isPlatformAdmin) {
+      return NextResponse.json({ error: "The author permission is required" }, { status: 403 });
+    }
 
     const wizardData = caseData.mlData?.wizardData || {};
     const overrides = caseData.mlData?.userOverrides || {};
     const rawAhr = caseData.mlData?.rawAhr || {};
 
-    const surveyData = buildSurveyData(wizardData, overrides, rawAhr, caseData, user.id);
+    const surveyData = buildSurveyData(
+      wizardData,
+      overrides,
+      rawAhr,
+      caseData,
+      user.id,
+      context.organisationId,
+    );
 
     const isExistingRecord =
       caseData.id && !isNaN(Number(caseData.id));
@@ -97,6 +114,7 @@ export async function POST(req: NextRequest) {
           const ext = fileName.split('.').pop()?.toLowerCase() || 'jpg';
           evidenceRecords.push({
             survey_id: surveyId,
+            organisation_id: context.organisationId,
             file_name: fileName,
             file_type: ext.toUpperCase(),
             mime_type: ext === 'png' ? 'image/png' : 'image/jpeg',
@@ -113,6 +131,7 @@ export async function POST(req: NextRequest) {
         const isPdf = wizardData.floorPlanIsPdf === true || /\.pdf(\?|$)/i.test(wizardData.floorPlan);
         evidenceRecords.push({
           survey_id: surveyId,
+          organisation_id: context.organisationId,
           file_name: wizardData.floorPlan.split('/').pop() || (isPdf ? 'floor-plan.pdf' : 'floor-plan.jpg'),
           file_type: isPdf ? 'PDF' : 'JPEG',
           mime_type: isPdf ? 'application/pdf' : 'image/jpeg',
@@ -155,6 +174,7 @@ export async function POST(req: NextRequest) {
             .from("floor_plan_detections")
             .insert({
               survey_id: surveyId,
+              organisation_id: context.organisationId,
               image_url: annotatedUrl,
               image_id: detection.image_id ?? null,
               detection,
@@ -168,6 +188,8 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+
+    await refreshAssessmentReadiness(asLooseClient(supabase), Number(newId));
 
     revalidatePath("/");
     if (newId) revalidatePath(`/cases/${newId}`);

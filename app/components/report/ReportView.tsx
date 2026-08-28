@@ -1538,7 +1538,7 @@ const ReportView: React.FC<ReportViewProps> = ({
     try {
       const updatedCase = {
         ...caseData,
-        status: "Completed",
+        status: "complete" as const,
         mlData: {
           ...caseData.mlData,
           userOverrides: overrides,

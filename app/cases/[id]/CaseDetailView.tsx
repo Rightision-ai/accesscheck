@@ -294,7 +294,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
       .finally(() => setIsMapLoading(false));
   }, [caseData.postcode, wizardData?.postcode, wizardData?.street]);
   const isLocked = !!(
-    caseData.mlData?.isLocked || caseData.status === "Completed"
+    caseData.mlData?.isLocked || caseData.status === "complete"
   );
   const displayStatus = isLocked ? "Finalized & Locked" : "In Review";
   const statusColor = isLocked ? "#059669" : "#d97706";
@@ -333,9 +333,9 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
+    <div className="min-h-[calc(100vh-64px)] bg-slate-50">
+      {/* Header — sits below the app shell header, which is sticky at top-0 with a 64px height */}
+      <div className="bg-white border-b border-slate-200 sticky top-16 z-20">
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-3 sm:py-0 sm:h-16 min-h-14 flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
             <button
@@ -591,7 +591,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                   return (
                     <section className="space-y-2">
                       <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        What's holding this grade back
+                        What&apos;s holding this grade back
                       </h3>
                       {cappingSections.length > 0 ? (
                         <ul className="space-y-2 m-0">
@@ -656,7 +656,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                           Potential changes:
                         </span>{" "}
                         the DFG Adaptation Plan below shows the bespoke
-                        adaptations that could lift this property's rating
+                        adaptations that could lift this property&apos;s rating
                         within the £15K, £20K, and £30K Disabled Facilities
                         Grant tiers.
                       </p>

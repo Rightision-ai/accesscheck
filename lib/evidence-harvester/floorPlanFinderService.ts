@@ -2,19 +2,19 @@
  * floorPlanFinderService — find candidate floor-plan PDFs for a property from UK council planning
  * portals (public records).
  *
- * Pipeline:  postcode -> resolve council -> DB cache check
- *            -> discover applications (direct Idox portal search -> PlanWire -> PlanIt fallback)
+ * Pipeline:  postcode -> resolve council
+ *            -> discover applications online (direct Idox portal search -> PlanWire -> PlanIt fallback)
  *            -> match to the EXACT address (door number + street)
  *            -> per-portal adapter scrapes the documents page (every attached file, not just plans)
- *            -> persist to the shared cache.
+ *            -> persist the completed discovery for display and document retrieval.
  *
  * We keep ALL documents for the matched application(s) — floor plans, elevations, site/location
  * plans, application forms, statements, etc. — and the UI groups them into category tabs by
  * description (Floor plans / Elevations & sections / Site & location / Other drawings / Applications).
  *
- * A postcode contains many addresses, so results are tied to the property's exact door number; other
- * applications in the postcode are surfaced as "nearby applications". Discovery is cached per postcode
- * (shared) so repeat/nearby lookups are instant. Server-only.
+ * A postcode contains many addresses, so results are tied to the property's exact door number. Every
+ * invocation performs a fresh online discovery; stored discoveries are never used to skip a search.
+ * Server-only.
  */
 import * as cheerio from 'cheerio';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -25,7 +25,7 @@ import { addressScore, isExactAddressMatch } from './addressUtils';
 import { getPortalForCouncil, type CouncilPortal } from './councilPortalRegistry';
 import { fetchPortalHtml } from './portalSession';
 import {
-  readSearchCache, isFresh, loadCachedResult, persistDiscovery, addressCacheKey,
+  persistDiscovery, addressCacheKey,
   type DiscoverySource,
 } from './planningCacheService';
 
@@ -43,7 +43,6 @@ const PORTAL_DELAY_MS = 800;   // be polite to council servers
 const MAX_EXTRACT = 8;         // exact-address applications we scrape documents from — budget-bound
 const MAX_PERSIST = 50;        // cap rows persisted per postcode discovery (shared index)
 const MIN_STAGE_MS = 8_000;    // don't start a new network stage with less budget than this
-const DEFAULT_TTL_MS = (Number(process.env.PLANNING_CACHE_TTL_DAYS) || 14) * 86_400_000;
 const BUDGET_MS = Number(process.env.FLOORPLAN_BUDGET_MS) || 90_000;
 
 // ---------------------------------------------------------------------------
@@ -99,8 +98,6 @@ export type FloorplanResult = {
 
 export type FindFloorplansDeps = {
   db: SupabaseClient<Database>;
-  cacheTtlMs?: number;
-  refresh?: boolean;        // bypass the cache and re-discover
 };
 
 // ---------------------------------------------------------------------------
@@ -383,7 +380,7 @@ async function planwireSearch(postcode: string): Promise<Candidate[]> {
 }
 
 // `clean` = at least one provider completed without throwing (so an empty result is a genuine
-// "found none", not a transient failure). Only clean results are cached as a hit.
+// "found none", not a transient failure). This status is retained with the discovery for diagnostics.
 type DiscoverOutcome = { source: DiscoverySource; candidates: Candidate[]; clean: boolean };
 
 /** Human-readable names for the discovery sources, for logs. */
@@ -472,42 +469,28 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // Orchestration
 // ---------------------------------------------------------------------------
 /**
- * Find candidate floor plans for the property's EXACT address. Checks the per-postcode cache first,
- * else discovers (Idox -> PlanIt -> PlanWire), matches strictly to the door number + street, scrapes
- * plan PDFs, and persists the whole postcode's applications to the shared cache for reuse.
+ * Find candidate floor plans for the property's EXACT address. Always discovers online (Idox ->
+ * PlanIt -> PlanWire), matches strictly to the door number + street, scrapes plan PDFs, and persists
+ * the completed result for display and document retrieval.
  */
 export async function findFloorplans(
   input: { postcode: string; address: string; uprn?: string | null; lat?: number | null; lon?: number | null },
   deps: FindFloorplansDeps,
 ): Promise<FloorplanResult> {
   const { db } = deps;
-  const ttlMs = deps.cacheTtlMs ?? DEFAULT_TTL_MS;
   const budget = newBudget(BUDGET_MS);
 
+  // Resolve the property identity and council before every online discovery.
   const pc = await lookupPostcode(input.postcode);
   const pcn = pc?.postcode_normalised ?? normalisePostcode(input.postcode);
   const outcode = pcn.split(' ')[0] ?? null;
+  const addressKey = addressCacheKey(input.uprn, input.address, pcn);
   const lat = input.lat ?? pc?.latitude ?? null;
   const lon = input.lon ?? pc?.longitude ?? null;
   const council = pc?.local_authority ?? null;
   const lpaCode = pc?.local_authority_code ?? null;
-  // Freshness is tracked per ADDRESS (not postcode): each address does its own search + extraction.
-  const addressKey = addressCacheKey(input.uprn, input.address, pcn);
 
-  // 1. Cache hit for THIS address — re-match the cached postcode applications against the exact
-  //    address (no network). A different address in the same postcode won't hit this; it searches itself.
-  if (!deps.refresh) {
-    const cached = await readSearchCache(db, addressKey);
-    if (cached && cached.status === 'ok' && isFresh(cached.searchedAt, ttlMs)) {
-      console.info(
-        `[floorplans] ${pcn}: cache hit — serving cached results (originally discovered via ${SOURCE_LABEL[cached.source]}); pass refresh to re-discover`,
-      );
-      const r = await loadCachedResult(db, pcn, input.address, outcode);
-      return { plans: r.plans, applications: r.applications, council: r.council ?? council };
-    }
-  }
-
-  // 2. Resolve the council's portal (null -> aggregator fallback inside discoverCandidates).
+  // Resolve the council's portal (null -> aggregator fallback inside discoverCandidates).
   const portal = await getPortalForCouncil(db, lpaCode, council);
 
   // 3. Discover the postcode's applications.
@@ -567,7 +550,8 @@ export async function findFloorplans(
   // Nearby same-postcode applications are NOT surfaced — only this exact address's plans + application
   // are shown. (They're still persisted below to build the shared discovery index.)
 
-  // 7. Persist the whole postcode's discovery to the shared cache (reused by other addresses).
+  // 7. Persist the completed discovery for display, diagnostics and document retrieval only.
+  //    It is deliberately not read to skip future online searches.
   try {
     const ranked = ordered
       .slice(0, MAX_PERSIST)

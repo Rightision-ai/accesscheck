@@ -165,6 +165,7 @@ function formatSupabaseError(err: unknown): string {
 export async function persistCostEstimation(
   supabase: SupabaseClient<Database>,
   surveyId: number,
+  organisationId: string,
   estimation: CostEstimation,
 ): Promise<void> {
   const client = supabase as unknown as LooseClient;
@@ -176,6 +177,7 @@ export async function persistCostEstimation(
       .from("cost_estimation_plans")
       .insert({
         survey_id: surveyId,
+        organisation_id: organisationId,
         budget_gbp: tier.budgetGbp,
         total_cost_gbp: tier.totalCostGbp,
         total_duration_days: tier.totalDurationDays,

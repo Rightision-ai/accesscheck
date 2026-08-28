@@ -485,7 +485,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
     setTimeout(() => {
       const updatedCase: Case = {
         ...caseData,
-        status: "Review",
+        status: "review",
         mlData: {
           ...caseData.mlData,
           aiReport: {
@@ -1202,7 +1202,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
           <button
             disabled={isSubmitting || isRescoring}
             onClick={
-              caseData.status === "Completed" || caseData.status === "Review"
+              caseData.status === "complete" || caseData.status === "review"
                 ? onOpenReport
                 : handleSubmit
             }
@@ -1218,8 +1218,8 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
                 <Loader className="animate-spin" size={20} />
                 Processing...
               </>
-            ) : caseData.status === "Completed" ||
-              caseData.status === "Review" ? (
+            ) : caseData.status === "complete" ||
+              caseData.status === "review" ? (
               <>
                 View Report
                 <ArrowRight size={20} />

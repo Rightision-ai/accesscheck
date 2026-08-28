@@ -1,0 +1,7 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+export default function InviteClient({ token }: { token: string }) { const router = useRouter(); const [error, setError] = useState(""); const [loading, setLoading] = useState(false); const accept = async () => { setLoading(true); const response = await fetch("/api/organisations/invitations/accept", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) }); const body = await response.json(); setLoading(false); if (!response.ok) return setError(body.error); router.push("/dashboard"); router.refresh(); }; return <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 text-center"><img src="/assets/logo/PNG/AcessCheck -21.png" alt="AccessCheck" className="mx-auto h-14" /><h1 className="mt-5 text-2xl font-extrabold text-slate-950">Join your council workspace</h1><p className="mt-2 text-sm text-slate-500">Sign in using the email address that received this invitation, then accept it.</p>{error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}<button onClick={accept} disabled={loading} className="mt-6 w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{loading ? "Accepting…" : "Accept invitation"}</button><Link href="/login" className="mt-4 block text-sm font-bold text-primary">Sign in first</Link></section>; }

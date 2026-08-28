@@ -3,18 +3,33 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { buildSurveyData } from './buildSurveyData';
+import { getOrganisationContext } from '@/lib/organisations/access';
+import { asLooseClient } from '@/lib/supabase/loose';
+import { refreshAssessmentReadiness } from '@/lib/assessments/repository';
 
 export async function saveSurvey(caseData: any) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return { error: 'Not authenticated' };
+  const context = await getOrganisationContext();
+  if (!context) return { error: 'No active organisation membership' };
+  if (!context.permissions.includes('author') && !context.isPlatformAdmin) {
+    return { error: 'The author permission is required' };
+  }
 
   const wizardData = caseData.mlData?.wizardData || {};
   const overrides = caseData.mlData?.userOverrides || {};
   const rawAhr = caseData.mlData?.rawAhr || {};
 
-  const surveyData = buildSurveyData(wizardData, overrides, rawAhr, caseData, user.id);
+  const surveyData = buildSurveyData(
+    wizardData,
+    overrides,
+    rawAhr,
+    caseData,
+    user.id,
+    context.organisationId,
+  );
 
   // Check if we are updating an existing real record (numeric ID)
   // The wizard uses temporary IDs like "H-..." which should be treated as new inserts
@@ -48,6 +63,8 @@ export async function saveSurvey(caseData: any) {
     return { error: error.message };
   }
 
+  await refreshAssessmentReadiness(asLooseClient(supabase), Number(newId));
+
   revalidatePath('/');
   return { success: true, id: newId };
 }
@@ -60,6 +77,10 @@ export async function deleteSurvey(caseId: string) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return { error: 'Not authenticated' };
+  const context = await getOrganisationContext();
+  if (!context || (!context.permissions.includes('author') && !context.isPlatformAdmin)) {
+    return { error: 'The author permission is required' };
+  }
 
   const surveyId = parseInt(caseId, 10);
   if (Number.isNaN(surveyId)) return { error: 'Invalid case ID' };
