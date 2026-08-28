@@ -1,4 +1,7 @@
-import type { LahrBandId, LahrEvaluation } from "@/lib/accessibility/lahr/types";
+import type {
+  LahrBandId,
+  LahrEvaluation,
+} from "@/lib/accessibility/lahr/types";
 import type { DfgBudgetGbp } from "@/lib/accessibility/cost-estimation/types";
 import fieldMapping from "@/lib/accessibility/lahr/tables/field-mapping.json";
 import { buildResolutionsBlock } from "@/lib/accessibility/cost-estimation/ruleRecipes";
@@ -11,7 +14,9 @@ type TriggeredRule = {
   description: string;
 };
 
-export function collectTriggeredRules(evaluation: LahrEvaluation): TriggeredRule[] {
+export function collectTriggeredRules(
+  evaluation: LahrEvaluation,
+): TriggeredRule[] {
   const out: TriggeredRule[] = [];
   for (const c of evaluation.criteria) {
     for (const r of c.triggeredRules) {
@@ -30,12 +35,17 @@ export function collectTriggeredRules(evaluation: LahrEvaluation): TriggeredRule
 /** The set of `surveys` columns Gemini may reference inside `field_patches`.
  *  Sourced from the LAHR field-mapping so we never go out of sync with the classifier. */
 function buildPatchableFieldsBlock(): string {
-  const mapping = (fieldMapping as { mapping: Record<string, unknown> }).mapping;
+  const mapping = (fieldMapping as { mapping: Record<string, unknown> })
+    .mapping;
   const cols = new Set<string>();
   for (const v of Object.values(mapping)) {
     if (typeof v === "string" && !v.startsWith("$")) {
       cols.add(v);
-    } else if (v && typeof v === "object" && "column" in (v as Record<string, unknown>)) {
+    } else if (
+      v &&
+      typeof v === "object" &&
+      "column" in (v as Record<string, unknown>)
+    ) {
       const col = (v as { column?: unknown }).column;
       if (typeof col === "string") cols.add(col);
     }
@@ -90,13 +100,19 @@ Instructions:
 2. For each triggered rule, decide whether a feasible adaptation exists for THIS property given visible constraints (run-out length, load-bearing walls, ceiling void, drainage falls, freeholder consent, etc.). If no feasible adaptation exists, explain it in "dropped_candidates" with a specific, visually grounded reason.
 3. TIERS ARE STRICTLY CUMULATIVE — each tier is the tier below it plus more:
    - £${budgets[0].toLocaleString()} tier: Propose adaptations whose total cost is ≤ £${budgets[0].toLocaleString()}.
-${budgets.slice(1).map((b, idx) => `   - £${b.toLocaleString()} tier: COPY every adaptation from the £${budgets[idx].toLocaleString()} tier VERBATIM (same label, same cost, same field_patches), then add NEW adaptations that bring the running total to between £${budgets[idx].toLocaleString()} and £${b.toLocaleString()}. Never exceed £${b.toLocaleString()}.`).join("\n")}
+${budgets
+  .slice(1)
+  .map(
+    (b, idx) =>
+      `   - £${b.toLocaleString()} tier: COPY every adaptation from the £${budgets[idx].toLocaleString()} tier VERBATIM (same label, same cost, same field_patches), then add NEW adaptations that bring the running total to between £${budgets[idx].toLocaleString()} and £${b.toLocaleString()}. Never exceed £${b.toLocaleString()}.`,
+  )
+  .join("\n")}
    - The additional adaptations added in each higher tier should target the gap between the previous tier's cap and this tier's cap (e.g. if £15K plan totals £12K, the £20K tier should add ~£3K–£8K of new work).
    - Tie-break for new adaptations: maximise LAHR-band uplift first, then shorter duration, then lower disruption.
 4. Return strict JSON only — no markdown, no commentary outside the JSON.
 
 Writing register for the narrative fields:
-- "overall_narrative": 2–4 sentences framing the adoption strategy for an OT. Name the blocking issues in clinical / functional terms (mobility risk, bathing risk, transfer clearance, fall risk) and explain the strategy in prose, not as a list.
+- "overall_narrative": 2–4 sentences framing the Adaptation strategy for an OT. Name the blocking issues in clinical / functional terms (mobility risk, bathing risk, transfer clearance, fall risk) and explain the strategy in prose, not as a list.
 - Per-adaptation "narrative": 1–2 full sentences describing what the work involves in this specific property and why it matters for the tenant. Tie it to what you can actually see in the floor plan or photos. Do not restate cost, duration or trades — those live in their own fields. No "Cost:" / "Duration:" labels. Flowing prose.
 - "rationale_if_not_band_a": Plain-English explanation of why £30K doesn't reach band A (if applicable) — reference the specific structural or spatial constraint you can see.
 

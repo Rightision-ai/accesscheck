@@ -1,5 +1,5 @@
 -- Replace the JSONB cost_estimation blob + global adaptation_catalogue with a
--- per-case schema. Each survey has 3 adoption plans (one per DFG budget tier),
+-- per-case schema. Each survey has 3 Adaptation plans (one per DFG budget tier),
 -- and each plan has N bespoke adaptations. Re-estimate = delete plans for the
 -- survey, cascade-clears adaptations, then re-insert.
 

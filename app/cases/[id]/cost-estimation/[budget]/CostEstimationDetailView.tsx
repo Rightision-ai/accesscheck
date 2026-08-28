@@ -49,7 +49,7 @@ export default function CostEstimationDetailView({
             <div className="flex items-center gap-2 text-primary-dark">
               <PoundSterling size={18} />
               <span className="text-xs font-bold uppercase tracking-wider">
-                DFG Adoption Plan
+                DFG Adaptation Plan
               </span>
               {isCap && (
                 <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
@@ -282,7 +282,9 @@ function AdaptationCard({
   isInherited: boolean;
 }) {
   return (
-    <li className={`rounded-xl border p-5 shadow-sm ${isInherited ? "border-slate-100 bg-slate-50" : "border-slate-200 bg-white"}`}>
+    <li
+      className={`rounded-xl border p-5 shadow-sm ${isInherited ? "border-slate-100 bg-slate-50" : "border-slate-200 bg-white"}`}
+    >
       <header className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">

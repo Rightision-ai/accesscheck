@@ -101,13 +101,18 @@ const collectBreakZones = (
       const r = (el as HTMLElement).getBoundingClientRect();
       if (r.height <= 0) return null; // display:none → zero rect
       const keepWithNext =
-        /^H[1-6]$/.test(el.tagName) || el.classList.contains("pdf-keep-with-next");
+        /^H[1-6]$/.test(el.tagName) ||
+        el.classList.contains("pdf-keep-with-next");
       return {
         top: Math.max(0, (r.top - cloneTop) * scale),
-        bottom: (r.bottom - cloneTop) * scale + (keepWithNext ? PDF_KEEP_WITH_NEXT_PX : 0),
+        bottom:
+          (r.bottom - cloneTop) * scale +
+          (keepWithNext ? PDF_KEEP_WITH_NEXT_PX : 0),
       };
     })
-    .filter((z): z is { top: number; bottom: number } => !!z && z.bottom > z.top);
+    .filter(
+      (z): z is { top: number; bottom: number } => !!z && z.bottom > z.top,
+    );
 };
 
 /** Move a proposed cut upward until it sits inside no zone. Loop-until-stable so a cut
@@ -1388,7 +1393,7 @@ const ReportView: React.FC<ReportViewProps> = ({
   }, [liveSurveyRow, assessedSurveyRow]);
   const [isReassessing, setIsReassessing] = useState(false);
   const [isCostRegenerating, setIsCostRegenerating] = useState(false);
-  // Page-level lock during the (short) survey save. The adoption-plan regen is now a separate
+  // Page-level lock during the (short) survey save. The Adaptation-plan regen is now a separate
   // user action — its loading state lives inside CostEstimationAppendix and doesn't lock the
   // page.
   const isReassessmentLocked = isReassessing;
@@ -1416,13 +1421,13 @@ const ReportView: React.FC<ReportViewProps> = ({
         //    seeds re-derive against the persisted row. revalidatePath("/cases/[id]") in the
         //    save route + router.refresh() here re-fetches the server component.
         onCaseSaved?.();
-        // The adoption plan is no longer auto-regenerated. The existing staleness banner on
+        // The Adaptation plan is no longer auto-regenerated. The existing staleness banner on
         // CostEstimationAppendix (`surveyUpdatedAt > generatedAt`) will appear with an
         // "Update plan" button so the user can trigger the long Gemini job when they're ready.
         const newBand = lahrEvaluation?.band;
         if (newBand && newBand !== "A") {
           toast.success(
-            "Band reassessed. The adoption plan is now out of date — open it and click Update plan when ready.",
+            "Band reassessed. The Adaptation plan is now out of date — open it and click Update plan when ready.",
           );
         } else {
           toast.success("Band reassessed and saved.");
@@ -1608,7 +1613,9 @@ const ReportView: React.FC<ReportViewProps> = ({
       clone.querySelectorAll(".pdf-hide").forEach((el) => el.remove());
       // html2canvas paints <details> children even when collapsed, so expand them in
       // the clone — otherwise the paint spills over whatever follows the element.
-      clone.querySelectorAll("details").forEach((d) => d.setAttribute("open", ""));
+      clone
+        .querySelectorAll("details")
+        .forEach((d) => d.setAttribute("open", ""));
 
       tempContainer.appendChild(clone);
 
@@ -1866,7 +1873,7 @@ const ReportView: React.FC<ReportViewProps> = ({
               >
                 {isReassessing
                   ? "Reassessing band…"
-                  : "Generating adoption plan…"}
+                  : "Generating Adaptation plan…"}
               </h3>
               <p
                 style={{
@@ -2056,7 +2063,7 @@ const ReportView: React.FC<ReportViewProps> = ({
         >
           <span>
             Form inputs have changed. Re-assess the band to refresh the score
-            and the DFG adoption plan, then save, download, or print.
+            and the DFG Adaptation plan, then save, download, or print.
           </span>
           <button
             type="button"
@@ -10240,69 +10247,73 @@ const ReportView: React.FC<ReportViewProps> = ({
                   </div>
 
                   {/* Floor Plan on the first evidence page */}
-                  {pageIdx === 0 && (() => {
-                    const fp =
-                      typeof wizardData.floorPlan === "string"
-                        ? wizardData.floorPlan
-                        : wizardData.floorPlan
-                          ? URL.createObjectURL(wizardData.floorPlan)
-                          : null;
-                    const isPdf =
-                      wizardData.floorPlanIsPdf === true ||
-                      (!!fp && /\.pdf(\?|$)/i.test(fp));
-                    // Reports export to PDF (html2canvas) — only a raster <img>
-                    // is captured, so use the rendered preview for PDFs.
-                    const imgSrc =
-                      wizardData.floorPlanPreviewUrl ||
-                      (fp && !isPdf ? fp : null);
-                    if (!imgSrc) return null;
-                    return (
-                    <div className="pdf-avoid-break" style={{ marginTop: "40px" }}>
-                      <h4
-                        style={{
-                          fontSize: "13px",
-                          fontWeight: "900",
-                          color: AHR_DEEP,
-                          borderLeft: `6px solid ${AHR_DEEP}`,
-                          paddingLeft: "12px",
-                          marginBottom: "20px",
-                        }}
-                      >
-                        VALIDATED FLOOR PLAN MAP
-                      </h4>
-                      <div
-                        style={{
-                          border: `1px solid ${AHR_BORDER}`,
-                          borderRadius: "24px",
-                          padding: "20px",
-                          background: "#f8fafc",
-                        }}
-                      >
-                        <img
-                          src={imgSrc}
-                          style={{
-                            width: "100%",
-                            maxHeight: "600px",
-                            objectFit: "contain",
-                            borderRadius: "12px",
-                          }}
-                        />
+                  {pageIdx === 0 &&
+                    (() => {
+                      const fp =
+                        typeof wizardData.floorPlan === "string"
+                          ? wizardData.floorPlan
+                          : wizardData.floorPlan
+                            ? URL.createObjectURL(wizardData.floorPlan)
+                            : null;
+                      const isPdf =
+                        wizardData.floorPlanIsPdf === true ||
+                        (!!fp && /\.pdf(\?|$)/i.test(fp));
+                      // Reports export to PDF (html2canvas) — only a raster <img>
+                      // is captured, so use the rendered preview for PDFs.
+                      const imgSrc =
+                        wizardData.floorPlanPreviewUrl ||
+                        (fp && !isPdf ? fp : null);
+                      if (!imgSrc) return null;
+                      return (
                         <div
-                          style={{
-                            marginTop: "16px",
-                            fontSize: "12px",
-                            textAlign: "center",
-                            color: "#64748b",
-                            fontWeight: "700",
-                          }}
+                          className="pdf-avoid-break"
+                          style={{ marginTop: "40px" }}
                         >
-                          Rightision AI Vision: Spatial Mapping Applied (M4
-                          Compliance Verified)
+                          <h4
+                            style={{
+                              fontSize: "13px",
+                              fontWeight: "900",
+                              color: AHR_DEEP,
+                              borderLeft: `6px solid ${AHR_DEEP}`,
+                              paddingLeft: "12px",
+                              marginBottom: "20px",
+                            }}
+                          >
+                            VALIDATED FLOOR PLAN MAP
+                          </h4>
+                          <div
+                            style={{
+                              border: `1px solid ${AHR_BORDER}`,
+                              borderRadius: "24px",
+                              padding: "20px",
+                              background: "#f8fafc",
+                            }}
+                          >
+                            <img
+                              src={imgSrc}
+                              style={{
+                                width: "100%",
+                                maxHeight: "600px",
+                                objectFit: "contain",
+                                borderRadius: "12px",
+                              }}
+                            />
+                            <div
+                              style={{
+                                marginTop: "16px",
+                                fontSize: "12px",
+                                textAlign: "center",
+                                color: "#64748b",
+                                fontWeight: "700",
+                              }}
+                            >
+                              Rightision AI Vision: Spatial Mapping Applied (M4
+                              Compliance Verified)
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    );
-                  })()}
+                      );
+                    })()}
                 </SectionBlock>
               </div>
             ));
@@ -10326,7 +10337,7 @@ const ReportView: React.FC<ReportViewProps> = ({
             </div>
           ) : null}
 
-          {/* --- DFG ADOPTION PLAN (cost + potential band) --- */}
+          {/* --- DFG Adaptation PLAN (cost + potential band) --- */}
           {lahrEvaluation &&
           lahrEvaluation.band !== "A" &&
           Number.isFinite(Number(caseData.id)) ? (

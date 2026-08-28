@@ -655,7 +655,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                         <span className="font-semibold text-primary-dark">
                           Potential changes:
                         </span>{" "}
-                        the DFG Adoption Plan below shows the bespoke
+                        the DFG Adaptation Plan below shows the bespoke
                         adaptations that could lift this property's rating
                         within the £15K, £20K, and £30K Disabled Facilities
                         Grant tiers.
@@ -771,57 +771,59 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                   <FileText size={20} className="text-primary" />
                   Validated Floor Plan
                 </h3>
-                {wizardData?.floorPlan ? (() => {
-                  const fp =
-                    typeof wizardData.floorPlan === "string"
-                      ? wizardData.floorPlan
-                      : URL.createObjectURL(wizardData.floorPlan);
-                  const isPdf =
-                    wizardData.floorPlanIsPdf === true ||
-                    /\.pdf(\?|$)/i.test(fp);
-                  // Prefer the rendered preview image (so PDFs show a thumbnail);
-                  // otherwise show the image directly.
-                  const previewSrc =
-                    wizardData.floorPlanPreviewUrl || (!isPdf ? fp : null);
-                  return (
-                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
-                      {previewSrc ? (
-                        <img
-                          src={previewSrc}
-                          alt="Floor plan"
-                          className="w-full max-h-[320px] object-contain rounded-lg"
-                        />
-                      ) : isPdf ? (
-                        <iframe
-                          src={fp}
-                          title="Floor plan"
-                          className="w-full h-[320px] rounded-lg border border-slate-200 bg-white"
-                        />
-                      ) : null}
-                      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-                        <a
-                          href={fp}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50"
-                        >
-                          <ExternalLink size={14} /> Open in new tab
-                        </a>
-                        <a
-                          href={fp}
-                          download
-                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50"
-                        >
-                          <Download size={14} /> Download
-                        </a>
+                {wizardData?.floorPlan ? (
+                  (() => {
+                    const fp =
+                      typeof wizardData.floorPlan === "string"
+                        ? wizardData.floorPlan
+                        : URL.createObjectURL(wizardData.floorPlan);
+                    const isPdf =
+                      wizardData.floorPlanIsPdf === true ||
+                      /\.pdf(\?|$)/i.test(fp);
+                    // Prefer the rendered preview image (so PDFs show a thumbnail);
+                    // otherwise show the image directly.
+                    const previewSrc =
+                      wizardData.floorPlanPreviewUrl || (!isPdf ? fp : null);
+                    return (
+                      <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                        {previewSrc ? (
+                          <img
+                            src={previewSrc}
+                            alt="Floor plan"
+                            className="w-full max-h-[320px] object-contain rounded-lg"
+                          />
+                        ) : isPdf ? (
+                          <iframe
+                            src={fp}
+                            title="Floor plan"
+                            className="w-full h-[320px] rounded-lg border border-slate-200 bg-white"
+                          />
+                        ) : null}
+                        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                          <a
+                            href={fp}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50"
+                          >
+                            <ExternalLink size={14} /> Open in new tab
+                          </a>
+                          <a
+                            href={fp}
+                            download
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-50"
+                          >
+                            <Download size={14} /> Download
+                          </a>
+                        </div>
+                        <p className="mt-2 text-[11px] text-center text-slate-500 font-semibold">
+                          Rightision AI Vision: Spatial Mapping Applied (M4
+                          Compliance Verified)
+                        </p>
                       </div>
-                      <p className="mt-2 text-[11px] text-center text-slate-500 font-semibold">
-                        Rightision AI Vision: Spatial Mapping Applied (M4
-                        Compliance Verified)
-                      </p>
-                    </div>
-                  );
-                })() : (
+                    );
+                  })()
+                ) : (
                   <div className="border border-slate-200 rounded-xl bg-slate-50 h-[200px] flex flex-col items-center justify-center text-slate-400">
                     <FileText size={24} className="mb-2 opacity-60" />
                     <span className="text-sm font-semibold">No plan</span>

@@ -3,7 +3,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
-import { LAHR_BAND_BY_ID, type LahrBandId } from "@/lib/accessibility/lahr/types";
+import {
+  LAHR_BAND_BY_ID,
+  type LahrBandId,
+} from "@/lib/accessibility/lahr/types";
 import LahrBandBadge from "@/app/components/common/LahrBandBadge";
 import type {
   CostEstimation,
@@ -58,9 +61,9 @@ export default function CostEstimationAppendix({
   onRefreshingChange,
   forceLoading = false,
 }: Props) {
-  const [estimation, _setEstimation] = useState<CostEstimation | null | undefined>(
-    initialEstimation,
-  );
+  const [estimation, _setEstimation] = useState<
+    CostEstimation | null | undefined
+  >(initialEstimation);
   const setEstimation = useCallback(
     (next: CostEstimation | null | undefined) => {
       _setEstimation(next);
@@ -149,18 +152,19 @@ export default function CostEstimationAppendix({
     !!estimation &&
     (inputsDirty ||
       (!!surveyUpdatedAt &&
-        new Date(surveyUpdatedAt).getTime() > new Date(estimation.generatedAt).getTime()));
+        new Date(surveyUpdatedAt).getTime() >
+          new Date(estimation.generatedAt).getTime()));
 
   return (
     <div className="space-y-6 rounded-lg border border-slate-200 bg-white p-5">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <h2 className="text-xs font-black uppercase tracking-wider text-primary-dark">
-            DFG Adoption Plan
+            DFG Adaptation Plan
           </h2>
           <p className="text-[11px] text-slate-500">
-            UK Disabled Facilities Grant funding caps at £30,000. Three tiers below show
-            what can be achieved at £15K, £20K, and £30K of spend.
+            UK Disabled Facilities Grant funding caps at £30,000. Three tiers
+            below show what can be achieved at £15K, £20K, and £30K of spend.
           </p>
         </div>
         {enableReEstimate && (
@@ -187,14 +191,14 @@ export default function CostEstimationAppendix({
 
       {isStale && (
         <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
-          {inputsDirty
-            ? "Form inputs have changed. Save the report and click Update plan to regenerate the DFG plan against the latest measurements."
-            : (
-                <>
-                  The survey was edited after this plan was generated. Click <em>Update plan</em>{" "}
-                  to refresh it with the latest measurements.
-                </>
-              )}
+          {inputsDirty ? (
+            "Form inputs have changed. Save the report and click Update plan to regenerate the DFG plan against the latest measurements."
+          ) : (
+            <>
+              The survey was edited after this plan was generated. Click{" "}
+              <em>Update plan</em> to refresh it with the latest measurements.
+            </>
+          )}
         </div>
       )}
 
@@ -233,7 +237,10 @@ function EmptyState({ isLoading }: { isLoading: boolean }) {
     return (
       <div className="flex flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-green-200 bg-green-50/40 py-10 text-center">
         <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-          <Loader2 size={40} className="relative z-[1] animate-spin text-primary" />
+          <Loader2
+            size={40}
+            className="relative z-[1] animate-spin text-primary"
+          />
           <motion.div
             animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.1, 0.3] }}
             transition={{ duration: 2, repeat: Infinity }}
@@ -242,11 +249,11 @@ function EmptyState({ isLoading }: { isLoading: boolean }) {
         </div>
         <div>
           <h4 className="m-0 text-base font-extrabold text-primary-dark">
-            Generating adoption plan…
+            Generating Adaptation plan…
           </h4>
           <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
-            The Disabled Facilities Grant tiers are being recalculated. This usually finishes in
-            40–60 seconds.
+            The Disabled Facilities Grant tiers are being recalculated. This
+            usually finishes in 40–60 seconds.
           </p>
         </div>
       </div>
@@ -254,12 +261,12 @@ function EmptyState({ isLoading }: { isLoading: boolean }) {
   }
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded border border-dashed border-slate-200 py-10 text-[12px] text-slate-500">
-      <span>Adoption plan not generated yet.</span>
-      {(
+      <span>Adaptation plan not generated yet.</span>
+      {
         <span className="text-[11px] text-slate-400">
           Use the button above to generate one for this property.
         </span>
-      )}
+      }
     </div>
   );
 }
@@ -288,7 +295,13 @@ function SummaryRow({
           Potential band at £30K
         </span>
         <div className="flex items-center gap-3">
-          {at30k && <LahrBandBadge band={at30k.potentialBand} size="sm" showLabel={false} />}
+          {at30k && (
+            <LahrBandBadge
+              band={at30k.potentialBand}
+              size="sm"
+              showLabel={false}
+            />
+          )}
           <span
             className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
               reachesA
@@ -314,7 +327,8 @@ function TierCard({
   isCap: boolean;
 }) {
   const uplifted = tier.potentialBand !== currentBand;
-  const diffColor = DIFFICULTY_COLOR[tier.overallDifficulty] ?? DIFFICULTY_COLOR.minor;
+  const diffColor =
+    DIFFICULTY_COLOR[tier.overallDifficulty] ?? DIFFICULTY_COLOR.minor;
   const isEmpty = tier.adaptations.length === 0;
 
   return (
@@ -325,7 +339,7 @@ function TierCard({
     >
       {/* Full-width meta row: budget on the left; stats and projected band inline on the
           right. Stats only render when a plan exists — empty tiers show just the
-          "No adoption" reason, avoiding the implication of a £0 plan that uplifts the band. */}
+          "No Adaptation" reason, avoiding the implication of a £0 plan that uplifts the band. */}
       <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-slate-200 pb-2">
         <div className="flex items-center gap-2">
           <h3 className="m-0 text-sm font-extrabold text-slate-900">
@@ -363,7 +377,9 @@ function TierCard({
               </span>
               <span
                 className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
-                style={{ backgroundColor: LAHR_BAND_BY_ID[tier.potentialBand].color }}
+                style={{
+                  backgroundColor: LAHR_BAND_BY_ID[tier.potentialBand].color,
+                }}
               >
                 {tier.potentialBand}
               </span>
@@ -380,7 +396,7 @@ function TierCard({
       {isEmpty ? (
         <div className="rounded border border-amber-200 bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-900">
           <div className="font-bold uppercase tracking-wider text-[10px] text-amber-800 mb-1">
-            No adoption available
+            No Adaptation available
           </div>
           <p className="m-0">
             {tier.unavailableReason ??
@@ -390,7 +406,10 @@ function TierCard({
       ) : (
         <ul className="space-y-2 text-[11px] text-slate-700">
           {tier.adaptations.map((a, i) => (
-            <li key={i} className="pdf-avoid-break rounded border border-slate-100 bg-white p-2">
+            <li
+              key={i}
+              className="pdf-avoid-break rounded border border-slate-100 bg-white p-2"
+            >
               <div className="flex items-baseline justify-between gap-2">
                 <span className="font-semibold text-slate-800">{a.label}</span>
                 <span className="shrink-0 text-slate-600">
@@ -398,18 +417,24 @@ function TierCard({
                 </span>
               </div>
               <div className="mt-0.5 text-[10px] text-slate-500">
-                Addresses Accessible Housing Rules rule{a.addressesRules.length > 1 ? "s" : ""}{" "}
-                {a.addressesRules.join(", ")} · {a.trades.join(", ") || "general"}
+                Addresses Accessible Housing Rules rule
+                {a.addressesRules.length > 1 ? "s" : ""}{" "}
+                {a.addressesRules.join(", ")} ·{" "}
+                {a.trades.join(", ") || "general"}
               </div>
               {a.narrative && (
-                <p className="mt-1 text-[10px] italic text-slate-600">{a.narrative}</p>
+                <p className="mt-1 text-[10px] italic text-slate-600">
+                  {a.narrative}
+                </p>
               )}
             </li>
           ))}
         </ul>
       )}
 
-      {tier.droppedCandidates.length > 0 && <DroppedList dropped={tier.droppedCandidates} />}
+      {tier.droppedCandidates.length > 0 && (
+        <DroppedList dropped={tier.droppedCandidates} />
+      )}
     </article>
   );
 }
@@ -432,7 +457,8 @@ function DroppedList({
       <ul className="space-y-1 px-2 pb-2">
         {dropped.map((d, i) => (
           <li key={i}>
-            <span className="font-semibold text-slate-700">{d.label}</span> — {d.reason}
+            <span className="font-semibold text-slate-700">{d.label}</span> —{" "}
+            {d.reason}
           </li>
         ))}
       </ul>
@@ -461,10 +487,13 @@ function NarrativeBlock({ estimation }: { estimation: CostEstimation }) {
             style={{ width: `${confidencePct}%` }}
           />
         </div>
-        <span className="text-[10px] font-semibold text-slate-600">{confidencePct}%</span>
+        <span className="text-[10px] font-semibold text-slate-600">
+          {confidencePct}%
+        </span>
       </div>
       <p className="text-[10px] text-slate-400">
-        Generated {new Date(estimation.generatedAt).toLocaleString()} · AI engine
+        Generated {new Date(estimation.generatedAt).toLocaleString()} · AI
+        engine
       </p>
     </section>
   );

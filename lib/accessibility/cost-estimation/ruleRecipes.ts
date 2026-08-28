@@ -2,7 +2,7 @@
  * Rule → minimum-patch lookup. Without this Gemini guesses which `surveys` columns to patch
  * to resolve a triggered LAHR rule and frequently misses (e.g. patches `has_property_ramp:true`
  * but forgets the gradient values, so the gradient-rule still trips). The result is an
- * adoption plan that doesn't actually lift the band.
+ * Adaptation plan that doesn't actually lift the band.
  *
  * Each entry is a NAMED group of related fields that together resolve a family of rules.
  * Multiple groups can address overlapping rule sets — that's fine, the prompt lists all
@@ -88,7 +88,9 @@ export const RULE_RECIPES: Recipe[] = [
   },
   {
     label: "Second-exit ramp",
-    rules: [29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 94, 102, 105, 108],
+    rules: [
+      29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 94, 102, 105, 108,
+    ],
     patches: {
       has_ramped_second_exit: true,
       second_exit_ramp_ah: 10,
@@ -102,7 +104,8 @@ export const RULE_RECIPES: Recipe[] = [
     label: "Stair lift / platform stair lift",
     rules: [44, 45],
     patches: { has_platform_stair_lift: true, has_stair_lift: true },
-    preconditions: "Stairs suitable for rail mounting (single flight or curved bespoke).",
+    preconditions:
+      "Stairs suitable for rail mounting (single flight or curved bespoke).",
   },
   {
     label: "Wheelchair / scooter storage",
@@ -164,7 +167,8 @@ export const RULE_RECIPES: Recipe[] = [
       through_floor_lift_dim_width: 110,
       through_floor_lift_dim_depth: 75,
     },
-    preconditions: "Vertical void available; floor / ceiling joists permit aperture.",
+    preconditions:
+      "Vertical void available; floor / ceiling joists permit aperture.",
   },
   {
     label: "Remove internal floor-level changes",
@@ -196,9 +200,15 @@ export function recipesForRule(n: number): Recipe[] {
  * needs to put into `field_patches` to flip the rule.
  */
 export function buildResolutionsBlock(
-  triggeredRules: { n: number; capBand: string; sectionLabel: string; description: string }[],
+  triggeredRules: {
+    n: number;
+    capBand: string;
+    sectionLabel: string;
+    description: string;
+  }[],
 ): string {
-  if (triggeredRules.length === 0) return "  (none — no rules currently capping the band)";
+  if (triggeredRules.length === 0)
+    return "  (none — no rules currently capping the band)";
   return triggeredRules
     .map((r) => {
       const recipes = recipesForRule(r.n);
@@ -207,7 +217,9 @@ export function buildResolutionsBlock(
         return `${head}\n      (No standard recipe — patch the closest related fields and explain the reasoning in narrative.)`;
       }
       const lines = recipes.map((rec) => {
-        const pre = rec.preconditions ? ` [requires: ${rec.preconditions}]` : "";
+        const pre = rec.preconditions
+          ? ` [requires: ${rec.preconditions}]`
+          : "";
         return `      • To resolve via "${rec.label}"${pre}: field_patches must include ${JSON.stringify(rec.patches)}`;
       });
       return `${head}\n${lines.join("\n")}`;
