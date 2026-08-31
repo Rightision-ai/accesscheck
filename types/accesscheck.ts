@@ -9,6 +9,9 @@ export interface OrganisationContext {
   organisationName: string;
   organisationStatus: OrganisationStatus;
   memberId: string;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
   permissions: OrganisationPermission[];
   isPlatformAdmin: boolean;
 }

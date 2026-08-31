@@ -1,5 +1,11 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
 import type { RateCard } from "@/lib/rate-cards/types";
 import { formatCostRange } from "@/lib/adaptation-plans/narrative";
+import Pagination from "@/app/components/settings/Pagination";
+
+const PAGE_SIZE = 15;
 
 const DIFFICULTY_COLOR: Record<string, string> = {
   minor: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -15,15 +21,27 @@ const DIFFICULTY_ORDER: Record<string, number> = {
 };
 
 export default function RateCardTable({ rateCard }: { rateCard: RateCard }) {
+  const [page, setPage] = useState(1);
+  const [pending, startTransition] = useTransition();
+
   // Sorted for display only. The engine trims its candidate pool by `priorityHint`, which it
   // reads off each item directly, so it is unaffected by the order here.
-  const items = [...rateCard.items].sort(
-    (a, b) =>
-      (DIFFICULTY_ORDER[a.difficulty] ?? 99) -
-        (DIFFICULTY_ORDER[b.difficulty] ?? 99) ||
-      a.rateExpectedGbp - b.rateExpectedGbp ||
-      a.workItemCode.localeCompare(b.workItemCode),
+  const items = useMemo(
+    () =>
+      [...rateCard.items].sort(
+        (a, b) =>
+          (DIFFICULTY_ORDER[a.difficulty] ?? 99) -
+            (DIFFICULTY_ORDER[b.difficulty] ?? 99) ||
+          a.rateExpectedGbp - b.rateExpectedGbp ||
+          a.workItemCode.localeCompare(b.workItemCode),
+      ),
+    [rateCard.items],
   );
+
+  const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  // Clamp: publishing a new version can shrink the list under the current page.
+  const currentPage = Math.min(page, pageCount);
+  const visible = items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-6">
@@ -51,7 +69,7 @@ export default function RateCardTable({ rateCard }: { rateCard: RateCard }) {
         </div>
       </header>
 
-      <div className="mt-4 overflow-x-auto">
+      <div className={`mt-4 overflow-x-auto transition-opacity ${pending ? "opacity-60" : ""}`}>
         <table className="w-full min-w-[620px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -64,7 +82,7 @@ export default function RateCardTable({ rateCard }: { rateCard: RateCard }) {
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {visible.map((item) => (
               <tr
                 key={item.workItemCode}
                 className="border-b border-slate-100 align-top"
@@ -128,6 +146,16 @@ export default function RateCardTable({ rateCard }: { rateCard: RateCard }) {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        page={currentPage}
+        pageCount={pageCount}
+        total={items.length}
+        pageSize={PAGE_SIZE}
+        pending={pending}
+        onChange={(next) => startTransition(() => setPage(next))}
+        label="work items"
+      />
 
       <footer className="mt-4 space-y-1 border-t border-slate-200 pt-3 text-[11px] text-slate-500">
         <p className="m-0">

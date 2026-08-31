@@ -30,12 +30,13 @@ const navigation = [
 type Props = {
   children: React.ReactNode;
   userName: string;
+  avatarUrl?: string | null;
   organisationName: string;
   isAdmin: boolean;
   isPlatformAdmin: boolean;
 };
 
-export default function AppShellClient({ children, userName, organisationName, isAdmin, isPlatformAdmin }: Props) {
+export default function AppShellClient({ children, userName, avatarUrl, organisationName, isAdmin, isPlatformAdmin }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -178,9 +179,14 @@ export default function AppShellClient({ children, userName, organisationName, i
                 <span className="block max-w-44 truncate text-sm font-semibold text-slate-900">{userName}</span>
                 <span className="block text-xs text-slate-500">{roleLabel}</span>
               </span>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
-                {initials}
-              </span>
+              {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- user-supplied storage URL, no loader config
+                <img src={avatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+              ) : (
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-white">
+                  {initials}
+                </span>
+              )}
               <ChevronDown size={16} className={cn("shrink-0 text-slate-400 transition-transform", accountMenuOpen && "rotate-180")} aria-hidden="true" />
             </button>
             {accountMenuOpen && (

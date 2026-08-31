@@ -716,11 +716,12 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
-          display_name: string | null
           email: string | null
+          first_name: string | null
           id: string
           job_title: string | null
           last_active_at: string | null
+          last_name: string | null
           organisation_id: string
           phone: string | null
           status: string
@@ -730,11 +731,12 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
-          display_name?: string | null
           email?: string | null
+          first_name?: string | null
           id?: string
           job_title?: string | null
           last_active_at?: string | null
+          last_name?: string | null
           organisation_id: string
           phone?: string | null
           status?: string
@@ -744,11 +746,12 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
-          display_name?: string | null
           email?: string | null
+          first_name?: string | null
           id?: string
           job_title?: string | null
           last_active_at?: string | null
+          last_name?: string | null
           organisation_id?: string
           phone?: string | null
           status?: string
