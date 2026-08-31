@@ -1,5 +1,5 @@
 export type ResendSendInput = {
-  from: string; // e.g. "AccessCheck <noreply@accesscheck.co.uk>"
+  from: string; // e.g. "AccessCheck <noreply@rightision.co.uk>" — domain must be verified in Resend
   to: string[];
   replyTo?: string | string[];
   subject: string;
