@@ -1,3 +1,4 @@
+import { normalizeAssessmentStatus } from "@/lib/assessments/status";
 import type { AssessmentReadiness, AssessmentStatus } from "@/types/accesscheck";
 
 export type AssessmentAnalyticsRow = {
@@ -24,13 +25,14 @@ export function buildAssessmentSummary(rows: AssessmentAnalyticsRow[], now = new
     .filter((row) => row.created_at && row.completed_at)
     .map((row) => (new Date(row.completed_at!).valueOf() - new Date(row.created_at!).valueOf()) / 86_400_000)
     .filter((days) => days >= 0);
-  const counts = (status: AssessmentStatus) => rows.filter((row) => row.status === status).length;
+  // Normalise so legacy values (in_progress, "Completed", …) still land in a bucket.
+  const statusOf = (row: AssessmentAnalyticsRow) => normalizeAssessmentStatus(row.status);
+  const counts = (status: AssessmentStatus) => rows.filter((row) => statusOf(row) === status).length;
 
   return {
     total: rows.length,
-    open: rows.filter((row) => row.status !== "complete").length,
+    open: rows.filter((row) => statusOf(row) !== "complete").length,
     draft: counts("draft"),
-    inProgress: counts("in_progress"),
     review: counts("review"),
     complete: counts("complete"),
     completedInPeriod: rows.filter(

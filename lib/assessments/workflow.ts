@@ -60,6 +60,12 @@ export function validateAssessment(input: AssessmentWorkflowInput): AssessmentVa
   };
 }
 
+/**
+ * The three-status workflow: draft → review → complete, plus reason-gated send-backs.
+ *
+ * This table is mirrored by the `validate_assessment_status_transition` Postgres trigger
+ * (supabase/migrations/20260831120000_simplify_assessment_workflow.sql). Change both together.
+ */
 export function canTransitionAssessment(
   from: AssessmentStatus,
   to: AssessmentStatus,
@@ -67,12 +73,12 @@ export function canTransitionAssessment(
   completionPercent: number,
   reason?: string,
 ): boolean {
-  const author = permissions.includes("author");
-  const reviewer = permissions.includes("reviewer");
-  if (from === "draft" && to === "in_progress") return author;
-  if (from === "in_progress" && to === "review") return author && completionPercent === 100;
-  if (from === "review" && to === "in_progress") return (author || reviewer) && Boolean(reason?.trim());
-  if (from === "review" && to === "complete") return reviewer;
-  if (from === "complete" && to === "in_progress") return reviewer && Boolean(reason?.trim());
+  // The reviewer role exists but is not part of this flow — authors and admins drive it.
+  const canEdit = permissions.includes("author") || permissions.includes("admin");
+  if (!canEdit) return false;
+  if (from === "draft" && to === "review") return completionPercent === 100;
+  if (from === "review" && to === "complete") return true;
+  if (from === "review" && to === "draft") return Boolean(reason?.trim());
+  if (from === "complete" && to === "draft") return Boolean(reason?.trim());
   return false;
 }

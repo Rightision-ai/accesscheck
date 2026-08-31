@@ -3,24 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import {
-  ClipboardCheck,
-  Clock3,
-  FileCheck2,
-  FileText,
-  ListTodo,
-  Plus,
-} from "lucide-react";
+import { ClipboardCheck, Clock3, FileCheck2, FileText, Plus } from "lucide-react";
 import { toast } from "sonner";
 import AssessmentWizard from "@/app/components/wizard/AssessmentWizard";
 import CaseCard from "@/app/components/dashboard/CaseCard";
-import { saveSurveyClient } from "@/lib/surveys/client";
+import { useOpenAssessment } from "@/app/components/dashboard/useOpenAssessment";
+import { submitAssessmentForReview } from "@/lib/surveys/assessmentStatus";
+import type { AssessmentStatus } from "@/types/accesscheck";
 import type { Case } from "@/types/dashboard";
 
 type Summary = {
   open: number;
   draft: number;
-  inProgress: number;
   review: number;
   complete: number;
   completedInPeriod: number;
@@ -42,9 +36,13 @@ export default function DashboardClient({
   canAuthor,
 }: Props) {
   const router = useRouter();
-  const [wizardOpen, setWizardOpen] = useState(false);
-  const [wizardInitialData, setWizardInitialData] =
-    useState<Partial<Case> | null>(null);
+  const {
+    wizardOpen,
+    wizardInitialData,
+    openAssessment,
+    closeWizard,
+    startNewAssessment,
+  } = useOpenAssessment(canAuthor);
   const [cases, setCases] = useState(initialCases);
   const maxTrend = Math.max(
     1,
@@ -74,14 +72,6 @@ export default function DashboardClient({
       iconClass: "bg-white text-slate-500",
     },
     {
-      label: "In progress",
-      value: summary.inProgress,
-      icon: ListTodo,
-      card: "border-blue-200 bg-blue-50 text-blue-800",
-      labelClass: "text-blue-600",
-      iconClass: "bg-blue-100 text-blue-600",
-    },
-    {
       label: "Awaiting review",
       value: summary.review,
       icon: Clock3,
@@ -103,18 +93,6 @@ export default function DashboardClient({
 
   const recentCases = cases.slice(0, 4);
 
-  const openAssessment = (assessment: Case) => {
-    if (canAuthor && ["draft", "in_progress"].includes(assessment.status)) {
-      setWizardInitialData({
-        id: assessment.id,
-        ...(assessment.mlData?.wizardData || {}),
-        evidence: assessment.evidence,
-        photos: assessment.evidence,
-      });
-      setWizardOpen(true);
-    } else router.push(`/cases/${assessment.id}`);
-  };
-
   return (
     <div className="min-h-[calc(100vh-64px)] bg-gradient-to-b from-slate-50 to-white px-4 py-7 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1500px]">
@@ -130,10 +108,7 @@ export default function DashboardClient({
           </div>
           {canAuthor && (
             <button
-              onClick={() => {
-                setWizardInitialData(null);
-                setWizardOpen(true);
-              }}
+              onClick={startNewAssessment}
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-[0_4px_14px_rgba(15,183,91,0.25)] transition hover:bg-primary-dark"
             >
               <Plus size={18} /> New assessment
@@ -142,7 +117,7 @@ export default function DashboardClient({
         </div>
 
         <section
-          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
           aria-label="Assessment summary"
         >
           {summaryCards.map(
@@ -271,7 +246,7 @@ export default function DashboardClient({
                 All assessments
               </Link>
             </div>
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-4">
               {recentCases.map((assessment) => (
                 <CaseCard
                   key={assessment.id}
@@ -289,24 +264,27 @@ export default function DashboardClient({
         <AssessmentWizard
           isOpen={wizardOpen}
           initialData={wizardInitialData}
-          onClose={() => {
-            setWizardOpen(false);
-            setWizardInitialData(null);
-          }}
+          onClose={closeWizard}
           onComplete={async (newCase) => {
-            const result = await saveSurveyClient(newCase);
+            const result = await submitAssessmentForReview(newCase);
             if (result.error) {
               toast.error(result.error);
               return;
             }
             const realId = String(result.id ?? newCase.id);
+            // A failed submit still leaves the work saved as a draft — say so and carry on
+            // rather than trapping the user in the wizard.
+            const status: AssessmentStatus = result.statusError
+              ? "draft"
+              : "review";
+            if (result.statusError) toast.error(result.statusError);
             setCases((current) =>
               [
-                { ...newCase, id: realId },
+                { ...newCase, id: realId, status },
                 ...current.filter((item) => item.id !== realId),
               ].slice(0, 8),
             );
-            setWizardOpen(false);
+            closeWizard();
             router.push(`/cases/${realId}`);
             router.refresh();
           }}
@@ -317,7 +295,7 @@ export default function DashboardClient({
                 8,
               ),
             );
-            setWizardOpen(false);
+            closeWizard();
           }}
         />
       </div>

@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { asLooseClient } from "@/lib/supabase/loose";
 import { isApiError, requireApiContext } from "@/lib/api/auth";
+import { ASSESSMENT_STATUSES } from "@/lib/assessments/status";
 import type { AssessmentStatus } from "@/types/accesscheck";
-
-const STATUSES: AssessmentStatus[] = ["draft", "in_progress", "review", "complete"];
 
 export async function GET(request: NextRequest) {
   const context = await requireApiContext();
@@ -22,7 +21,7 @@ export async function GET(request: NextRequest) {
     .from("surveys")
     .select("id,created_at,updated_at,status,door_number,street_number,building_name,street,postcode,inspector_name,inspection_date,overall_grade,assessment_completion_percent,assessment_readiness,completed_at", { count: "exact" })
     .eq("organisation_id", context.organisationId);
-  if (status && STATUSES.includes(status)) query = query.eq("status", status);
+  if (status && ASSESSMENT_STATUSES.includes(status)) query = query.eq("status", status);
   if (search) {
     const safe = search.replace(/[(),]/g, " ");
     query = query.or(`street.ilike.%${safe}%,postcode.ilike.%${safe}%,inspector_name.ilike.%${safe}%,uprn.ilike.%${safe}%`);

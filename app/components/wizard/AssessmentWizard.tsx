@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -214,6 +214,16 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   const totalSteps = steps.length;
   const analysisStepIndex = totalSteps;
 
+  // Gate the capture step on categoryPhotos, not the derived `photos` mirror — the mirror
+  // can be empty on a reopened draft whose images are all still present.
+  const capturedPhotoCount = useMemo(
+    () =>
+      Object.values(formData.categoryPhotos || {})
+        .flat()
+        .filter(Boolean).length,
+    [formData.categoryPhotos],
+  );
+
   const normalizeFacilityToken = (raw: unknown): string | null => {
     const text = String(raw ?? "")
       .trim()
@@ -294,11 +304,29 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
       setIsAnalyzing(false);
       setIsProcessing(false);
       if (initialData) {
-        // Map evidence to photos for wizard consistency
         const data = { ...initialData } as any;
-        if (data.evidence && !data.photos) {
-          data.photos = data.evidence;
+        // categoryPhotos is the authoritative store; `photos` is only a flattened mirror
+        // of it. Reconcile both ways so a reopened draft can never show its images while
+        // the analyse/next gates think there are none.
+        const restoredCategoryPhotos = { ...(data.categoryPhotos || {}) };
+        const flattened = Object.values(restoredCategoryPhotos)
+          .flat()
+          .filter(Boolean) as string[];
+        const loosePhotos = [
+          ...(Array.isArray(data.photos) ? data.photos : []),
+          ...(Array.isArray(data.evidence) ? data.evidence : []),
+        ].filter(Boolean);
+        if (flattened.length > 0) {
+          data.photos = flattened;
+        } else if (loosePhotos.length > 0) {
+          // No per-category breakdown survived — park them under the entrance category so
+          // startStep3BatchAnalysis has something to work with instead of silently bailing.
+          restoredCategoryPhotos.entrance = Array.from(new Set(loosePhotos));
+          data.photos = restoredCategoryPhotos.entrance;
+        } else {
+          data.photos = [];
         }
+        data.categoryPhotos = restoredCategoryPhotos;
         if (data.floorPlan && data.floorPlanApproved === undefined) {
           data.floorPlanApproved = true;
         }
@@ -306,6 +334,9 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         if (data.aiSuggestions && typeof data.aiSuggestions === "object") {
           setAiSuggestions(data.aiSuggestions);
         }
+        // Photo analysis is expensive and its results are persisted in wizardData, so a
+        // draft that was already analysed must not be forced through it again.
+        setStep3AnalysisComplete(Boolean(data.step3AnalysisComplete));
         setStep(1);
       } else {
         setFormData(initialFormData);
@@ -907,7 +938,11 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   ) => {
     const categoryPhotos =
       overrideCategoryPhotos || formData.categoryPhotos || {};
-    if (Object.keys(categoryPhotos).length === 0) return;
+    const hasPhotos = Object.values(categoryPhotos).flat().filter(Boolean).length > 0;
+    if (!hasPhotos) {
+      toast.error("Add at least one photo before running the analysis.");
+      return;
+    }
 
     setIsAnalyzing(true);
     setValidationErrors({});
@@ -1013,6 +1048,9 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         // Persist aiSuggestions into formData so ReportView can access them
         handleUpdateField("aiSuggestions", newSuggestions);
         setStep3AnalysisComplete(true);
+        // Persisted alongside the rest of formData so reopening a draft doesn't force a
+        // second (paid) analysis pass just to get past this step.
+        handleUpdateField("step3AnalysisComplete", true);
 
         if (stopReason) {
           // Store stop flag in formData so the AHR report can surface it
@@ -1682,8 +1720,10 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   const handleStep3PhotosChanged = (
     _updatedCategoryPhotos: Record<string, string[]>,
   ) => {
-    // Invalidate previous AI validation when evidence changes.
+    // Invalidate previous AI validation when evidence changes — including the persisted
+    // flag, so reopening the draft doesn't restore a stale "analysed" state.
     setStep3AnalysisComplete(false);
+    handleUpdateField("step3AnalysisComplete", false);
     setCategoryResults({});
     setValidationErrors({});
   };
@@ -1694,8 +1734,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
       return !formData.fullName || !formData.street || !formData.postcode;
     // Step 2 (Section B) has no required fields
     if (step === 3) return !formData.floorPlan && !formData.hasNoFloorPlan;
-    if (step === 4)
-      return (formData.photos || []).length < 1 || !step3AnalysisComplete;
+    if (step === 4) return capturedPhotoCount < 1 || !step3AnalysisComplete;
     if (step === 5) return !formData.propertyType || !formData.entranceLevel;
     if (step === 6) return !formData.internalStairs;
     if (step === 7) return !formData.bathroomLocation;
@@ -2072,7 +2111,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                   void startStep3BatchAnalysis();
                 }}
                 disabled={
-                  (formData.photos || []).length < 1 ||
+                  capturedPhotoCount < 1 ||
                   isAnalyzing ||
                   isProcessing ||
                   step3AnalysisComplete
@@ -2084,13 +2123,13 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                   isAnalyzing &&
                     !step3AnalysisComplete &&
                     "border-primary text-primary bg-white cursor-not-allowed",
-                  ((formData.photos || []).length < 1 || isProcessing) &&
+                  (capturedPhotoCount < 1 || isProcessing) &&
                     !step3AnalysisComplete &&
                     !isAnalyzing &&
                     "bg-slate-300 border-slate-300 text-white cursor-not-allowed opacity-60 shadow-none",
                   !step3AnalysisComplete &&
                     !isAnalyzing &&
-                    (formData.photos || []).length >= 1 &&
+                    capturedPhotoCount >= 1 &&
                     !isProcessing &&
                     "border-primary text-primary font-extrabold bg-white",
                 )}
@@ -2174,7 +2213,9 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
       phoneNumber: formData.phoneNumber,
       assessmentDate: formData.assessmentDate,
       aiScore: null,
-      status: "in_progress",
+      // The AI report was generated on the previous step, so a finished wizard run goes
+      // straight to review. onComplete submits it via submitAssessmentForReview.
+      status: "review",
       source: "Manual Entry",
       date: new Date().toISOString(),
       thumbnail: (formData.photos && formData.photos[0]) || "",

@@ -2,17 +2,11 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import {
-  MapPin,
-  Calendar,
-  FileText,
-  Shield,
-  Clock,
-  ChevronRight,
-  ImageOff,
-} from "lucide-react";
+import { MapPin, Calendar, ChevronRight, ImageOff } from "lucide-react";
 import { Case } from "@/types/dashboard";
 import { cn } from "@/lib/utils/cn";
+import { assessmentStatusMeta, normalizeAssessmentStatus } from "@/lib/assessments/status";
+import { ASSESSMENT_STATUS_ICONS } from "@/app/components/common/AssessmentStatusBadge";
 
 interface CaseCardProps {
   caseData: Case;
@@ -20,47 +14,8 @@ interface CaseCardProps {
 }
 
 const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick }) => {
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case "Pending":
-      case "in_progress":
-        return {
-          icon: Clock,
-          className: "bg-orange-50 text-orange-600 border-orange-200",
-          label: "In Progress",
-        };
-      case "Completed":
-      case "complete":
-        return {
-          icon: Shield,
-          className: "bg-emerald-50 text-emerald-600 border-emerald-200",
-          label: "Finalized",
-        };
-      case "Review":
-      case "review":
-        return {
-          icon: Clock,
-          className: "bg-amber-50 text-amber-600 border-amber-200",
-          label: "In Review",
-        };
-      case "Draft":
-      case "draft":
-        return {
-          icon: FileText,
-          className: "bg-slate-50 text-slate-500 border-slate-200",
-          label: "Draft",
-        };
-      default:
-        return {
-          icon: FileText,
-          className: "bg-slate-50 text-slate-500 border-slate-200",
-          label: status,
-        };
-    }
-  };
-
-  const statusConfig = getStatusConfig(caseData.status);
-  const StatusIcon = statusConfig.icon;
+  const statusMeta = assessmentStatusMeta(caseData.status);
+  const StatusIcon = ASSESSMENT_STATUS_ICONS[normalizeAssessmentStatus(caseData.status)];
   const rawDisplayImage =
     caseData.evidence && caseData.evidence.length > 0
       ? caseData.evidence[0]
@@ -72,13 +27,15 @@ const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick }) => {
       : rawDisplayImage;
 
   return (
+    // h-full + flex-col lets every card in a row stretch to the tallest one, so the meta
+    // row below sits on the same line regardless of how long the address is.
     <motion.div
       whileHover={{ translateY: -4, boxShadow: "0 20px 40px rgba(0,0,0,0.08)" }}
       onClick={() => onClick(caseData.id)}
-      className="cursor-pointer bg-white rounded-2xl overflow-hidden border border-gray-200 transition-all duration-300 relative"
+      className="flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition-all duration-300 relative"
     >
       {/* Property Image */}
-      <div className="relative h-[140px] overflow-hidden">
+      <div className="relative h-[140px] shrink-0 overflow-hidden">
         {displayImage ? (
           <img
             src={displayImage}
@@ -96,35 +53,36 @@ const CaseCard: React.FC<CaseCardProps> = ({ caseData, onClick }) => {
         <div
           className={cn(
             "absolute top-3 right-3 py-1.5 px-3 rounded-lg flex items-center gap-1.5 border backdrop-blur-md",
-            statusConfig.className,
+            statusMeta.badge,
           )}
         >
           <StatusIcon size={14} className="shrink-0" />
           <span className="text-[11px] font-bold uppercase tracking-wider">
-            {statusConfig.label}
+            {statusMeta.label}
           </span>
         </div>
       </div>
 
       {/* Card Content */}
-      <div className="p-4">
-        {/* Address */}
-        <h3 className="text-base font-bold text-slate-900 mb-1 leading-tight">
+      <div className="flex flex-1 flex-col p-4">
+        {/* Address — two lines maximum, ellipsised beyond that. min-h reserves the second
+            line so single-line addresses still align with their neighbours. */}
+        <h3 className="mb-1 min-h-10 text-base font-bold leading-tight text-slate-900 line-clamp-2">
           {caseData.address || "Address Pending"}
         </h3>
 
         {/* Inspector Name */}
         <div className="mb-3">
-          <div className="text-xs text-slate-600 font-medium mt-0.5">
+          <div className="mt-0.5 truncate text-xs font-medium text-slate-600">
             {caseData.applicantName || "Unknown"}
           </div>
         </div>
 
-        {/* Bottom meta + action */}
-        <div className="flex justify-between items-center mt-3">
+        {/* Bottom meta + action — mt-auto pins this to the bottom of the card */}
+        <div className="mt-auto flex items-center justify-between pt-3">
           <div className="flex items-center gap-4 min-w-0">
             <div className="flex items-center gap-1.5 text-xs text-slate-500 min-w-0">
-              <MapPin size={14} />
+              <MapPin size={14} className="shrink-0" />
               <span className="truncate">
                 {caseData.postcode || "Postcode TBC"}
               </span>

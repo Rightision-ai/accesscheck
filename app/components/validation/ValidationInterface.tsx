@@ -314,7 +314,11 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
   );
   const confidenceLevel =
     aiReport.Confidence ||
-    (confidenceNumeric >= 80 ? "HIGH" : confidenceNumeric >= 60 ? "MEDIUM" : "LOW");
+    (confidenceNumeric >= 80
+      ? "HIGH"
+      : confidenceNumeric >= 60
+        ? "MEDIUM"
+        : "LOW");
 
   const parseJsonPayload = (raw: unknown): Record<string, any> | null => {
     if (!raw) return null;
@@ -353,7 +357,9 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
         bathing: answers.bathing,
         toileting: answers.toileting,
       },
-      caseData.mlData?.wizardData?.aiSuggestions || aiReport?.analysisData?.aiSuggestions || {},
+      caseData.mlData?.wizardData?.aiSuggestions ||
+        aiReport?.analysisData?.aiSuggestions ||
+        {},
     );
 
     const prompt = buildFinalReportPrompt({
@@ -370,11 +376,10 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
         ),
       },
       observations: observationsInput,
-      analysisData:
-        aiReport?.analysisData || {
-          aiSuggestions: caseData.mlData?.wizardData?.aiSuggestions || {},
-          floorPlan: caseData.mlData?.wizardData?.floorPlanAnalysis || {},
-        },
+      analysisData: aiReport?.analysisData || {
+        aiSuggestions: caseData.mlData?.wizardData?.aiSuggestions || {},
+        floorPlan: caseData.mlData?.wizardData?.floorPlanAnalysis || {},
+      },
     });
 
     const response = await fetch("/api/engine/analyze", {
@@ -390,13 +395,16 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
     return {
       Confidence: parsed.Confidence || "MEDIUM",
       ConfidenceScore: parsed.ConfidenceScore || "75%",
-      Summary: parsed.Summary || { Strengths: "", Weaknesses: "", Recommendation: "" },
+      Summary: parsed.Summary || {
+        Strengths: "",
+        Weaknesses: "",
+        Recommendation: "",
+      },
       ReportData: parsed.ReportData || {},
-      analysisData:
-        aiReport?.analysisData || {
-          aiSuggestions: caseData.mlData?.wizardData?.aiSuggestions || {},
-          floorPlan: caseData.mlData?.wizardData?.floorPlanAnalysis || {},
-        },
+      analysisData: aiReport?.analysisData || {
+        aiSuggestions: caseData.mlData?.wizardData?.aiSuggestions || {},
+        floorPlan: caseData.mlData?.wizardData?.floorPlanAnalysis || {},
+      },
       InferredAnswers: {
         ...inferredAnswers,
         ...Object.fromEntries(
@@ -418,7 +426,10 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
     console.log("Sending observation for re-scoring...");
 
     try {
-      const newReport = await regenerateAiReport(editedValues, updatedObservations);
+      const newReport = await regenerateAiReport(
+        editedValues,
+        updatedObservations,
+      );
       const updatedCase = {
         ...caseData,
         aiScore: null,
@@ -483,9 +494,10 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
   const handleSubmit = () => {
     setIsSubmitting(true);
     setTimeout(() => {
+      // This screen edits an assessment that is already in review — the wizard's
+      // "Complete Assessment" is the only thing that moves a case out of draft.
       const updatedCase: Case = {
         ...caseData,
-        status: "review",
         mlData: {
           ...caseData.mlData,
           aiReport: {
@@ -515,10 +527,11 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
         >
           <CheckCircle size={64} className="text-emerald-600 mb-6" />
           <h2 className="text-2xl font-extrabold text-text-main mb-3">
-            Assessment Completed!
+            Changes Saved
           </h2>
           <p className="text-text-dim text-base mb-8">
-            The assessment has been saved and is ready for reporting.
+            Your edits have been saved. Finalise the assessment from the report
+            when you are happy with it.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <button
@@ -1199,38 +1212,46 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
             </div>
           </div>
 
-          <button
-            disabled={isSubmitting || isRescoring}
-            onClick={
-              caseData.status === "complete" || caseData.status === "review"
-                ? onOpenReport
-                : handleSubmit
-            }
-            className={cn(
-              "py-3.5 px-8 rounded-xl text-[15px] font-extrabold border-none flex items-center gap-2.5",
-              isSubmitting || isRescoring
-                ? "bg-slate-300 text-white cursor-not-allowed"
-                : "bg-primary text-white cursor-pointer shadow-[0_4px_12px_var(--primary-glow)]",
+          {/* A finalised case is read-only. Anything else can be edited here and saved
+              without changing status — the report screen is where it gets finalised. */}
+          <div className="flex flex-wrap items-center gap-3">
+            {caseData.status !== "complete" && (
+              <button
+                disabled={isSubmitting || isRescoring}
+                onClick={handleSubmit}
+                className={cn(
+                  "py-3.5 px-8 rounded-xl text-[15px] font-extrabold border-none flex items-center gap-2.5",
+                  isSubmitting || isRescoring
+                    ? "bg-slate-300 text-white cursor-not-allowed"
+                    : "bg-primary text-white cursor-pointer shadow-[0_4px_12px_var(--primary-glow)]",
+                )}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader className="animate-spin" size={20} />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    Save changes
+                    <ArrowRight size={20} />
+                  </>
+                )}
+              </button>
             )}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader className="animate-spin" size={20} />
-                Processing...
-              </>
-            ) : caseData.status === "complete" ||
-              caseData.status === "review" ? (
-              <>
-                View Report
-                <ArrowRight size={20} />
-              </>
-            ) : (
-              <>
-                Confirm & Save
-                <ArrowRight size={20} />
-              </>
-            )}
-          </button>
+            <button
+              onClick={onOpenReport}
+              className={cn(
+                "py-3.5 px-8 rounded-xl text-[15px] font-extrabold flex items-center gap-2.5 cursor-pointer",
+                caseData.status === "complete"
+                  ? "bg-primary text-white border-none shadow-[0_4px_12px_var(--primary-glow)]"
+                  : "bg-white text-primary border border-primary",
+              )}
+            >
+              View Report
+              <ArrowRight size={20} />
+            </button>
+          </div>
         </div>
       </div>
 

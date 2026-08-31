@@ -3,7 +3,7 @@
 import React from 'react';
 import ReportView from '@/app/components/report/ReportView';
 import { useRouter } from 'next/navigation';
-import { saveSurveyClient } from '@/lib/surveys/client';
+import { saveAssessmentWithStatus } from '@/lib/surveys/assessmentStatus';
 import { Case } from '@/types/dashboard';
 import { toast } from 'sonner';
 import type { CostEstimation } from '@/lib/accessibility/cost-estimation/types';
@@ -17,27 +17,17 @@ export default function ReportViewClient({
 }) {
   const router = useRouter();
 
+  // Finalising (review → complete) is the one status change this screen makes.
   const handleUpdateCase = async (updatedCase: Case) => {
     try {
-        const statusChanged = updatedCase.status !== caseData.status;
-        const result = await saveSurveyClient(
-          statusChanged ? { ...updatedCase, status: caseData.status } : updatedCase,
-        );
+        const result = await saveAssessmentWithStatus(updatedCase, caseData.status);
         if (result.error) {
             toast.error(`Failed to save: ${result.error}`);
             return;
         }
-        if (statusChanged) {
-          const response = await fetch(`/api/assessments/${caseData.id}/status`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: updatedCase.status }),
-          });
-          const body = await response.json();
-          if (!response.ok) {
-            toast.error(body.error || "Only a Reviewer can complete this assessment");
+        if (result.statusError) {
+            toast.error(result.statusError);
             return;
-          }
         }
         toast.success('Report updated successfully');
         router.refresh();

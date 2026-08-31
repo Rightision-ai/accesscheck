@@ -13,6 +13,14 @@ describe("assessment analytics", () => {
       { id: 2, created_at: "2026-08-01", updated_at: null, completed_at: null, status: "review", assessment_readiness: "ready", overall_grade: "B" },
     ], new Date("2026-08-28"));
     expect(summary.open).toBe(2);
-    expect(summary.draft + summary.inProgress + summary.review + summary.complete).toBe(summary.total);
+    expect(summary.draft + summary.review + summary.complete).toBe(summary.total);
+  });
+
+  it("counts legacy in_progress rows as drafts", () => {
+    const summary = buildAssessmentSummary([
+      { id: 1, created_at: "2026-08-01", updated_at: null, completed_at: null, status: "in_progress" as never, assessment_readiness: "partial", overall_grade: null },
+    ], new Date("2026-08-28"));
+    expect(summary.draft).toBe(1);
+    expect(summary.draft + summary.review + summary.complete).toBe(summary.total);
   });
 });

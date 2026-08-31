@@ -1,4 +1,5 @@
 import { Case } from "@/types/dashboard";
+import { normalizeAssessmentStatus } from "@/lib/assessments/status";
 
 /**
  * Merges survey DB columns (stored in mm) into mlData so the report displays mm values.
@@ -48,6 +49,29 @@ function mergeSurveyWidthsIntoMlData(mlData: Record<string, any>, s: any): void 
   mlData.wizardData = { ...wizardData };
 }
 
+/**
+ * Photo URLs for a survey row. `categoryPhotos` is the wizard's authoritative store —
+ * `photos` is only a flattened mirror of it and can persist as an empty array, so an
+ * `||` chain alone silently loses every image. Each candidate is only accepted when it
+ * actually holds something.
+ */
+function resolveEvidence(s: { raw_ai_data?: Record<string, unknown> | null }): string[] {
+  const rawAiData = (s.raw_ai_data ?? {}) as Record<string, unknown>;
+  const wizardData = (rawAiData.wizardData ?? {}) as Record<string, unknown>;
+  const categoryPhotos = (wizardData.categoryPhotos ?? {}) as Record<string, unknown>;
+  const candidates: unknown[] = [
+    rawAiData.evidence,
+    rawAiData.photos,
+    wizardData.photos,
+    Object.values(categoryPhotos).flat(),
+  ];
+  for (const candidate of candidates) {
+    const list = Array.isArray(candidate) ? candidate.filter(Boolean) : [];
+    if (list.length > 0) return list as string[];
+  }
+  return [];
+}
+
 export function mapSurveyToCase(s: any): Case {
   const clonedRawAiData: Record<string, any> = s.raw_ai_data
     ? (JSON.parse(JSON.stringify(s.raw_ai_data)) as Record<string, any>)
@@ -83,15 +107,11 @@ export function mapSurveyToCase(s: any): Case {
     accessibilityGrade: null,
     accessibilityLabel: null,
     accessibilityReasons: [],
-    status: (s.status || "draft") as Case["status"],
+    status: normalizeAssessmentStatus(s.status),
     source: "AI Assessment",
     date: s.created_at,
     thumbnail: s.thumbnail_url || "",
-    evidence:
-      s.raw_ai_data?.evidence ||
-      s.raw_ai_data?.photos ||
-      s.raw_ai_data?.wizardData?.photos ||
-      [],
+    evidence: resolveEvidence(s),
     description: s.comments || "",
     mlData,
   };
