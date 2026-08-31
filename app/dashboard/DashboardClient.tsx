@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ClipboardCheck, Clock3, FileCheck2, FileText, Plus } from "lucide-react";
+import {
+  ClipboardCheck,
+  Clock3,
+  FileCheck2,
+  FileText,
+  Plus,
+} from "lucide-react";
 import { toast } from "sonner";
 import AssessmentWizard from "@/app/components/wizard/AssessmentWizard";
 import CaseCard from "@/app/components/dashboard/CaseCard";
@@ -115,7 +121,7 @@ export default function DashboardClient({
         </div>
 
         <section
-          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 "
           aria-label="Assessment summary"
         >
           {summaryCards.map(
