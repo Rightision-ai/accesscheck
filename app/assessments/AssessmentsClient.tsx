@@ -146,7 +146,6 @@ export default function AssessmentsClient({
                   <th className="px-5 py-3">Property</th>
                   <th className="px-5 py-3">Inspector</th>
                   <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Readiness</th>
                   <th className="px-5 py-3">Band</th>
                   <th className="px-5 py-3">Updated</th>
                   <th className="px-5 py-3">
@@ -177,14 +176,6 @@ export default function AssessmentsClient({
                       </td>
                       <td className="px-5 py-4">
                         <AssessmentStatusBadge status={assessment.status} size="sm" />
-                      </td>
-                      <td className="px-5 py-4">
-                        <p className="font-semibold capitalize text-slate-700">
-                          {String(row.assessment_readiness || "incomplete")}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {Number(row.assessment_completion_percent || 0)}% complete
-                        </p>
                       </td>
                       <td className="px-5 py-4 font-bold text-slate-700">
                         {String(row.overall_grade || "—")}

@@ -7,7 +7,9 @@ import { ClipboardCheck, Clock3, FileCheck2, FileText, Plus } from "lucide-react
 import { toast } from "sonner";
 import AssessmentWizard from "@/app/components/wizard/AssessmentWizard";
 import CaseCard from "@/app/components/dashboard/CaseCard";
+import BandDonutChart from "@/app/components/dashboard/BandDonutChart";
 import { useOpenAssessment } from "@/app/components/dashboard/useOpenAssessment";
+import type { BandSlice } from "@/lib/assessments/analytics";
 import { submitAssessmentForReview } from "@/lib/surveys/assessmentStatus";
 import type { AssessmentStatus } from "@/types/accesscheck";
 import type { Case } from "@/types/dashboard";
@@ -26,6 +28,7 @@ type Props = {
   initialCases: Case[];
   summary: Summary;
   weeklyTrend: Array<{ week: string; started: number; completed: number }>;
+  bandDistribution: BandSlice[];
   canAuthor: boolean;
 };
 
@@ -33,6 +36,7 @@ export default function DashboardClient({
   initialCases,
   summary,
   weeklyTrend,
+  bandDistribution,
   canAuthor,
 }: Props) {
   const router = useRouter();
@@ -47,12 +51,6 @@ export default function DashboardClient({
   const maxTrend = Math.max(
     1,
     ...weeklyTrend.flatMap((week) => [week.started, week.completed]),
-  );
-  const readinessTotal = Math.max(
-    1,
-    summary.readiness.ready +
-      summary.readiness.partial +
-      summary.readiness.incomplete,
   );
   const summaryCards = [
     {
@@ -102,7 +100,7 @@ export default function DashboardClient({
               Assessment overview
             </h1>
             <p className="mt-1 text-[15px] font-medium text-slate-500">
-              Council-wide assessment activity, evidence readiness and recent
+              Council-wide assessment activity, accessibility bands and recent
               work.
             </p>
           </div>
@@ -191,42 +189,11 @@ export default function DashboardClient({
             </div>
           </section>
           <section className="rounded-2xl border border-violet-100 bg-white p-5 shadow-sm">
-            <h2 className="font-bold text-slate-950">Evidence readiness</h2>
+            <h2 className="font-bold text-slate-950">Accessibility bands</h2>
             <p className="mb-6 text-sm text-slate-500">
-              Required assessment sections and supporting evidence
+              Share of assessed stock by Accessible Housing Rules band
             </p>
-            <div className="space-y-5">
-              {[
-                ["Ready", summary.readiness.ready, "bg-emerald-500"],
-                [
-                  "Partially complete",
-                  summary.readiness.partial,
-                  "bg-amber-400",
-                ],
-                [
-                  "Missing evidence",
-                  summary.readiness.incomplete,
-                  "bg-rose-400",
-                ],
-              ].map(([label, value, colour]) => (
-                <div key={label}>
-                  <div className="mb-1.5 flex justify-between text-sm">
-                    <span className="font-semibold text-slate-700">
-                      {label}
-                    </span>
-                    <span>{value}</span>
-                  </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={`h-full rounded-full ${colour}`}
-                      style={{
-                        width: `${(Number(value) / readinessTotal) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <BandDonutChart slices={bandDistribution} />
           </section>
         </div>
 

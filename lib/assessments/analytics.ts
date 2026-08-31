@@ -1,4 +1,5 @@
 import { normalizeAssessmentStatus } from "@/lib/assessments/status";
+import { LAHR_BANDS, LAHR_BAND_BY_ID, type LahrBandId } from "@/lib/accessibility/lahr/types";
 import type { AssessmentReadiness, AssessmentStatus } from "@/types/accesscheck";
 
 export type AssessmentAnalyticsRow = {
@@ -10,6 +11,53 @@ export type AssessmentAnalyticsRow = {
   assessment_readiness: AssessmentReadiness;
   overall_grade: string | null;
 };
+
+export type BandSlice = {
+  /** A LAHR band id, or null for rows that have not been banded yet. */
+  band: LahrBandId | null;
+  label: string;
+  colour: string;
+  count: number;
+};
+
+/** Light slate, distinct from band G's slate, for rows with no grade recorded. */
+const UNBANDED_COLOUR = "#cbd5e1";
+
+/**
+ * Counts assessments per Accessible Housing Rules band, in band order (A → G), keeping
+ * only the bands that actually occur. Rows whose `overall_grade` is missing or
+ * unrecognised are reported separately rather than folded into G — G is a real band
+ * meaning "cannot be determined", which is not the same as "not assessed yet".
+ */
+export function buildBandDistribution(rows: AssessmentAnalyticsRow[]): BandSlice[] {
+  const counts = new Map<LahrBandId | null, number>();
+  for (const row of rows) {
+    const grade = String(row.overall_grade ?? "").trim().toUpperCase();
+    const band = (grade in LAHR_BAND_BY_ID ? grade : null) as LahrBandId | null;
+    counts.set(band, (counts.get(band) ?? 0) + 1);
+  }
+
+  const slices: BandSlice[] = LAHR_BANDS.slice()
+    .sort((a, b) => a.order - b.order)
+    .filter((definition) => (counts.get(definition.id) ?? 0) > 0)
+    .map((definition) => ({
+      band: definition.id,
+      label: definition.label,
+      colour: definition.color,
+      count: counts.get(definition.id) ?? 0,
+    }));
+
+  const unbanded = counts.get(null) ?? 0;
+  if (unbanded > 0) {
+    slices.push({
+      band: null,
+      label: "Not yet banded",
+      colour: UNBANDED_COLOUR,
+      count: unbanded,
+    });
+  }
+  return slices;
+}
 
 export function median(values: number[]): number | null {
   if (values.length === 0) return null;
