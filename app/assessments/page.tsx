@@ -6,6 +6,7 @@ import { asLooseClient } from "@/lib/supabase/loose";
 import { getOrganisationContext } from "@/lib/organisations/access";
 import { mapSurveyToCase } from "@/lib/surveys/mapper";
 import { signStorageRefsDeep } from "@/lib/storage/signing";
+import { applySurveyVisibility } from "@/lib/surveys/visibility";
 import { ASSESSMENT_STATUS_META, ASSESSMENT_STATUSES } from "@/lib/assessments/status";
 import type { AssessmentStatus } from "@/types/accesscheck";
 import type { Case } from "@/types/dashboard";
@@ -29,10 +30,11 @@ export default async function AssessmentsPage({
 
   const db = asLooseClient(await createClient());
   // Select * because the cards need thumbnail_url and resuming a draft needs raw_ai_data.
-  let query = db
-    .from("surveys")
-    .select("*", { count: "exact" })
-    .eq("organisation_id", context.organisationId);
+  // Narrowed before the count is taken, so the pagination total matches too.
+  let query = applySurveyVisibility(
+    db.from("surveys").select("*", { count: "exact" }).eq("organisation_id", context.organisationId),
+    context,
+  );
   if (status) query = query.eq("status", status);
   if (search) {
     const safe = search.replace(/[(),]/g, " ");

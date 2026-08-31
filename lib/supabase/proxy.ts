@@ -56,6 +56,9 @@ export async function updateSession(request: NextRequest) {
   const isPublicRoute =
     isLoginPage ||
     isMarketingRoute ||
+    // An invited person has no account yet, so the accept page has to render
+    // for a signed-out visitor. It authorises on the emailed token itself.
+    pathname.startsWith("/invite") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/assets") ||

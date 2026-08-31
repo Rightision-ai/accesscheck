@@ -4,6 +4,7 @@ import { asLooseClient } from "@/lib/supabase/loose";
 import { isApiError, requireApiContext } from "@/lib/api/auth";
 import { ASSESSMENT_STATUSES } from "@/lib/assessments/status";
 import type { AssessmentStatus } from "@/types/accesscheck";
+import { applySurveyVisibility } from "@/lib/surveys/visibility";
 
 export async function GET(request: NextRequest) {
   const context = await requireApiContext();
@@ -17,10 +18,13 @@ export async function GET(request: NextRequest) {
   const toDate = request.nextUrl.searchParams.get("to");
 
   const db = asLooseClient(await createClient());
-  let query = db
-    .from("surveys")
-    .select("id,created_at,updated_at,status,door_number,street_number,building_name,street,postcode,inspector_name,inspection_date,overall_grade,assessment_completion_percent,assessment_readiness,completed_at", { count: "exact" })
-    .eq("organisation_id", context.organisationId);
+  let query = applySurveyVisibility(
+    db
+      .from("surveys")
+      .select("id,created_at,updated_at,status,door_number,street_number,building_name,street,postcode,inspector_name,inspection_date,overall_grade,assessment_completion_percent,assessment_readiness,completed_at", { count: "exact" })
+      .eq("organisation_id", context.organisationId),
+    context,
+  );
   if (status && ASSESSMENT_STATUSES.includes(status)) query = query.eq("status", status);
   if (search) {
     const safe = search.replace(/[(),]/g, " ");
