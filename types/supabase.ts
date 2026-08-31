@@ -784,6 +784,7 @@ export type Database = {
           id: string
           locale: string
           logo_url: string | null
+          member_limit: number
           name: string
           postcode: string | null
           region: string | null
@@ -808,6 +809,7 @@ export type Database = {
           id?: string
           locale?: string
           logo_url?: string | null
+          member_limit?: number
           name: string
           postcode?: string | null
           region?: string | null
@@ -832,6 +834,7 @@ export type Database = {
           id?: string
           locale?: string
           logo_url?: string | null
+          member_limit?: number
           name?: string
           postcode?: string | null
           region?: string | null
@@ -2082,6 +2085,14 @@ export type Database = {
       attach_accesscheck_initial_administrator: {
         Args: { target_email: string; target_user_id: string }
         Returns: undefined
+      }
+      can_access_survey: {
+        Args: { target_organisation_id: string; target_user_id: string }
+        Returns: boolean
+      }
+      can_view_all_surveys: {
+        Args: { target_organisation_id: string }
+        Returns: boolean
       }
       commit_rate_card_version: {
         Args: {

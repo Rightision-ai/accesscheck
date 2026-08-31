@@ -6,6 +6,7 @@ import { isApiError, requireApiContext } from "@/lib/api/auth";
 import { sendViaResend } from "@/lib/email/resend";
 import { escapeHtml } from "@/lib/email/contact-template";
 import { SUPPORT_EMAIL } from "@/lib/config/support";
+import { getSeatUsage, seatLimitMessage } from "@/lib/organisations/seats";
 import type { OrganisationPermission } from "@/types/accesscheck";
 
 export async function POST(request: NextRequest) {
@@ -16,6 +17,12 @@ export async function POST(request: NextRequest) {
   const token = randomBytes(32).toString("base64url"); const tokenHash = createHash("sha256").update(token).digest("hex"); const expiresAt = new Date(Date.now() + 7 * 86_400_000);
   const db = asLooseClient(await createClient());
   const existing = await db.from("organisation_invitations").select("id").eq("organisation_id", context.organisationId).eq("email", email).eq("status", "pending").maybeSingle();
+  // A resend reuses the seat the pending invitation already reserved, so only a
+  // genuinely new invitation needs to claim one.
+  if (!existing.data) {
+    const seats = await getSeatUsage(db, context.organisationId);
+    if (seats.isFull) return NextResponse.json({ error: seatLimitMessage(seats.limit) }, { status: 409 });
+  }
   const insert = existing.data
     ? await db.from("organisation_invitations").update({ permissions, token_hash: tokenHash, invited_by: context.userId, expires_at: expiresAt.toISOString() }).eq("id", (existing.data as { id: string }).id).select("id").single()
     : await db.from("organisation_invitations").insert({ organisation_id: context.organisationId, email, permissions, token_hash: tokenHash, invited_by: context.userId, expires_at: expiresAt.toISOString() }).select("id").single();

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { asLooseClient } from "@/lib/supabase/loose";
 import { isApiError, requireApiContext } from "@/lib/api/auth";
 import { buildAssessmentSummary, buildWeeklyTrend, type AssessmentAnalyticsRow } from "@/lib/assessments/analytics";
+import { applySurveyVisibility } from "@/lib/surveys/visibility";
 
 function csvCell(value: unknown): string {
   const text = value == null ? "" : String(value);
@@ -16,11 +17,15 @@ export async function GET(request: NextRequest) {
   const to = request.nextUrl.searchParams.get("to");
   const format = request.nextUrl.searchParams.get("format");
   const db = asLooseClient(await createClient());
-  let query = db
-    .from("surveys")
-    .select("id,created_at,updated_at,completed_at,status,assessment_readiness,assessment_completion_percent,overall_grade,street,postcode,inspector_name")
-    .eq("organisation_id", context.organisationId)
-    .order("created_at", { ascending: false });
+  // The CSV export is the obvious way around a UI-only restriction, so it is
+  // narrowed the same way as every list.
+  let query = applySurveyVisibility(
+    db
+      .from("surveys")
+      .select("id,created_at,updated_at,completed_at,status,assessment_readiness,assessment_completion_percent,overall_grade,street,postcode,inspector_name")
+      .eq("organisation_id", context.organisationId),
+    context,
+  ).order("created_at", { ascending: false });
   if (from) query = query.gte("created_at", from);
   if (to) query = query.lte("created_at", `${to}T23:59:59.999Z`);
   const result = await query;

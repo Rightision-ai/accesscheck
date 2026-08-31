@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { safeRedirectPath } from './redirect'
 
 /**
  * Sign up a new user with email and password
@@ -43,7 +44,9 @@ export async function signIn(formData: FormData) {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  // Honour where the user was heading before they were bounced to /login —
+  // an invitation link, most importantly.
+  redirect(safeRedirectPath(formData.get('redirectTo')) ?? '/dashboard')
 }
 
 /**

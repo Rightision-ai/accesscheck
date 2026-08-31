@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { asLooseClient } from "@/lib/supabase/loose";
 import { getOrganisationContext } from "@/lib/organisations/access";
 import { buildAssessmentSummary, buildWeeklyTrend, type AssessmentAnalyticsRow } from "@/lib/assessments/analytics";
+import { applySurveyVisibility } from "@/lib/surveys/visibility";
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const context = await getOrganisationContext();
@@ -14,7 +15,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const defaultFrom = new Date(); defaultFrom.setDate(defaultFrom.getDate() - 90);
   const from = typeof params.from === "string" ? params.from : defaultFrom.toISOString().slice(0, 10);
   const db = asLooseClient(await createClient());
-  const result = await db.from("surveys").select("id,created_at,updated_at,completed_at,status,assessment_readiness,overall_grade").eq("organisation_id", context.organisationId).gte("created_at", from).lte("created_at", `${to}T23:59:59.999Z`);
+  const result = await applySurveyVisibility(db.from("surveys").select("id,created_at,updated_at,completed_at,status,assessment_readiness,overall_grade").eq("organisation_id", context.organisationId), context).gte("created_at", from).lte("created_at", `${to}T23:59:59.999Z`);
   const rows = (result.data ?? []) as AssessmentAnalyticsRow[];
   const summary = buildAssessmentSummary(rows);
   const trend = buildWeeklyTrend(rows);

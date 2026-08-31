@@ -13,13 +13,24 @@ import { lahrBandToScore } from "@/lib/accessibility/lahr/types";
  *
  * - every insert is pinned to `draft`, or a case could reach review/complete unchecked;
  * - every update drops `status`, or an ordinary save would trip the trigger and be lost.
+ *
+ * `user_id` and `organisation_id` are dropped from updates for a different reason:
+ * `buildSurveyData` always stamps them with the *saving* user, so a reviewer or
+ * admin opening someone else's case and saving it would silently take ownership.
+ * Since a case is now only visible to its author (plus admins and reviewers),
+ * that would make the case vanish from the original author's list.
  */
 export function surveyDataForInsert(surveyData: Record<string, unknown>) {
   return { ...surveyData, status: "draft" };
 }
 
 export function surveyDataForUpdate(surveyData: Record<string, unknown>) {
-  const { status: _status, ...rest } = surveyData;
+  const {
+    status: _status,
+    user_id: _userId,
+    organisation_id: _organisationId,
+    ...rest
+  } = surveyData;
   return rest;
 }
 

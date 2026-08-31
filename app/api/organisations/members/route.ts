@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { asLooseClient } from "@/lib/supabase/loose";
 import { isApiError, requireApiContext } from "@/lib/api/auth";
 import type { OrganisationPermission } from "@/types/accesscheck";
+import { getSeatUsage, seatLimitMessage } from "@/lib/organisations/seats";
 
 const PERMISSIONS: OrganisationPermission[] = ["author", "reviewer", "admin"];
 
@@ -31,6 +32,12 @@ export async function PATCH(request: NextRequest) {
     const adminPermissions = await db.from("organisation_member_permissions").select("member_id,organisation_members!inner(organisation_id,status)").eq("permission", "admin");
     const activeAdmins = ((adminPermissions.data ?? []) as Array<{ organisation_members: { organisation_id: string; status: string } }>).filter((row) => row.organisation_members.organisation_id === context.organisationId && row.organisation_members.status === "active");
     if (activeAdmins.length <= 1) return NextResponse.json({ error: "The organisation must retain at least one active Admin." }, { status: 400 });
+  }
+  // Reactivating a member consumes a seat. The DB trigger would catch this too,
+  // but a checked 409 reads better than a raw Postgres exception.
+  if (member.status === "inactive" && body.status === "active") {
+    const seats = await getSeatUsage(db, context.organisationId);
+    if (seats.isFull) return NextResponse.json({ error: seatLimitMessage(seats.limit) }, { status: 409 });
   }
   if (body.status) await db.from("organisation_members").update({ status: body.status, updated_at: new Date().toISOString() }).eq("id", body.memberId);
   await db.from("organisation_member_permissions").delete().eq("member_id", body.memberId);

@@ -1,11 +1,14 @@
 "use client";
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import { User, Lock, ArrowRight, Loader } from "lucide-react";
 import { motion } from "framer-motion";
-import { signIn, signUp } from "@/lib/auth/actions";
-import { redirect } from "next/navigation";
+import { signIn } from "@/lib/auth/actions";
+import { useSearchParams } from "next/navigation";
 
-const LoginPage = () => {
+const LoginForm = () => {
+  // The middleware puts the path the user was heading for in `redirectTo` —
+  // an invitation link, typically. `signIn` sanitises it before redirecting.
+  const redirectTo = useSearchParams().get("redirectTo");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +51,7 @@ const LoginPage = () => {
         </div>
 
         <form onSubmit={handleSubmit}>
+          {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
           {error && !loading && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-[10px] text-red-600 text-xs mb-5 text-center">
               {error}
@@ -119,5 +123,12 @@ const LoginPage = () => {
     </div>
   );
 };
+
+// useSearchParams needs a Suspense boundary, or the route cannot be prerendered.
+const LoginPage = () => (
+  <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-white" />}>
+    <LoginForm />
+  </Suspense>
+);
 
 export default LoginPage;

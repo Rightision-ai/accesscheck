@@ -12,14 +12,17 @@ import type { Case } from "@/types/dashboard";
 import type { AssessmentStatus } from "@/types/accesscheck";
 import DashboardClient from "./DashboardClient";
 import { signStorageRefsDeep } from "@/lib/storage/signing";
+import { applySurveyVisibility } from "@/lib/surveys/visibility";
 
 export default async function DashboardPage() {
   const context = await getOrganisationContext();
   if (!context) redirect("/login");
   const db = asLooseClient(await createClient());
+  // An author's counts must match the cases they can actually open, so the
+  // analytics query is narrowed exactly like the list is.
   const [surveysResult, recentResult] = await Promise.all([
-    db.from("surveys").select("id,created_at,updated_at,completed_at,status,assessment_readiness,overall_grade").eq("organisation_id", context.organisationId),
-    db.from("surveys").select("*").eq("organisation_id", context.organisationId).order("updated_at", { ascending: false }).limit(8),
+    applySurveyVisibility(db.from("surveys").select("id,created_at,updated_at,completed_at,status,assessment_readiness,overall_grade").eq("organisation_id", context.organisationId), context),
+    applySurveyVisibility(db.from("surveys").select("*").eq("organisation_id", context.organisationId), context).order("updated_at", { ascending: false }).limit(8),
   ]);
   const analytics = (surveysResult.data ?? []) as AssessmentAnalyticsRow[];
   // Rows are already scoped to the viewer's organisation by the query above, so

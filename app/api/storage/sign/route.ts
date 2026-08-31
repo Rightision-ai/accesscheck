@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isApiError, requireApiContext } from "@/lib/api/auth";
+import { createClient } from "@/lib/supabase/server";
+import { asLooseClient } from "@/lib/supabase/loose";
 import { MEDIA_BUCKETS, parseStorageRef } from "@/lib/storage/refs";
 import { signStorageRefsDeep } from "@/lib/storage/signing";
 
@@ -29,11 +31,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `At most ${MAX_REFS} references per request.` }, { status: 400 });
   }
 
-  const allowed = (refs as string[]).filter((value) => {
+  // Paths are `<organisation id>/<survey id>/…`. The organisation segment is the
+  // first gate; the survey segment is the second, because an author may no
+  // longer open a colleague's case and must not be able to sign its photos
+  // either. `new` is the wizard's placeholder before a case has an id — those
+  // objects belong to whoever is mid-draft, so the organisation check is all
+  // that can be applied to them.
+  const candidates = (refs as string[]).flatMap((value) => {
     const ref = parseStorageRef(value);
-    if (!ref || !(MEDIA_BUCKETS as readonly string[]).includes(ref.bucket)) return false;
-    return ref.path.split("/")[0] === context.organisationId;
+    if (!ref || !(MEDIA_BUCKETS as readonly string[]).includes(ref.bucket)) return [];
+    const [organisationSegment, surveySegment] = ref.path.split("/");
+    if (organisationSegment !== context.organisationId) return [];
+    const surveyId = Number(surveySegment);
+    return [{ value, surveyId: Number.isInteger(surveyId) && surveyId > 0 ? surveyId : null }];
   });
+
+  // One round trip: ask the RLS-scoped client which of those surveys it can see.
+  const surveyIds = [...new Set(candidates.map((c) => c.surveyId).filter((id): id is number => id !== null))];
+  const visible = new Set<number>();
+  if (surveyIds.length > 0) {
+    const db = asLooseClient(await createClient());
+    const result = await db.from("surveys").select("id").in("id", surveyIds);
+    for (const row of (result.data ?? []) as Array<{ id: number }>) visible.add(row.id);
+  }
+
+  const allowed = candidates
+    .filter((c) => c.surveyId === null || visible.has(c.surveyId))
+    .map((c) => c.value);
 
   const signed = await signStorageRefsDeep(allowed);
   const urls: Record<string, string> = {};
