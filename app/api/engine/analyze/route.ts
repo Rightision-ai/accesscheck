@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ENGINE_MODELS, engineUrl, thinkingConfig } from "@/lib/engine/models";
 
 const ENGINE_API_KEY = process.env.ENGINE_API_KEY;
-const ENGINE_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
+const ENGINE_API_URL = engineUrl(ENGINE_MODELS.analyze);
 
 export const maxDuration = 60; // Set max duration for Vercel/Next.js
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(
-      `[Gemini API] Processing request with ${images?.length || 0} images...`,
+      `[Engine] Processing request with ${images?.length || 0} images...`,
     );
 
     const parts: any[] = [{ text: prompt }];
@@ -46,7 +46,9 @@ export async function POST(req: NextRequest) {
     const requestBody = {
       contents: [{ parts }],
       generationConfig: {
-        temperature: 0.2,
+        // No temperature override: Gemini 3 degrades when it is lowered.
+        // Thinking depth is nested; a flat `thinking_level` here is a 400.
+        ...thinkingConfig("high"),
         maxOutputTokens: 8192,
       },
     };
@@ -62,19 +64,19 @@ export async function POST(req: NextRequest) {
         if (response.status === 429) {
           const errorDetails = await response.text();
           console.warn(
-            `[Gemini API] 429 Too Many Requests. Details: ${errorDetails}`,
+            `[Engine] 429 Too Many Requests. Details: ${errorDetails}`,
           );
           const waitTime = Math.pow(2, i) * 1000 + Math.random() * 500;
-          console.warn(`[Gemini API] Retrying in ${Math.round(waitTime)}ms...`);
+          console.warn(`[Engine] Retrying in ${Math.round(waitTime)}ms...`);
           await new Promise((resolve) => setTimeout(resolve, waitTime));
           continue;
         }
         return response;
       }
-      throw new Error("Max retries exceeded for Gemini API");
+      throw new Error("Max retries exceeded for the engine API");
     };
 
-    console.log("[Gemini API] Sending request to analyze API...");
+    console.log("[Engine] Sending request to analyze API...");
     // Call Gemini API with verification
     const response = await fetchWithRetry(
       `${ENGINE_API_URL}?key=${ENGINE_API_KEY}`,
@@ -84,11 +86,11 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify(requestBody),
       },
     );
-    console.log("[Gemini API] Response received from analyze API");
+    console.log("[Engine] Response received from analyze API");
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[Gemini API] Error:", response.status, errorText);
+      console.error("[Engine] Error:", response.status, errorText);
 
       // IF QUOTA EXCEEDED (429) OR OTHER API ISSUES, RETURN MOCK DATA INSTEAD OF 500
       if (
@@ -97,7 +99,7 @@ export async function POST(req: NextRequest) {
         response.status === 404
       ) {
         console.warn(
-          "[Gemini API] Returning SMARTER MOCK DATA due to API limitations...",
+          "[Engine] Returning SMARTER MOCK DATA due to API limitations...",
         );
 
         // Mock data logic from server.js
@@ -293,7 +295,7 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
     const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    console.log("[Gemini API] Response received successfully");
+    console.log("[Engine] Response received successfully");
 
     // Try to parse JSON from response
     const jsonMatch = aiText.match(/\{[\s\S]*\}/);
@@ -321,7 +323,7 @@ export async function POST(req: NextRequest) {
       rawText: aiText,
     });
   } catch (error: any) {
-    console.error("[Gemini API] Server Error:", error.message);
+    console.error("[Engine] Server Error:", error.message);
     return NextResponse.json(
       {
         error: "Internal Server Error",

@@ -3,7 +3,8 @@ import { getUser } from "@/lib/auth/actions";
 import { redirect } from "next/navigation";
 import CaseDetailView from "./CaseDetailView";
 import { mapSurveyToCase } from "@/lib/surveys/mapper";
-import { loadCostEstimation } from "@/lib/accessibility/cost-estimation/repository";
+import { loadAdaptationPlanSet } from "@/lib/adaptation-plans/repository";
+import { loadActiveRateCardRef } from "@/lib/rate-cards/repository";
 
 export default async function CasePage({
   params,
@@ -38,7 +39,13 @@ export default async function CasePage({
   }
 
   const caseData = mapSurveyToCase(survey);
-  const costEstimation = await loadCostEstimation(supabase, surveyId);
+  const costEstimation = await loadAdaptationPlanSet(supabase, surveyId);
+
+  // Scoped to the survey's own organisation, not the viewer's: the plan was priced for that
+  // organisation, so that is whose active card decides whether it is superseded.
+  const activeRateCard = survey.organisation_id
+    ? await loadActiveRateCardRef(supabase, survey.organisation_id)
+    : null;
 
   // If a regen is in flight (or just failed), surface that to the client so the cost-estimation
   // panel can show the loading state instead of the now-stale persisted plan. Stored in a
@@ -55,6 +62,7 @@ export default async function CasePage({
       caseData={caseData}
       costEstimation={costEstimation}
       costEstimationJobStatus={costEstimationJobStatus}
+      activeRateCard={activeRateCard}
     />
   );
 }

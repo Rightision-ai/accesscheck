@@ -556,7 +556,7 @@ export const analyzeAllCategoryPhotos = async (
         });
 
         if (!response.ok) {
-            console.error("Gemini photo analysis failed:", response.statusText);
+            console.error("[Engine] photo analysis failed:", response.statusText);
             return null;
         }
 
@@ -565,7 +565,7 @@ export const analyzeAllCategoryPhotos = async (
 
         return normalizeBatchResponse(payload.result, categoriesPresent);
     } catch (error) {
-        console.warn("Gemini photo analysis error:", error);
+        console.warn("[Engine] photo analysis error:", error);
         return null;
     }
 };
@@ -607,7 +607,7 @@ export const analyzeCategoryPhoto = async (file: File, categoryId: string): Prom
         });
 
         if (!response.ok) {
-            console.error('Gemini Analysis Failed:', response.statusText);
+            console.error('[Engine] analysis failed:', response.statusText);
             return null;
         }
 

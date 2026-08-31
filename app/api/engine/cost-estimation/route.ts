@@ -1,106 +1,49 @@
 import { NextRequest, NextResponse, after } from "next/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
-import {
-  aggregateDifficulty,
-  applyPatchesToSurvey,
-  projectBandAfter,
-} from "@/lib/accessibility/cost-estimation/planner";
-import {
-  clearCostEstimation,
-  loadCostEstimation,
-  persistCostEstimation,
-} from "@/lib/accessibility/cost-estimation/repository";
-import {
-  buildCostEstimationPrompt,
-  collectTriggeredRules,
-} from "@/lib/engine/prompts/costEstimationPrompt";
-import {
-  DFG_BUDGET_TIERS,
-  DFG_MAX_BUDGET,
-  type CostEstimation,
-  type Difficulty,
-  type DfgBudgetGbp,
-  type RemediationInstance,
-  type TierPlan,
-} from "@/lib/accessibility/cost-estimation/types";
-import { rankOf, type LahrBandId } from "@/lib/accessibility/lahr/types";
-import type { Database } from "@/types/supabase";
 import { isApiError, requireApiContext } from "@/lib/api/auth";
-
-type SurveyRow = Database["public"]["Tables"]["surveys"]["Row"];
+import { resolveSurveyRowFromDb } from "@/lib/surveys/resolveSurveyRow";
+import { isAssessmentLocked } from "@/lib/assessments/status";
+import { ENGINE_MODELS } from "@/lib/engine/models";
+import { callEngineJson, toInlinePart, type EnginePart } from "@/lib/engine/engineClient";
+import {
+  ADAPTATION_POOL_RESPONSE_SCHEMA,
+  buildAdaptationPoolPrompt,
+  collectTriggeredRules,
+} from "@/lib/engine/prompts/adaptationPoolPrompt";
+import { loadRateCardForOrganisation } from "@/lib/rate-cards/repository";
+import { buildAdaptationPlanSet } from "@/lib/adaptation-plans/buildPlan";
+import { parseCandidatePool } from "@/lib/adaptation-plans/candidatePool";
+import { triggeredRuleNumbers } from "@/lib/adaptation-plans/planner";
+import {
+  clearAdaptationPlanSet,
+  loadAdaptationPlanSet,
+  persistAdaptationPlanSet,
+} from "@/lib/adaptation-plans/repository";
+import { readJobStatus, writeJobStatus } from "@/lib/adaptation-plans/jobStatus";
+import { DFG_BUDGET_TIERS } from "@/lib/adaptation-plans/types";
 
 const ENGINE_API_KEY = process.env.ENGINE_API_KEY;
-// Flash returns ~5-10s vs ~30s for Pro, with comparable quality on this structured prompt.
-// Override via ENGINE_COST_MODEL if you want to test Pro again.
-const ENGINE_MODEL = process.env.ENGINE_COST_MODEL || "gemini-2.5-flash";
-const ENGINE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${ENGINE_MODEL}:generateContent`;
+const ENGINE_MODEL = ENGINE_MODELS.adaptationPool;
 const MAX_PHOTO_INPUTS = 3;
-const DIFFICULTIES: Difficulty[] = ["minor", "moderate", "major"];
+/** One flat pool is far smaller than three tiers of verbatim-duplicated prose. */
+const MAX_OUTPUT_TOKENS = 16384;
 
-// Vercel ceiling. On Hobby this clamps to 60; Pro Fluid Compute honours up to 300. The Gemini
-// 2.5 Pro call alone runs ~30s, plus 5–10s of image fetches from Supabase.
+// Vercel ceiling. On Hobby this clamps to 60; Pro Fluid Compute honours up to 300. The engine
+// call runs ~10-30s, plus 5-10s of image fetches from Supabase.
 export const maxDuration = 300;
 
-type GeminiPart =
-  | { text: string }
-  | { inline_data: { mime_type: string; data: string } };
-
-type GeminiAdaptation = {
-  label?: string;
-  addresses_rules?: number[];
-  cost_gbp?: number;
-  duration_days?: number;
-  difficulty?: Difficulty;
-  trades?: string[];
-  preconditions?: string;
-  narrative?: string;
-  visual_evidence_confidence?: number;
-  field_patches?: Record<string, unknown>;
-};
-
-type GeminiTier = {
-  budget_gbp?: number;
-  total_cost_gbp?: number;
-  total_duration_days?: number;
-  overall_difficulty?: Difficulty;
-  potential_band_estimate?: LahrBandId;
-  adaptations?: GeminiAdaptation[];
-  dropped_candidates?: { label?: string; reason?: string }[];
-  /** Plain-English explanation Gemini emits when no feasible bundle fits the tier (e.g. cheapest
-   *  meaningful adaptation costs more than the tier cap). */
-  tier_unavailable_reason?: string;
-};
-
-type GeminiPayload = {
-  current_band?: LahrBandId;
-  overall_narrative?: string;
-  tiers?: GeminiTier[];
-  reaches_band_a_at_30k?: boolean;
-  rationale_if_not_band_a?: string;
-  confidence?: number;
-};
-
-type JobStatus = {
-  status: "pending" | "ready" | "failed";
-  startedAt: string;
-  finishedAt?: string;
-  error?: string;
-  step?: string;
-  model?: string;
-};
-
 /**
- * POST kicks off cost-estimation work and returns 202 immediately. The Gemini call + persistence
- * runs in the background via Next 16's `after()`, which on Vercel Pro Fluid keeps the function
- * alive after the HTTP response. This sidesteps the 60s gateway timeout that was producing 504s.
+ * POST kicks off plan generation and returns 202 immediately. The engine call and persistence
+ * run in the background via Next 16's `after()`, which on Vercel Pro Fluid keeps the function
+ * alive after the HTTP response — sidestepping the 60s gateway timeout that produced 504s.
  *
  * The client polls GET /api/engine/cost-estimation?surveyId=N for the result.
  */
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
-  const surveyId = typeof body?.surveyId === "number" ? body.surveyId : Number(body?.surveyId);
+  const surveyId =
+    typeof body?.surveyId === "number" ? body.surveyId : Number(body?.surveyId);
   if (!surveyId || !Number.isFinite(surveyId)) {
     return NextResponse.json({ error: "surveyId is required" }, { status: 400 });
   }
@@ -110,34 +53,58 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createClient();
 
-  const { data: survey, error: surveyErr } = await supabase
+  const { data: survey, error: surveyError } = await supabase
     .from("surveys")
     .select("*")
     .eq("id", surveyId)
     .eq("organisation_id", context.organisationId)
     .single();
-  if (surveyErr || !survey) {
+  if (surveyError || !survey) {
     return NextResponse.json(
-      { error: "Survey not found", details: surveyErr?.message ?? null },
+      { error: "Survey not found", details: surveyError?.message ?? null },
       { status: 404 },
     );
   }
 
-  const evaluation = classifyLahr(survey);
+  // A finalised plan must not silently re-price. Until now `complete` was purely a UI
+  // convention — no route, RLS policy or trigger refused a write because a survey was finished —
+  // so disabling the button was not a control. This is the single choke point: both plan
+  // components' buttons and both auto-generate effects come through here.
+  if (
+    isAssessmentLocked({
+      status: survey.status,
+      isLocked: (survey.raw_ai_data as { isLocked?: boolean } | null)?.isLocked,
+    })
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "This assessment is finalised. Reopen it to a draft before regenerating the adaptation plan.",
+      },
+      { status: 409 },
+    );
+  }
+
+  // Classify the resolved row, not the raw DB row. User overrides live in
+  // raw_ai_data.userOverrides and every UI surface applies them before classifying; the raw row
+  // leaves most rules unevaluable, which used to send sparse surveys down the band-A
+  // short-circuit and produce no plan at all for a property the UI was showing as band D.
+  const surveyRow = resolveSurveyRowFromDb(survey);
+  const evaluation = classifyLahr(surveyRow);
+
   if (evaluation.band === "A") {
-    await clearCostEstimation(supabase, surveyId);
+    await clearAdaptationPlanSet(supabase, surveyId);
     await writeJobStatus(supabase, surveyId, null);
     return NextResponse.json({ applicable: false, currentBand: "A" });
   }
 
   if (!ENGINE_API_KEY) {
     return NextResponse.json(
-      { error: "Cost estimation requires ENGINE_API_KEY to be configured." },
+      { error: "Adaptation planning requires ENGINE_API_KEY to be configured." },
       { status: 503 },
     );
   }
 
-  // Mark as pending synchronously so the next poll knows work is in flight.
   const startedAt = new Date().toISOString();
   await writeJobStatus(supabase, surveyId, {
     status: "pending",
@@ -145,86 +112,103 @@ export async function POST(req: NextRequest) {
     model: ENGINE_MODEL,
   });
 
-  // Background work — runs after the response is sent.
   after(async () => {
-    const t0 = Date.now();
+    const startedMs = Date.now();
     const log = (step: string, extra?: Record<string, unknown>) => {
-      console.log(`[cost-estimation:bg] ${step}`, { tMs: Date.now() - t0, surveyId, ...extra });
+      console.log(`[adaptation-plan:bg] ${step}`, {
+        tMs: Date.now() - startedMs,
+        surveyId,
+        ...extra,
+      });
     };
-    let step = "load_evidence";
+    let step = "load_rate_card";
     try {
-      const { data: evidences, error: evidErr } = await supabase
+      const rateCard = await loadRateCardForOrganisation(supabase, context.organisationId);
+      log(step, { rateCard: rateCard.code, items: rateCard.items.length });
+
+      step = "load_evidence";
+      const { data: evidences, error: evidenceError } = await supabase
         .from("survey_evidences")
         .select("id, file_url, mime_type, section")
         .eq("survey_id", surveyId);
-      if (evidErr) console.warn("[cost-estimation:bg] evidence load warning:", evidErr.message);
-      const evidenceList = (evidences ?? []).slice(0, MAX_PHOTO_INPUTS);
-      const imageParts = await Promise.all(
-        evidenceList.map((e) => toInlinePart(e.file_url, e.mime_type)),
-      );
-      const validImageParts = imageParts.filter((p): p is Exclude<typeof p, null> => p !== null);
-      log(step, { evidenceCount: evidenceList.length, validImages: validImageParts.length });
+      if (evidenceError) {
+        console.warn("[adaptation-plan:bg] evidence load warning:", evidenceError.message);
+      }
+      const imageParts = (
+        await Promise.all(
+          (evidences ?? [])
+            .slice(0, MAX_PHOTO_INPUTS)
+            .map((evidence) => toInlinePart(evidence.file_url, evidence.mime_type)),
+        )
+      ).filter((part): part is NonNullable<typeof part> => part !== null);
+      log(step, { images: imageParts.length });
 
-      step = "call_gemini";
-      const gemini = await callGemini({
+      step = "call_engine";
+      const prompt = buildAdaptationPoolPrompt({
         currentBand: evaluation.band,
         triggeredRules: collectTriggeredRules(evaluation),
-        imageParts: validImageParts,
+        workItems: rateCard.items,
+      });
+      const parts: EnginePart[] = [{ text: prompt }, ...imageParts];
+      const { payload, finishReason } = await callEngineJson<unknown>({
+        apiKey: ENGINE_API_KEY,
+        model: ENGINE_MODEL,
+        parts,
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        thinkingLevel: "high",
+        responseSchema: ADAPTATION_POOL_RESPONSE_SCHEMA as unknown as Record<string, unknown>,
+      });
+      log(step, { finishReason });
+
+      step = "build_pool";
+      const parsed = parseCandidatePool({
+        raw: payload,
+        rateCard,
+        triggeredRules: triggeredRuleNumbers(surveyRow),
       });
       log(step, {
-        tierCount: gemini.tiers?.length ?? 0,
-        adaptationsTotal:
-          gemini.tiers?.reduce((s, t) => s + (t.adaptations?.length ?? 0), 0) ?? 0,
+        pool: parsed.pool.length,
+        additionalWorks: parsed.additionalWorks.length,
+        dropped: parsed.dropped.length,
       });
 
-      step = "build_tiers";
-      const rawTiers: TierPlan[] = DFG_BUDGET_TIERS.map((b) => {
-        const geminiTier = gemini.tiers?.find((t) => Number(t?.budget_gbp) === b);
-        return buildTier({ budget: b, geminiTier, survey });
+      // An empty pool means the call produced nothing usable — a truncation, a refusal, or a
+      // payload we could not price. Fail the job loudly rather than persisting three empty
+      // tiers that render as a finished plan claiming no adaptation is possible.
+      if (parsed.pool.length === 0) {
+        throw new Error(
+          "Engine returned no priceable adaptation" +
+            (finishReason ? ` (finishReason=${finishReason})` : "") +
+            (parsed.additionalWorks.length > 0
+              ? `; ${parsed.additionalWorks.length} unpriced work item(s) proposed`
+              : ""),
+        );
+      }
+
+      step = "select_tiers";
+      const planSet = buildAdaptationPlanSet({
+        survey: surveyRow,
+        currentBand: evaluation.band,
+        pool: parsed.pool,
+        budgets: DFG_BUDGET_TIERS,
+        rateCard,
+        engineModel: ENGINE_MODEL,
+        additionalWorks: parsed.additionalWorks,
+        poolDropped: parsed.dropped,
+        overallNarrative: parsed.overallNarrative,
+        rationaleIfNotBandA: parsed.rationaleIfNotBandA,
       });
-
-      // Enforce cumulative structure: each tier must include all adaptations from the tier
-      // below it plus new ones targeting the spend gap. This also guarantees monotonic band
-      // improvement since higher tiers are supersets of lower ones.
-      const tiers = enforceCumulativeTiers(rawTiers, survey);
-
       log(step, {
-        tiers: tiers.map((t) => ({
-          budget: t.budgetGbp,
-          adaptations: t.adaptations.length,
-          cost: t.totalCostGbp,
-          band: t.potentialBand,
+        tiers: planSet.tiers.map((tier) => ({
+          budget: tier.budgetGbp,
+          lines: tier.lines.length,
+          cost: tier.totalCost.expectedGbp,
+          band: tier.potentialBand,
         })),
       });
 
-      const at30k = tiers.find((t) => t.budgetGbp === DFG_MAX_BUDGET);
-      const reachesBandAAt30k = at30k?.potentialBand === "A";
-      const estimation: CostEstimation = {
-        currentBand: evaluation.band,
-        tiers,
-        reachesBandAAt30k,
-        rationaleIfNotBandA: reachesBandAAt30k
-          ? undefined
-          : gemini.rationale_if_not_band_a ??
-            `Within £${DFG_MAX_BUDGET.toLocaleString()} this property reaches band ${
-              tiers[tiers.length - 1].potentialBand
-            }. Reaching band A would require further work beyond what visible evidence supports.`,
-        overallNarrative:
-          gemini.overall_narrative ??
-          `Current Accessible Housing Rules band is ${evaluation.band}. The plan above bundles bespoke adaptations to lift the property toward a higher band within each DFG tier.`,
-        confidence: clamp01(gemini.confidence ?? (validImageParts.length > 0 ? 0.65 : 0.45)),
-        generatedAt: new Date().toISOString(),
-        geminiModel: ENGINE_MODEL,
-        budgetCapGbp: DFG_MAX_BUDGET,
-      };
-
-      step = "persist_estimation";
-      await persistCostEstimation(
-        supabase,
-        surveyId,
-        context.organisationId,
-        estimation,
-      );
+      step = "persist_plan";
+      await persistAdaptationPlanSet(supabase, surveyId, context.organisationId, planSet);
       log(step);
 
       await writeJobStatus(supabase, surveyId, {
@@ -233,18 +217,18 @@ export async function POST(req: NextRequest) {
         finishedAt: new Date().toISOString(),
         model: ENGINE_MODEL,
       });
-    } catch (err) {
-      const e = err as Error;
-      console.error(`[cost-estimation:bg] failed at step="${step}":`, {
-        message: e?.message,
-        stack: e?.stack,
+    } catch (error) {
+      const failure = error as Error;
+      console.error(`[adaptation-plan:bg] failed at step="${step}":`, {
+        message: failure?.message,
+        stack: failure?.stack,
         surveyId,
       });
       await writeJobStatus(supabase, surveyId, {
         status: "failed",
         startedAt,
         finishedAt: new Date().toISOString(),
-        error: (e?.message ?? String(err)).slice(0, 500),
+        error: (failure?.message ?? String(error)).slice(0, 500),
         step,
         model: ENGINE_MODEL,
       });
@@ -254,32 +238,32 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ status: "pending", surveyId, startedAt }, { status: 202 });
 }
 
-/**
- * GET returns the current job status and the loaded estimation if ready. The client polls this
- * after kicking off a POST.
- */
+/** GET returns the current job status, and the stored plan when it is ready. */
 export async function GET(req: NextRequest) {
   const surveyId = Number(req.nextUrl.searchParams.get("surveyId"));
   if (!surveyId || !Number.isFinite(surveyId)) {
     return NextResponse.json({ error: "surveyId is required" }, { status: 400 });
   }
+
   const context = await requireApiContext();
   if (isApiError(context)) return context;
+
   const supabase = await createClient();
-  const surveyResult = await supabase
+  const { data: owned } = await supabase
     .from("surveys")
     .select("id")
     .eq("id", surveyId)
     .eq("organisation_id", context.organisationId)
     .maybeSingle();
-  if (!surveyResult.data) {
+  if (!owned) {
     return NextResponse.json({ error: "Survey not found" }, { status: 404 });
   }
-  const job = await readJobStatus(supabase, surveyId);
-  const estimation = await loadCostEstimation(supabase, surveyId);
 
-  if (estimation && (!job || job.status === "ready")) {
-    return NextResponse.json({ status: "ready", estimation, job });
+  const job = await readJobStatus(supabase, surveyId);
+  const plan = await loadAdaptationPlanSet(supabase, surveyId);
+
+  if (plan && (!job || job.status === "ready")) {
+    return NextResponse.json({ status: "ready", plan, job });
   }
   if (job?.status === "failed") {
     return NextResponse.json({ status: "failed", error: job.error, step: job.step, job });
@@ -288,444 +272,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ status: "pending", job });
   }
   return NextResponse.json({ status: "missing" });
-}
-
-async function writeJobStatus(
-  supabase: SupabaseClient<Database>,
-  surveyId: number,
-  job: JobStatus | null,
-): Promise<void> {
-  // Dedicated column (added by migration 20260427120000) — the surveys touch trigger ignores
-  // this column so completion writes don't bump updated_at and don't trigger the false-stale
-  // Re-assess banner.
-  await (supabase as unknown as {
-    from: (t: string) => {
-      update: (v: Record<string, unknown>) => {
-        eq: (col: string, val: unknown) => Promise<unknown>;
-      };
-    };
-  })
-    .from("surveys")
-    .update({ cost_estimation_status: job })
-    .eq("id", surveyId);
-}
-
-async function readJobStatus(
-  supabase: SupabaseClient<Database>,
-  surveyId: number,
-): Promise<JobStatus | null> {
-  const { data } = await (supabase as unknown as {
-    from: (t: string) => {
-      select: (cols: string) => {
-        eq: (col: string, val: unknown) => {
-          single: () => Promise<{ data: { cost_estimation_status: JobStatus | null } | null }>;
-        };
-      };
-    };
-  })
-    .from("surveys")
-    .select("cost_estimation_status")
-    .eq("id", surveyId)
-    .single();
-  return data?.cost_estimation_status ?? null;
-}
-
-/**
- * Enforce the cumulative tier rule: each tier must include all adaptations from the tier
- * below it (marked isInherited) plus new ones that fill the gap to this tier's cap.
- * Re-projects the band after merging so the stored potentialBand is always accurate.
- */
-function enforceCumulativeTiers(
-  tiers: TierPlan[],
-  survey: Partial<SurveyRow>,
-): TierPlan[] {
-  const result: TierPlan[] = [];
-
-  for (let i = 0; i < tiers.length; i++) {
-    const curr = tiers[i];
-
-    if (i === 0) {
-      // First tier: keep as-is, but mark all adaptations as not inherited.
-      result.push({
-        ...curr,
-        adaptations: curr.adaptations.map((a) => ({ ...a, isInherited: false })),
-      });
-      continue;
-    }
-
-    const prev = result[i - 1];
-    const prevBudget = prev.budgetGbp;
-
-    // Adaptations from the previous tier, carried forward and flagged as inherited.
-    const inherited = prev.adaptations.map((a) => ({ ...a, isInherited: true }));
-    const inheritedCost = inherited.reduce((s, a) => s + a.costGbp, 0);
-
-    // New adaptations Gemini proposed for this tier that are not already covered.
-    const prevLabels = new Set(prev.adaptations.map((a) => a.label));
-    const newForThisTier = curr.adaptations
-      .filter((a) => !prevLabels.has(a.label))
-      .map((a) => ({ ...a, isInherited: false }));
-
-    // Add new adaptations up to this tier's budget cap.
-    const newAccepted: typeof inherited = [];
-    let runningCost = inheritedCost;
-    for (const a of newForThisTier) {
-      if (runningCost + a.costGbp <= curr.budgetGbp) {
-        newAccepted.push(a);
-        runningCost += a.costGbp;
-      }
-    }
-
-    // If no new adaptations were added, show this tier as empty rather than
-    // repeating the previous tier's plan unchanged.
-    if (newAccepted.length === 0) {
-      console.warn(
-        `[cost-estimation] tier ${curr.budgetGbp}: no new adaptations beyond tier ${prev.budgetGbp} — marking empty.`,
-      );
-      result.push({
-        ...curr,
-        adaptations: [],
-        totalCostGbp: 0,
-        totalDurationDays: 0,
-        overallDifficulty: "minor",
-        potentialBand: prev.potentialBand,
-        unavailableReason:
-          curr.unavailableReason ??
-          `No additional adaptations are feasible within the £${curr.budgetGbp.toLocaleString()} budget beyond those already included in the £${prev.budgetGbp.toLocaleString()} plan.`,
-      });
-      continue;
-    }
-
-    const cumulative = [...inherited, ...newAccepted];
-
-    if (runningCost < prevBudget) {
-      console.warn(
-        `[cost-estimation] tier ${curr.budgetGbp}: cumulative spend £${runningCost} is below` +
-          ` the previous tier cap £${prevBudget}. Gemini did not propose enough new work.`,
-      );
-    }
-
-    result.push({
-      ...curr,
-      adaptations: cumulative,
-      totalCostGbp: runningCost,
-      totalDurationDays: cumulative.reduce((s, a) => s + a.durationDays, 0),
-      overallDifficulty: aggregateDifficulty(cumulative),
-      potentialBand: projectBandAfter(survey, cumulative),
-    });
-  }
-
-  return result;
-}
-
-function buildTier(args: {
-  budget: DfgBudgetGbp;
-  geminiTier: GeminiTier | undefined;
-  survey: Partial<SurveyRow>;
-}): TierPlan {
-  const { budget, geminiTier, survey } = args;
-  const fallback = (potentialBand: LahrBandId, reason: string): TierPlan => ({
-    budgetGbp: budget,
-    totalCostGbp: 0,
-    totalDurationDays: 0,
-    overallDifficulty: "minor",
-    potentialBand,
-    adaptations: [],
-    droppedCandidates: [],
-    unavailableReason: reason,
-  });
-
-  const currentBand = classifyLahr(survey).band;
-  if (!geminiTier?.adaptations?.length) {
-    console.warn(`[cost-estimation] buildTier(${budget}): no geminiTier match — using fallback`, {
-      hadGeminiTier: !!geminiTier,
-      adaptationCount: geminiTier?.adaptations?.length ?? 0,
-    });
-    const reason =
-      geminiTier?.tier_unavailable_reason ||
-      `The estimator did not propose any feasible adaptation that fits within £${budget.toLocaleString()}. The cheapest meaningful work for this property exceeds this tier — the higher tier is needed.`;
-    return fallback(currentBand, reason);
-  }
-
-  const adaptations: RemediationInstance[] = [];
-  let runningCost = 0;
-  let droppedForBudget = 0;
-  let droppedForLabel = 0;
-  for (const a of geminiTier.adaptations) {
-    if (!a.label) { droppedForLabel++; continue; }
-    const cost = sanitiseCost(a.cost_gbp);
-    if (runningCost + cost > budget) { droppedForBudget++; continue; } // Enforce the tier cap regardless of model arithmetic.
-    runningCost += cost;
-
-    adaptations.push({
-      label: String(a.label).slice(0, 200),
-      addressesRules: Array.isArray(a.addresses_rules)
-        ? a.addresses_rules.filter((n) => Number.isFinite(n)).map((n) => Math.trunc(n))
-        : [],
-      costGbp: cost,
-      durationDays: sanitiseDuration(a.duration_days),
-      difficulty: DIFFICULTIES.includes(a.difficulty as Difficulty)
-        ? (a.difficulty as Difficulty)
-        : "minor",
-      trades: Array.isArray(a.trades)
-        ? a.trades.filter((t): t is string => typeof t === "string").slice(0, 8)
-        : [],
-      narrative: typeof a.narrative === "string" ? a.narrative.slice(0, 600) : undefined,
-      preconditions: typeof a.preconditions === "string" ? a.preconditions.slice(0, 400) : undefined,
-      visualEvidenceConfidence:
-        typeof a.visual_evidence_confidence === "number"
-          ? clamp01(a.visual_evidence_confidence)
-          : undefined,
-      fieldPatches: a.field_patches && typeof a.field_patches === "object" ? a.field_patches : {},
-    });
-  }
-
-  const projectedBand = projectBandAfter(survey, adaptations);
-
-  console.log(`[cost-estimation] buildTier(${budget}):`, {
-    proposed: geminiTier.adaptations.length,
-    accepted: adaptations.length,
-    droppedForLabel,
-    droppedForBudget,
-    runningCost,
-    currentBand,
-    projectedBand,
-  });
-
-  // If the projected band somehow regressed below the current band, treat as a no-op tier.
-  if (rankOf(projectedBand) > rankOf(currentBand)) {
-    console.warn(`[cost-estimation] buildTier(${budget}): projected band regressed — using fallback`, {
-      currentBand,
-      projectedBand,
-    });
-    return fallback(
-      currentBand,
-      `The proposed bundle for £${budget.toLocaleString()} did not produce a measurable Accessible Housing Rules band uplift, so it has been suppressed. Consider the higher tier.`,
-    );
-  }
-
-  // Diagnostic: when the model's patches don't actually move the band, surface why so we can
-  // tighten the prompt's recipe block. This prints the rules still capping the band after the
-  // patches were applied, so it's visible in the server console exactly which rules slipped
-  // through.
-  if (
-    adaptations.length > 0 &&
-    rankOf(projectedBand) === rankOf(currentBand) &&
-    currentBand !== "A"
-  ) {
-    const patched = applyPatchesToSurvey(survey, adaptations);
-    const stillTriggering = classifyLahr(patched).criteria
-      .filter((c) => c.triggeredRules.length > 0 && c.id !== "g_rules")
-      .map((c) => ({
-        section: c.label,
-        cap: c.cappedBand,
-        rules: c.triggeredRules.map((r) => r.n),
-      }));
-    console.warn(
-      `[cost-estimation] buildTier(${budget}): adaptations applied but band did not improve` +
-        ` — patches missed at least one capping rule.`,
-      {
-        currentBand,
-        projectedBand,
-        accepted: adaptations.length,
-        patchedKeys: adaptations.flatMap((a) => Object.keys(a.fieldPatches ?? {})),
-        stillTriggering,
-      },
-    );
-  }
-
-  // The model returned adaptations but every one of them was dropped by the budget cap.
-  if (adaptations.length === 0) {
-    return fallback(
-      currentBand,
-      geminiTier.tier_unavailable_reason ||
-        `Every adaptation the estimator proposed for £${budget.toLocaleString()} was priced over the tier cap. The smallest feasible work for this property starts above this budget — the higher tier is needed.`,
-    );
-  }
-
-  const dropped = Array.isArray(geminiTier.dropped_candidates)
-    ? geminiTier.dropped_candidates
-        .filter((d): d is { label: string; reason?: string } => typeof d?.label === "string")
-        .map((d) => ({
-          label: d.label.slice(0, 200),
-          reason: typeof d.reason === "string" ? d.reason.slice(0, 400) : "Dropped by estimator.",
-        }))
-    : [];
-
-  return {
-    budgetGbp: budget,
-    totalCostGbp: runningCost,
-    totalDurationDays: adaptations.reduce((s, a) => s + a.durationDays, 0),
-    overallDifficulty: aggregateDifficulty(adaptations),
-    potentialBand: projectedBand,
-    adaptations,
-    droppedCandidates: dropped,
-  };
-}
-
-function sanitiseCost(value: unknown): number {
-  const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
-  return Math.max(0, Math.round(n));
-}
-
-function sanitiseDuration(value: unknown): number {
-  const n = typeof value === "number" && Number.isFinite(value) ? value : 1;
-  return Math.max(1, Math.round(n));
-}
-
-function clamp01(value: unknown): number {
-  const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
-  return Math.max(0, Math.min(1, n));
-}
-
-async function toInlinePart(
-  url: string | null | undefined,
-  mime: string | null | undefined,
-): Promise<{ inline_data: { mime_type: string; data: string } } | null> {
-  if (!url || !mime?.startsWith("image/")) return null;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.byteLength > 4 * 1024 * 1024) return null;
-    return { inline_data: { mime_type: mime, data: buf.toString("base64") } };
-  } catch {
-    return null;
-  }
-}
-
-async function callGemini(args: {
-  currentBand: LahrBandId;
-  triggeredRules: ReturnType<typeof collectTriggeredRules>;
-  imageParts: { inline_data: { mime_type: string; data: string } }[];
-}): Promise<GeminiPayload> {
-  const prompt = buildCostEstimationPrompt({
-    currentBand: args.currentBand,
-    triggeredRules: args.triggeredRules,
-    budgets: DFG_BUDGET_TIERS,
-  });
-
-  const parts: GeminiPart[] = [{ text: prompt }, ...args.imageParts];
-
-  const res = await fetchWithRetry(`${ENGINE_API_URL}?key=${ENGINE_API_KEY}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts }],
-      generationConfig: {
-        temperature: 0.2,
-        // Three tiers of bespoke prose hit ~12K tokens. 16K leaves headroom without inflating
-        // generation time on Vercel.
-        maxOutputTokens: 16384,
-        responseMimeType: "application/json",
-      },
-    }),
-  });
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Engine ${res.status}: ${errorText.slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-  const finishReason: string | undefined = data?.candidates?.[0]?.finishReason;
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error(
-      `Engine returned no JSON object${finishReason ? ` (finishReason=${finishReason})` : ""}`,
-    );
-  }
-  const raw = jsonMatch[0];
-  try {
-    return JSON.parse(raw) as GeminiPayload;
-  } catch (parseErr) {
-    const repaired = repairJson(raw);
-    try {
-      return JSON.parse(repaired) as GeminiPayload;
-    } catch {
-      const reason = (parseErr as Error).message;
-      throw new Error(
-        `Engine returned malformed JSON (${reason})${finishReason ? `; finishReason=${finishReason}` : ""}; length=${raw.length}`,
-      );
-    }
-  }
-}
-
-/**
- * Best-effort repair for the JSON malformations Gemini produces despite responseMimeType:
- * trailing commas, unterminated strings at truncation points, and missing closing brackets when
- * the response was cut off. Not a general-purpose JSON repairer — scoped to what we observe.
- */
-function repairJson(text: string): string {
-  let s = text.trim();
-  s = s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-
-  const stack: string[] = [];
-  let inString = false;
-  let escape = false;
-  let lastSafeIndex = -1; // last index after a complete key:value or element
-
-  for (let i = 0; i < s.length; i++) {
-    const c = s[i];
-    if (escape) { escape = false; continue; }
-    if (c === "\\") { escape = true; continue; }
-    if (c === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (c === "{" || c === "[") {
-      stack.push(c);
-    } else if (c === "}" || c === "]") {
-      stack.pop();
-      lastSafeIndex = i;
-    } else if (c === "," && stack.length > 0) {
-      lastSafeIndex = i - 1;
-    }
-  }
-
-  // If we ended inside a string, truncate back to the last safe element/comma boundary so we
-  // discard the partial token entirely instead of trying to close it.
-  if (inString && lastSafeIndex >= 0) {
-    s = s.slice(0, lastSafeIndex + 1);
-    // Recompute bracket stack against the truncated source.
-    stack.length = 0;
-    inString = false;
-    escape = false;
-    for (let i = 0; i < s.length; i++) {
-      const c = s[i];
-      if (escape) { escape = false; continue; }
-      if (c === "\\") { escape = true; continue; }
-      if (c === '"') { inString = !inString; continue; }
-      if (inString) continue;
-      if (c === "{" || c === "[") stack.push(c);
-      else if (c === "}" || c === "]") stack.pop();
-    }
-  }
-
-  // Drop trailing commas before close brackets, then close any still-open containers.
-  s = s.replace(/,(\s*[}\]])/g, "$1");
-  while (stack.length) {
-    const open = stack.pop();
-    s += open === "{" ? "}" : "]";
-  }
-  return s;
-}
-
-async function fetchWithRetry(url: string, init: RequestInit, retries = 3): Promise<Response> {
-  let lastErr: unknown;
-  for (let i = 0; i < retries; i++) {
-    try {
-      const res = await fetch(url, init);
-      if (res.status === 429) {
-        const wait = Math.pow(2, i) * 1000 + Math.random() * 500;
-        await new Promise((r) => setTimeout(r, wait));
-        continue;
-      }
-      return res;
-    } catch (err) {
-      lastErr = err;
-      const wait = Math.pow(2, i) * 1000;
-      await new Promise((r) => setTimeout(r, wait));
-    }
-  }
-  throw lastErr instanceof Error ? lastErr : new Error("Engine fetch failed");
 }

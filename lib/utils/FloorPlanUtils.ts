@@ -170,14 +170,14 @@ function detectionToMeasurements(resp: DetectionResponse): {
 }
 
 function mergeAnalysis(
-  gemini: FloorPlanAnalysisResult,
+  engine: FloorPlanAnalysisResult,
   detection: DetectionResponse | null,
 ): FloorPlanAnalysisResult {
-  if (!detection) return gemini;
+  if (!detection) return engine;
   const { section, lift, internal_stairs } = detectionToMeasurements(detection);
-  const merged: FloorPlanAnalysisResult = { ...gemini };
+  const merged: FloorPlanAnalysisResult = { ...engine };
   merged.section_measurements = {
-    ...(gemini.section_measurements ?? {}),
+    ...(engine.section_measurements ?? {}),
     ...section,
   };
   if (lift?.detected) merged.lift = lift;
@@ -280,7 +280,7 @@ export const analyzeFloorPlan = async (
     const converted = await convertHeicToJpegIfNeeded(file);
     const payload = await fileToPayload(converted);
 
-    // Detection first. If it returns a result (200), use it alone and skip Gemini.
+    // Detection first. If it returns a result (200), use it alone and skip the engine.
     let detection: DetectionResponse | null = null;
     try {
       const detectionResults = await detectFloorPlans([payload]);
@@ -293,8 +293,8 @@ export const analyzeFloorPlan = async (
       return { analysis, raw: detection };
     }
 
-    // Fallback: only call Gemini when detection didn't return a result.
-    let geminiResult: FloorPlanAnalysisResult | null = null;
+    // Fallback: only call the engine when detection didn't return a result.
+    let engineResult: FloorPlanAnalysisResult | null = null;
     try {
       const r = await fetch("/api/engine/floor-plan", {
         method: "POST",
@@ -303,17 +303,17 @@ export const analyzeFloorPlan = async (
           images: [{ mime_type: payload.mime_type, data: payload.data }],
         }),
       });
-      const geminiBody = r.ok ? await r.json() : null;
-      geminiResult =
-        geminiBody?.success && geminiBody.result
-          ? (geminiBody.result as FloorPlanAnalysisResult)
+      const engineBody = r.ok ? await r.json() : null;
+      engineResult =
+        engineBody?.success && engineBody.result
+          ? (engineBody.result as FloorPlanAnalysisResult)
           : null;
     } catch (err) {
-      console.warn("Gemini floor-plan unavailable:", err);
+      console.warn("[Engine] floor-plan analysis unavailable:", err);
     }
 
-    if (!geminiResult) return null;
-    return { analysis: mergeAnalysis(geminiResult, null), raw: null };
+    if (!engineResult) return null;
+    return { analysis: mergeAnalysis(engineResult, null), raw: null };
   } catch (error) {
     console.warn("Floor-plan analysis unavailable:", error);
     return null;

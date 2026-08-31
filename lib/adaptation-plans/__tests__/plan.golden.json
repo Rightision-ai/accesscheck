@@ -1,0 +1,675 @@
+{
+  "currentBand": "E+",
+  "tiers": [
+    {
+      "budgetGbp": 15000,
+      "totalCost": {
+        "lowGbp": 6400,
+        "expectedGbp": 13600,
+        "highGbp": 25200
+      },
+      "totalDurationDays": 15,
+      "overallDifficulty": "major",
+      "potentialBand": "C",
+      "rulesCleared": [
+        4,
+        53,
+        65,
+        71,
+        75
+      ],
+      "rulesRemaining": [
+        64,
+        72,
+        79
+      ],
+      "lines": [
+        {
+          "id": "ramp_retrofit_property",
+          "label": "Install property-entrance ramp (1:15, adequate platform)",
+          "addressesRules": [
+            4
+          ],
+          "cost": {
+            "lowGbp": 1800,
+            "expectedGbp": 3500,
+            "highGbp": 6500
+          },
+          "costBasis": {
+            "workItemCode": "ramp_retrofit_property",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 2,
+          "difficulty": "moderate",
+          "trades": [
+            "groundworks",
+            "carpentry"
+          ],
+          "preconditions": "At least 3m clear run-out outside the property door.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "has_property_ramp": true,
+            "property_ramp_ah": 10,
+            "property_ramp_al": 200,
+            "property_ramp_adequate_platform": true,
+            "property_ramp_type": "Straight"
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": false,
+          "selectionReason": "Included because it clears Accessible Housing Rules rule 4 for £1,800–£6,500 — the cheapest route to that rule.",
+          "source": "ai_suggested"
+        },
+        {
+          "id": "hallway_widening",
+          "label": "Widen hallway / remove intrusions to 120cm",
+          "addressesRules": [
+            75
+          ],
+          "cost": {
+            "lowGbp": 2500,
+            "expectedGbp": 5500,
+            "highGbp": 10000
+          },
+          "costBasis": {
+            "workItemCode": "hallway_widening",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 7,
+          "difficulty": "major",
+          "trades": [
+            "carpentry",
+            "plastering",
+            "structural"
+          ],
+          "preconditions": "Non-load-bearing partition; utilities reroutable.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "hallway_width_head_on_cm": 120,
+            "hallway_width_turn_cm": 120
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": false,
+          "selectionReason": "Included because it clears Accessible Housing Rules rule 75 for £2,500–£10,000 — the cheapest route to that rule.",
+          "source": "ai_suggested"
+        },
+        {
+          "id": "accessible_wc_install",
+          "label": "Install ground-floor accessible WC with lateral transfer space",
+          "addressesRules": [
+            65
+          ],
+          "cost": {
+            "lowGbp": 1500,
+            "expectedGbp": 3200,
+            "highGbp": 5500
+          },
+          "costBasis": {
+            "workItemCode": "accessible_wc_install",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 4,
+          "difficulty": "moderate",
+          "trades": [
+            "plumbing",
+            "carpentry",
+            "tiling"
+          ],
+          "preconditions": "Spare floorspace ≈ 2.0 × 1.7m adjacent to soil stack.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "has_separate_toilet": true,
+            "toilet_dim_width": 200,
+            "toilet_dim_depth": 170,
+            "toilet_lateral_space_cm": 100,
+            "bathroom_toilet_lateral_space": 100,
+            "access_separate_toilet": true
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": false,
+          "selectionReason": "Included because it clears Accessible Housing Rules rule 65 for £1,500–£5,500 — the cheapest route to that rule.",
+          "source": "ai_suggested"
+        },
+        {
+          "id": "wheelchair_storage_create",
+          "label": "Create internal wheelchair / scooter storage area",
+          "addressesRules": [
+            53
+          ],
+          "cost": {
+            "lowGbp": 600,
+            "expectedGbp": 1400,
+            "highGbp": 3200
+          },
+          "costBasis": {
+            "workItemCode": "wheelchair_storage_create",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 2,
+          "difficulty": "moderate",
+          "trades": [
+            "carpentry",
+            "electrical"
+          ],
+          "preconditions": "Available hallway / under-stair / porch footprint.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "has_wheelchair_storage": true,
+            "wheelchair_storage_dim_width": 160,
+            "wheelchair_storage_dim_depth": 100
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": false,
+          "selectionReason": "Included because it clears Accessible Housing Rules rule 53 for £600–£3,200 — the cheapest route to that rule.",
+          "source": "ai_suggested"
+        }
+      ],
+      "droppedCandidates": []
+    },
+    {
+      "budgetGbp": 20000,
+      "totalCost": {
+        "lowGbp": 6400,
+        "expectedGbp": 13600,
+        "highGbp": 25200
+      },
+      "totalDurationDays": 15,
+      "overallDifficulty": "major",
+      "potentialBand": "C",
+      "rulesCleared": [
+        4,
+        53,
+        65,
+        71,
+        75
+      ],
+      "rulesRemaining": [
+        64,
+        72,
+        79
+      ],
+      "lines": [
+        {
+          "id": "ramp_retrofit_property",
+          "label": "Install property-entrance ramp (1:15, adequate platform)",
+          "addressesRules": [
+            4
+          ],
+          "cost": {
+            "lowGbp": 1800,
+            "expectedGbp": 3500,
+            "highGbp": 6500
+          },
+          "costBasis": {
+            "workItemCode": "ramp_retrofit_property",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 2,
+          "difficulty": "moderate",
+          "trades": [
+            "groundworks",
+            "carpentry"
+          ],
+          "preconditions": "At least 3m clear run-out outside the property door.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "has_property_ramp": true,
+            "property_ramp_ah": 10,
+            "property_ramp_al": 200,
+            "property_ramp_adequate_platform": true,
+            "property_ramp_type": "Straight"
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": true,
+          "selectionReason": "Carried forward from the £15,000 plan.",
+          "source": "ai_suggested"
+        },
+        {
+          "id": "hallway_widening",
+          "label": "Widen hallway / remove intrusions to 120cm",
+          "addressesRules": [
+            75
+          ],
+          "cost": {
+            "lowGbp": 2500,
+            "expectedGbp": 5500,
+            "highGbp": 10000
+          },
+          "costBasis": {
+            "workItemCode": "hallway_widening",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 7,
+          "difficulty": "major",
+          "trades": [
+            "carpentry",
+            "plastering",
+            "structural"
+          ],
+          "preconditions": "Non-load-bearing partition; utilities reroutable.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "hallway_width_head_on_cm": 120,
+            "hallway_width_turn_cm": 120
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": true,
+          "selectionReason": "Carried forward from the £15,000 plan.",
+          "source": "ai_suggested"
+        },
+        {
+          "id": "accessible_wc_install",
+          "label": "Install ground-floor accessible WC with lateral transfer space",
+          "addressesRules": [
+            65
+          ],
+          "cost": {
+            "lowGbp": 1500,
+            "expectedGbp": 3200,
+            "highGbp": 5500
+          },
+          "costBasis": {
+            "workItemCode": "accessible_wc_install",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 4,
+          "difficulty": "moderate",
+          "trades": [
+            "plumbing",
+            "carpentry",
+            "tiling"
+          ],
+          "preconditions": "Spare floorspace ≈ 2.0 × 1.7m adjacent to soil stack.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "has_separate_toilet": true,
+            "toilet_dim_width": 200,
+            "toilet_dim_depth": 170,
+            "toilet_lateral_space_cm": 100,
+            "bathroom_toilet_lateral_space": 100,
+            "access_separate_toilet": true
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": true,
+          "selectionReason": "Carried forward from the £15,000 plan.",
+          "source": "ai_suggested"
+        },
+        {
+          "id": "wheelchair_storage_create",
+          "label": "Create internal wheelchair / scooter storage area",
+          "addressesRules": [
+            53
+          ],
+          "cost": {
+            "lowGbp": 600,
+            "expectedGbp": 1400,
+            "highGbp": 3200
+          },
+          "costBasis": {
+            "workItemCode": "wheelchair_storage_create",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 2,
+          "difficulty": "moderate",
+          "trades": [
+            "carpentry",
+            "electrical"
+          ],
+          "preconditions": "Available hallway / under-stair / porch footprint.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "has_wheelchair_storage": true,
+            "wheelchair_storage_dim_width": 160,
+            "wheelchair_storage_dim_depth": 100
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": true,
+          "selectionReason": "Carried forward from the £15,000 plan.",
+          "source": "ai_suggested"
+        }
+      ],
+      "droppedCandidates": [],
+      "unavailableReason": "No additional adaptation is feasible within £20,000 beyond those already in the £15,000 plan — the next useful work, convert bathroom to level-access wet room with 150cm turning, costs about £8,500 against £6,400 of headroom."
+    },
+    {
+      "budgetGbp": 30000,
+      "totalCost": {
+        "lowGbp": 11900,
+        "expectedGbp": 22100,
+        "highGbp": 39200
+      },
+      "totalDurationDays": 22,
+      "overallDifficulty": "major",
+      "potentialBand": "C",
+      "rulesCleared": [
+        4,
+        53,
+        64,
+        65,
+        71,
+        72,
+        75
+      ],
+      "rulesRemaining": [
+        79
+      ],
+      "lines": [
+        {
+          "id": "ramp_retrofit_property",
+          "label": "Install property-entrance ramp (1:15, adequate platform)",
+          "addressesRules": [
+            4
+          ],
+          "cost": {
+            "lowGbp": 1800,
+            "expectedGbp": 3500,
+            "highGbp": 6500
+          },
+          "costBasis": {
+            "workItemCode": "ramp_retrofit_property",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 2,
+          "difficulty": "moderate",
+          "trades": [
+            "groundworks",
+            "carpentry"
+          ],
+          "preconditions": "At least 3m clear run-out outside the property door.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "has_property_ramp": true,
+            "property_ramp_ah": 10,
+            "property_ramp_al": 200,
+            "property_ramp_adequate_platform": true,
+            "property_ramp_type": "Straight"
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": true,
+          "selectionReason": "Carried forward from the £20,000 plan.",
+          "source": "ai_suggested"
+        },
+        {
+          "id": "hallway_widening",
+          "label": "Widen hallway / remove intrusions to 120cm",
+          "addressesRules": [
+            75
+          ],
+          "cost": {
+            "lowGbp": 2500,
+            "expectedGbp": 5500,
+            "highGbp": 10000
+          },
+          "costBasis": {
+            "workItemCode": "hallway_widening",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 7,
+          "difficulty": "major",
+          "trades": [
+            "carpentry",
+            "plastering",
+            "structural"
+          ],
+          "preconditions": "Non-load-bearing partition; utilities reroutable.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "hallway_width_head_on_cm": 120,
+            "hallway_width_turn_cm": 120
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": true,
+          "selectionReason": "Carried forward from the £20,000 plan.",
+          "source": "ai_suggested"
+        },
+        {
+          "id": "accessible_wc_install",
+          "label": "Install ground-floor accessible WC with lateral transfer space",
+          "addressesRules": [
+            65
+          ],
+          "cost": {
+            "lowGbp": 1500,
+            "expectedGbp": 3200,
+            "highGbp": 5500
+          },
+          "costBasis": {
+            "workItemCode": "accessible_wc_install",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 4,
+          "difficulty": "moderate",
+          "trades": [
+            "plumbing",
+            "carpentry",
+            "tiling"
+          ],
+          "preconditions": "Spare floorspace ≈ 2.0 × 1.7m adjacent to soil stack.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "has_separate_toilet": true,
+            "toilet_dim_width": 200,
+            "toilet_dim_depth": 170,
+            "toilet_lateral_space_cm": 100,
+            "bathroom_toilet_lateral_space": 100,
+            "access_separate_toilet": true
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": true,
+          "selectionReason": "Carried forward from the £20,000 plan.",
+          "source": "ai_suggested"
+        },
+        {
+          "id": "wheelchair_storage_create",
+          "label": "Create internal wheelchair / scooter storage area",
+          "addressesRules": [
+            53
+          ],
+          "cost": {
+            "lowGbp": 600,
+            "expectedGbp": 1400,
+            "highGbp": 3200
+          },
+          "costBasis": {
+            "workItemCode": "wheelchair_storage_create",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 2,
+          "difficulty": "moderate",
+          "trades": [
+            "carpentry",
+            "electrical"
+          ],
+          "preconditions": "Available hallway / under-stair / porch footprint.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "has_wheelchair_storage": true,
+            "wheelchair_storage_dim_width": 160,
+            "wheelchair_storage_dim_depth": 100
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": true,
+          "selectionReason": "Carried forward from the £20,000 plan.",
+          "source": "ai_suggested"
+        },
+        {
+          "id": "wet_room_conversion",
+          "label": "Convert bathroom to level-access wet room with 150cm turning",
+          "addressesRules": [
+            64,
+            71,
+            72
+          ],
+          "cost": {
+            "lowGbp": 5500,
+            "expectedGbp": 8500,
+            "highGbp": 14000
+          },
+          "costBasis": {
+            "workItemCode": "wet_room_conversion",
+            "quantity": 1,
+            "unit": "each",
+            "rateCardId": null,
+            "rateCardLabel": "National indicative — obtain quote",
+            "regionMultiplier": 1,
+            "effectiveFrom": "2026-04-01"
+          },
+          "durationDays": 7,
+          "difficulty": "major",
+          "trades": [
+            "plumbing",
+            "tiling",
+            "waterproofing",
+            "electrical"
+          ],
+          "preconditions": "Bathroom footprint ≥ 2.5m²; suitable drainage falls.",
+          "confidence": {
+            "score": 0.7,
+            "basis": "rate_card_match",
+            "verifyOnSite": false
+          },
+          "fieldPatches": {
+            "bathroom_has_level_access_shower": true,
+            "has_level_access_shower": true,
+            "bathroom_turning_150x150": true,
+            "bathroom_toilet_lateral_space": 100
+          },
+          "feasibility": "feasible",
+          "dependsOn": [],
+          "isInherited": false,
+          "selectionReason": "Included because it clears Accessible Housing Rules rules 64, 71 and 72 for £5,500–£14,000 — the cheapest route to that set.",
+          "source": "ai_suggested"
+        }
+      ],
+      "droppedCandidates": []
+    }
+  ],
+  "additionalWorks": [],
+  "reachesBandAAt30k": false,
+  "overallNarrative": "The stepped entrance is the blocking risk for a wheelchair user; the plan clears access first, then the bathroom.",
+  "generatedAt": "2026-09-01T00:00:00.000Z",
+  "engineModel": "gemini-3.7-flash",
+  "budgetCapGbp": 30000,
+  "rateCardId": null,
+  "rateCardLabel": "National indicative — obtain quote",
+  "rateCardEffectiveFrom": "2026-04-01"
+}

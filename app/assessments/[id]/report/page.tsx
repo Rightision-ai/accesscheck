@@ -3,7 +3,8 @@ import { getUser } from '@/lib/auth/actions';
 import { redirect } from 'next/navigation';
 import ReportViewClient from './ReportViewClient';
 import { mapSurveyToCase } from '@/lib/surveys/mapper';
-import { loadCostEstimation } from '@/lib/accessibility/cost-estimation/repository';
+import { loadAdaptationPlanSet } from '@/lib/adaptation-plans/repository';
+import { loadActiveRateCardRef } from '@/lib/rate-cards/repository';
 
 export default async function ReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,7 +24,10 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
   }
 
   const caseData = mapSurveyToCase(survey);
-  const costEstimation = await loadCostEstimation(supabase, Number(id));
+  const costEstimation = await loadAdaptationPlanSet(supabase, Number(id));
+  const activeRateCard = survey.organisation_id
+    ? await loadActiveRateCardRef(supabase, survey.organisation_id)
+    : null;
 
-  return <ReportViewClient caseData={caseData} costEstimation={costEstimation} />;
+  return <ReportViewClient caseData={caseData} costEstimation={costEstimation} activeRateCard={activeRateCard} />;
 }

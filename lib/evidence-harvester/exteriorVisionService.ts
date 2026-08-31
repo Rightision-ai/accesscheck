@@ -8,10 +8,11 @@
 import { fetchWithRetry } from './http';
 import { buildExteriorVisionPrompt } from '@/lib/engine/prompts/exteriorVisionPrompt';
 import type { ExteriorObservations, FrontPathSlope } from './types';
+import { ENGINE_MODELS, engineUrl } from '@/lib/engine/models';
 
 const ENGINE_API_KEY = process.env.ENGINE_API_KEY;
-const MODEL = process.env.ENGINE_VISION_MODEL || 'gemini-2.5-flash';
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+const MODEL = ENGINE_MODELS.exteriorVision;
+const API_URL = engineUrl(MODEL);
 
 type ImageInput = { mime: string; base64: string };
 

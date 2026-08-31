@@ -34,6 +34,204 @@ export type Database = {
   }
   public: {
     Tables: {
+      adaptation_plan_lines: {
+        Row: {
+          addresses_rules: number[]
+          candidate_id: string
+          confidence: number
+          confidence_basis: string
+          cost_basis: Json
+          cost_expected_gbp: number
+          cost_high_gbp: number
+          cost_low_gbp: number
+          depends_on: string[]
+          difficulty: string
+          duration_days: number
+          feasibility: string
+          field_patches: Json
+          id: string
+          is_inherited: boolean
+          label: string
+          narrative: string | null
+          plan_id: string
+          position: number
+          preconditions: string | null
+          selection_reason: string
+          source: string
+          trades: string[]
+          verify_note: string | null
+          verify_on_site: boolean
+        }
+        Insert: {
+          addresses_rules?: number[]
+          candidate_id: string
+          confidence: number
+          confidence_basis?: string
+          cost_basis?: Json
+          cost_expected_gbp: number
+          cost_high_gbp: number
+          cost_low_gbp: number
+          depends_on?: string[]
+          difficulty: string
+          duration_days: number
+          feasibility?: string
+          field_patches?: Json
+          id?: string
+          is_inherited?: boolean
+          label: string
+          narrative?: string | null
+          plan_id: string
+          position: number
+          preconditions?: string | null
+          selection_reason?: string
+          source?: string
+          trades?: string[]
+          verify_note?: string | null
+          verify_on_site?: boolean
+        }
+        Update: {
+          addresses_rules?: number[]
+          candidate_id?: string
+          confidence?: number
+          confidence_basis?: string
+          cost_basis?: Json
+          cost_expected_gbp?: number
+          cost_high_gbp?: number
+          cost_low_gbp?: number
+          depends_on?: string[]
+          difficulty?: string
+          duration_days?: number
+          feasibility?: string
+          field_patches?: Json
+          id?: string
+          is_inherited?: boolean
+          label?: string
+          narrative?: string | null
+          plan_id?: string
+          position?: number
+          preconditions?: string | null
+          selection_reason?: string
+          source?: string
+          trades?: string[]
+          verify_note?: string | null
+          verify_on_site?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adaptation_plan_lines_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "adaptation_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adaptation_plans: {
+        Row: {
+          additional_works: Json
+          budget_cap_gbp: number
+          budget_gbp: number
+          current_band: string
+          dropped_candidates: Json
+          engine_model: string
+          generated_at: string
+          id: string
+          organisation_id: string | null
+          overall_difficulty: string
+          overall_narrative: string
+          potential_band: string
+          rate_card_effective_from: string | null
+          rate_card_id: string | null
+          rate_card_label: string
+          rationale_if_not_band_a: string | null
+          reaches_band_a_at_30k: boolean
+          rules_cleared: number[]
+          rules_remaining: number[]
+          survey_id: number
+          total_cost_expected_gbp: number
+          total_cost_high_gbp: number
+          total_cost_low_gbp: number
+          total_duration_days: number
+          unavailable_reason: string | null
+        }
+        Insert: {
+          additional_works?: Json
+          budget_cap_gbp: number
+          budget_gbp: number
+          current_band: string
+          dropped_candidates?: Json
+          engine_model: string
+          generated_at?: string
+          id?: string
+          organisation_id?: string | null
+          overall_difficulty: string
+          overall_narrative?: string
+          potential_band: string
+          rate_card_effective_from?: string | null
+          rate_card_id?: string | null
+          rate_card_label?: string
+          rationale_if_not_band_a?: string | null
+          reaches_band_a_at_30k?: boolean
+          rules_cleared?: number[]
+          rules_remaining?: number[]
+          survey_id: number
+          total_cost_expected_gbp?: number
+          total_cost_high_gbp?: number
+          total_cost_low_gbp?: number
+          total_duration_days?: number
+          unavailable_reason?: string | null
+        }
+        Update: {
+          additional_works?: Json
+          budget_cap_gbp?: number
+          budget_gbp?: number
+          current_band?: string
+          dropped_candidates?: Json
+          engine_model?: string
+          generated_at?: string
+          id?: string
+          organisation_id?: string | null
+          overall_difficulty?: string
+          overall_narrative?: string
+          potential_band?: string
+          rate_card_effective_from?: string | null
+          rate_card_id?: string | null
+          rate_card_label?: string
+          rationale_if_not_band_a?: string | null
+          reaches_band_a_at_30k?: boolean
+          rules_cleared?: number[]
+          rules_remaining?: number[]
+          survey_id?: number
+          total_cost_expected_gbp?: number
+          total_cost_high_gbp?: number
+          total_cost_low_gbp?: number
+          total_duration_days?: number
+          unavailable_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adaptation_plans_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adaptation_plans_rate_card_id_fkey"
+            columns: ["rate_card_id"]
+            isOneToOne: false
+            referencedRelation: "rate_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adaptation_plans_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       address_geocodes: {
         Row: {
           address_key: string
@@ -108,140 +306,6 @@ export type Database = {
           },
           {
             foreignKeyName: "assessment_status_events_survey_id_fkey"
-            columns: ["survey_id"]
-            isOneToOne: false
-            referencedRelation: "surveys"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      cost_estimation_adaptations: {
-        Row: {
-          addresses_rules: number[]
-          cost_gbp: number
-          difficulty: string
-          duration_days: number
-          field_patches: Json
-          id: string
-          label: string
-          narrative: string | null
-          plan_id: string
-          position: number
-          preconditions: string | null
-          trades: string[]
-          visual_evidence_confidence: number | null
-        }
-        Insert: {
-          addresses_rules?: number[]
-          cost_gbp: number
-          difficulty: string
-          duration_days: number
-          field_patches?: Json
-          id?: string
-          label: string
-          narrative?: string | null
-          plan_id: string
-          position: number
-          preconditions?: string | null
-          trades?: string[]
-          visual_evidence_confidence?: number | null
-        }
-        Update: {
-          addresses_rules?: number[]
-          cost_gbp?: number
-          difficulty?: string
-          duration_days?: number
-          field_patches?: Json
-          id?: string
-          label?: string
-          narrative?: string | null
-          plan_id?: string
-          position?: number
-          preconditions?: string | null
-          trades?: string[]
-          visual_evidence_confidence?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cost_estimation_adaptations_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "cost_estimation_plans"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      cost_estimation_plans: {
-        Row: {
-          budget_cap_gbp: number
-          budget_gbp: number
-          confidence: number
-          current_band: string
-          dropped_candidates: Json
-          gemini_model: string
-          generated_at: string
-          id: string
-          organisation_id: string | null
-          overall_difficulty: string
-          overall_narrative: string
-          potential_band: string
-          rationale_if_not_band_a: string | null
-          reaches_band_a_at_30k: boolean
-          survey_id: number
-          total_cost_gbp: number
-          total_duration_days: number
-          unavailable_reason: string | null
-        }
-        Insert: {
-          budget_cap_gbp: number
-          budget_gbp: number
-          confidence?: number
-          current_band: string
-          dropped_candidates?: Json
-          gemini_model: string
-          generated_at?: string
-          id?: string
-          organisation_id?: string | null
-          overall_difficulty: string
-          overall_narrative?: string
-          potential_band: string
-          rationale_if_not_band_a?: string | null
-          reaches_band_a_at_30k?: boolean
-          survey_id: number
-          total_cost_gbp?: number
-          total_duration_days?: number
-          unavailable_reason?: string | null
-        }
-        Update: {
-          budget_cap_gbp?: number
-          budget_gbp?: number
-          confidence?: number
-          current_band?: string
-          dropped_candidates?: Json
-          gemini_model?: string
-          generated_at?: string
-          id?: string
-          organisation_id?: string | null
-          overall_difficulty?: string
-          overall_narrative?: string
-          potential_band?: string
-          rationale_if_not_band_a?: string | null
-          reaches_band_a_at_30k?: boolean
-          survey_id?: number
-          total_cost_gbp?: number
-          total_duration_days?: number
-          unavailable_reason?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cost_estimation_plans_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cost_estimation_plans_survey_id_fkey"
             columns: ["survey_id"]
             isOneToOne: false
             referencedRelation: "surveys"
@@ -1211,6 +1275,148 @@ export type Database = {
           },
         ]
       }
+      rate_card_items: {
+        Row: {
+          addresses_rule_numbers: number[]
+          created_at: string
+          description: string
+          difficulty: string
+          duration_days_expected: number
+          duration_days_high: number
+          duration_days_low: number
+          field_patches: Json
+          id: string
+          is_active: boolean
+          preconditions: string | null
+          priority_hint: number
+          rate_card_id: string
+          rate_expected_gbp: number
+          rate_high_gbp: number
+          rate_low_gbp: number
+          source_label: string
+          trades: string[]
+          unit: string
+          updated_at: string
+          work_item_code: string
+        }
+        Insert: {
+          addresses_rule_numbers?: number[]
+          created_at?: string
+          description: string
+          difficulty: string
+          duration_days_expected?: number
+          duration_days_high?: number
+          duration_days_low?: number
+          field_patches?: Json
+          id?: string
+          is_active?: boolean
+          preconditions?: string | null
+          priority_hint?: number
+          rate_card_id: string
+          rate_expected_gbp: number
+          rate_high_gbp: number
+          rate_low_gbp: number
+          source_label?: string
+          trades?: string[]
+          unit?: string
+          updated_at?: string
+          work_item_code: string
+        }
+        Update: {
+          addresses_rule_numbers?: number[]
+          created_at?: string
+          description?: string
+          difficulty?: string
+          duration_days_expected?: number
+          duration_days_high?: number
+          duration_days_low?: number
+          field_patches?: Json
+          id?: string
+          is_active?: boolean
+          preconditions?: string | null
+          priority_hint?: number
+          rate_card_id?: string
+          rate_expected_gbp?: number
+          rate_high_gbp?: number
+          rate_low_gbp?: number
+          source_label?: string
+          trades?: string[]
+          unit?: string
+          updated_at?: string
+          work_item_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_card_items_rate_card_id_fkey"
+            columns: ["rate_card_id"]
+            isOneToOne: false
+            referencedRelation: "rate_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rate_cards: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          label: string
+          organisation_id: string | null
+          region: string | null
+          region_multiplier: number
+          source_csv: string | null
+          source_filename: string | null
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          organisation_id?: string | null
+          region?: string | null
+          region_multiplier?: number
+          source_csv?: string | null
+          source_filename?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          organisation_id?: string | null
+          region?: string | null
+          region_multiplier?: number
+          source_csv?: string | null
+          source_filename?: string | null
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_cards_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       survey_annotations: {
         Row: {
           bbox: Json
@@ -1866,9 +2072,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      activate_rate_card_version: {
+        Args: { target_card_id: string }
+        Returns: Json
+      }
       attach_accesscheck_initial_administrator: {
         Args: { target_email: string; target_user_id: string }
         Returns: undefined
+      }
+      commit_rate_card_version: {
+        Args: {
+          card_code: string
+          card_effective_from: string
+          card_label: string
+          card_region_multiplier: number
+          card_source_csv: string
+          card_source_filename: string
+          payload: Json
+          target_organisation_id: string
+        }
+        Returns: Json
       }
       has_organisation_permission: {
         Args: { target_organisation_id: string; target_permission: string }
@@ -1879,6 +2102,14 @@ export type Database = {
         Returns: boolean
       }
       is_platform_admin: { Args: never; Returns: boolean }
+      replace_adaptation_plan: {
+        Args: {
+          payload: Json
+          target_organisation_id: string
+          target_survey_id: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
@@ -2014,3 +2245,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

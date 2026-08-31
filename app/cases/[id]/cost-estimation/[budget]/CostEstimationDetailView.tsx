@@ -4,22 +4,22 @@ import React from "react";
 import Link from "next/link";
 import { ChevronLeft, PoundSterling } from "lucide-react";
 import LahrBandBadge from "@/app/components/common/LahrBandBadge";
-import {
-  LAHR_BAND_BY_ID,
-  type LahrBandId,
-} from "@/lib/accessibility/lahr/types";
+import type { LahrBandId } from "@/lib/accessibility/lahr/types";
 import type {
-  CostEstimation,
+  AdaptationPlanSet,
   DfgBudgetGbp,
+  PlanLine,
   TierPlan,
-} from "@/lib/accessibility/cost-estimation/types";
+} from "@/lib/adaptation-plans/types";
+import { formatCostRange } from "@/lib/adaptation-plans/narrative";
+import { ENGINE_DISPLAY_NAME } from "@/lib/engine/models";
 
 type Props = {
   surveyId: number;
   currentBand: LahrBandId;
   tier: TierPlan | null;
   tierBudget: DfgBudgetGbp;
-  estimation: CostEstimation | null;
+  planSet: AdaptationPlanSet | null;
   ruleLookup: Record<number, { capBand: string; description: string }>;
 };
 
@@ -28,7 +28,7 @@ export default function CostEstimationDetailView({
   currentBand,
   tier,
   tierBudget,
-  estimation,
+  planSet,
   ruleLookup,
 }: Props) {
   const isCap = tierBudget === 30000;
@@ -62,21 +62,23 @@ export default function CostEstimationDetailView({
             </h1>
             {tier && (
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-700">
-                {tierPlainSummary(tier, currentBand, estimation)}
+                {tierPlainSummary(tier, currentBand, planSet)}
               </p>
             )}
           </div>
 
           {/* Band pathway only when this tier actually has a plan — otherwise it would imply
               an uplift the budget can't deliver. */}
-          {tier && tier.adaptations.length > 0 && (
-            <div className="flex flex-col items-end gap-1">
+          {tier && tier.lines.length > 0 && (
+            <div className="flex flex-col items-start gap-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Band pathway
               </span>
-              <div className="flex items-center gap-2">
+              {/* Two band badges are ~460px side by side, so they stack below sm and the
+                  arrow turns to point down rather than overflowing a phone. */}
+              <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2">
                 <LahrBandBadge band={currentBand} size="sm" showLabel={false} />
-                <span className="text-slate-400">→</span>
+                <span className="rotate-90 text-slate-400 sm:rotate-0">→</span>
                 <LahrBandBadge
                   band={tier.potentialBand}
                   size="sm"
@@ -94,17 +96,13 @@ export default function CostEstimationDetailView({
           </section>
         ) : (
           <>
-            <HeadlineStrip
-              tier={tier}
-              currentBand={currentBand}
-              reachesBandA={estimation?.reachesBandAAt30k ?? false}
-            />
+            <HeadlineStrip tier={tier} planSet={planSet} />
 
-            {estimation?.rationaleIfNotBandA && tier.budgetGbp === 30000 && (
+            {planSet?.rationaleIfNotBandA && tier.budgetGbp === 30000 && (
               <section className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900">
                 <p className="m-0">
                   <span className="font-semibold">Beyond this budget:</span>{" "}
-                  {estimation.rationaleIfNotBandA}
+                  {planSet.rationaleIfNotBandA}
                 </p>
               </section>
             )}
@@ -120,16 +118,16 @@ export default function CostEstimationDetailView({
               </p>
 
               <ol className="mt-4 space-y-5">
-                {tier.adaptations.map((a, idx) => (
+                {tier.lines.map((line, idx) => (
                   <AdaptationCard
-                    key={idx}
+                    key={line.id}
                     index={idx + 1}
-                    adaptation={a}
+                    line={line}
                     ruleLookup={ruleLookup}
-                    isInherited={a.isInherited ?? false}
+                    isInherited={line.isInherited}
                   />
                 ))}
-                {tier.adaptations.length === 0 && (
+                {tier.lines.length === 0 && (
                   <li className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-900">
                     <div className="text-[11px] font-bold uppercase tracking-wider text-amber-800 mb-1">
                       No plan at this budget
@@ -164,7 +162,7 @@ export default function CostEstimationDetailView({
               </section>
             )}
 
-            {estimation && <FooterMeta estimation={estimation} />}
+            {planSet && <FooterMeta planSet={planSet} />}
           </>
         )}
       </div>
@@ -174,27 +172,25 @@ export default function CostEstimationDetailView({
 
 function HeadlineStrip({
   tier,
-  currentBand,
-  reachesBandA,
+  planSet,
 }: {
   tier: TierPlan;
-  currentBand: LahrBandId;
-  reachesBandA: boolean;
+  planSet: AdaptationPlanSet | null;
 }) {
-  const bandColor = LAHR_BAND_BY_ID[tier.potentialBand].color;
-  const uplifted = tier.potentialBand !== currentBand;
   return (
-    <section className="mt-4 grid gap-3 md:grid-cols-3">
+    <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <HeadlineTile
         label="Total cost"
-        value={`£${tier.totalCostGbp.toLocaleString()}`}
+        value={formatCostRange(tier.totalCost)}
         sub={(() => {
-          const newSpend = tier.adaptations
-            .filter((a) => !a.isInherited)
-            .reduce((s, a) => s + a.costGbp, 0);
-          return newSpend > 0 && newSpend < tier.totalCostGbp
-            ? `£${newSpend.toLocaleString()} new · within £${tier.budgetGbp.toLocaleString()} cap`
-            : `within £${tier.budgetGbp.toLocaleString()} cap`;
+          const expected = tier.totalCost.expectedGbp;
+          const newSpend = tier.lines
+            .filter((line) => !line.isInherited)
+            .reduce((total, line) => total + line.cost.expectedGbp, 0);
+          const cap = `£${expected.toLocaleString()} expected, within £${tier.budgetGbp.toLocaleString()} cap`;
+          return newSpend > 0 && newSpend < expected
+            ? `£${newSpend.toLocaleString()} new · ${cap}`
+            : cap;
         })()}
       />
       <HeadlineTile
@@ -208,41 +204,20 @@ function HeadlineStrip({
               : "significant works; consider decant"
         }
       />
+      {/* Which rate card priced these lines — the same provenance the plans tab shows, so a
+          surveyor does not have to scroll to the footer to answer "priced from what?". */}
       <div className="rounded-xl border border-slate-200 bg-white p-3">
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-          Projected band
+          Rate card
         </div>
-        <div className="mt-1 flex items-center gap-2">
-          <span
-            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-bold text-white"
-            style={{ backgroundColor: LAHR_BAND_BY_ID[currentBand].color }}
-          >
-            {currentBand}
-          </span>
-          <span className="text-slate-400">→</span>
-          <span
-            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-bold text-white"
-            style={{ backgroundColor: bandColor }}
-          >
-            {tier.potentialBand}
-          </span>
-          {uplifted ? (
-            <span className="text-[11px] font-semibold text-emerald-700">
-              ↑ improved
-            </span>
-          ) : (
-            <span className="text-[11px] text-slate-400">unchanged</span>
-          )}
+        <div className="mt-1 text-sm font-extrabold leading-snug text-slate-900">
+          {planSet?.rateCardLabel ?? "National indicative — obtain quote"}
         </div>
-        {tier.budgetGbp === 30000 && (
-          <div
-            className={`mt-2 text-[11px] font-semibold ${
-              reachesBandA ? "text-emerald-700" : "text-amber-700"
-            }`}
-          >
-            {reachesBandA ? "Reaches band A" : "Below band A"}
-          </div>
-        )}
+        <div className="mt-0.5 text-[11px] text-slate-500">
+          {planSet?.rateCardEffectiveFrom
+            ? `Version ${planSet.rateCardEffectiveFrom}`
+            : "Indicative — confirm against a quote"}
+        </div>
       </div>
     </section>
   );
@@ -272,12 +247,12 @@ function HeadlineTile({
 
 function AdaptationCard({
   index,
-  adaptation,
+  line,
   ruleLookup,
   isInherited,
 }: {
   index: number;
-  adaptation: TierPlan["adaptations"][number];
+  line: PlanLine;
   ruleLookup: Record<number, { capBand: string; description: string }>;
   isInherited: boolean;
 }) {
@@ -285,7 +260,7 @@ function AdaptationCard({
     <li
       className={`rounded-xl border p-5 shadow-sm ${isInherited ? "border-slate-100 bg-slate-50" : "border-slate-200 bg-white"}`}
     >
-      <header className="flex items-start justify-between gap-3">
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -303,53 +278,93 @@ function AdaptationCard({
             )}
           </div>
           <h3 className="mt-0.5 text-base font-extrabold text-slate-900">
-            {adaptation.label}
+            {line.label}
           </h3>
         </div>
         <div className="text-right">
           <div className="text-sm font-bold text-slate-800">
-            £{adaptation.costGbp.toLocaleString()}
+            {formatCostRange(line.cost)}
+          </div>
+          <div className="text-[11px] text-slate-500">
+            £{line.cost.expectedGbp.toLocaleString()} expected
           </div>
           <div className="text-[11px] text-slate-500 capitalize">
-            {adaptation.difficulty} disruption
+            {line.difficulty} disruption
           </div>
         </div>
       </header>
 
       <div className="mt-3 space-y-2 text-sm leading-relaxed text-slate-700">
-        <p className="m-0">{adaptationFluentBlurb(adaptation, ruleLookup)}</p>
-        {adaptation.narrative && (
-          <p className="m-0 italic text-slate-600">{adaptation.narrative}</p>
+        <p className="m-0 text-[13px] font-medium text-primary-dark">
+          {line.selectionReason}
+        </p>
+        <p className="m-0">{adaptationFluentBlurb(line, ruleLookup)}</p>
+        {line.narrative && (
+          <p className="m-0 italic text-slate-600">{line.narrative}</p>
         )}
-        {adaptation.preconditions && (
+        {line.preconditions && (
           <p className="m-0 text-[13px] text-slate-600">
             <span className="font-semibold">Before quoting, confirm:</span>{" "}
-            {adaptation.preconditions}
+            {line.preconditions}
           </p>
         )}
       </div>
+
+      <footer className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
+        <ConfidenceBar confidence={line.confidence} />
+        <span className="text-[10px] text-slate-400">
+          Priced from: {line.costBasis.rateCardLabel}
+          {line.costBasis.workItemCode
+            ? ` · ${line.costBasis.workItemCode} · ${line.costBasis.quantity} × ${line.costBasis.unit}`
+            : ""}
+        </span>
+      </footer>
     </li>
   );
 }
 
-function FooterMeta({ estimation }: { estimation: CostEstimation }) {
-  const confidencePct = Math.round(estimation.confidence * 100);
+/** Per-line confidence, replacing the plan-level bar that used to sit in the footer. */
+function ConfidenceBar({ confidence }: { confidence: PlanLine["confidence"] }) {
+  const pct = Math.round(confidence.score * 100);
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        Confidence
+      </span>
+      <span className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200">
+        <span
+          className="block h-full bg-primary"
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+      <span className="text-[10px] font-semibold text-slate-600">{pct}%</span>
+      {confidence.verifyOnSite && (
+        <span
+          className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700"
+          title={confidence.verifyNote ?? undefined}
+        >
+          Verify on site
+        </span>
+      )}
+    </span>
+  );
+}
+
+function FooterMeta({ planSet }: { planSet: AdaptationPlanSet }) {
   return (
     <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-[11px] text-slate-500">
-      <div className="flex items-center gap-2">
-        <span className="font-bold uppercase tracking-wider">Confidence</span>
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
-          <div
-            className="h-full bg-primary"
-            style={{ width: `${confidencePct}%` }}
-          />
-        </div>
-        <span className="font-semibold text-slate-600">{confidencePct}%</span>
-      </div>
+      <p className="m-0">
+        <span className="font-bold uppercase tracking-wider">Priced from</span>{" "}
+        {planSet.rateCardLabel}
+        {planSet.rateCardEffectiveFrom
+          ? ` · version ${planSet.rateCardEffectiveFrom}`
+          : ""}
+      </p>
       <p className="mt-2 m-0">
-        Generated {new Date(estimation.generatedAt).toLocaleString()} using{" "}
-        Rightision AI Engine. Figures are indicative — obtain a quote from a
-        qualified contractor before commissioning works.
+        Tiers are packed against the expected cost; each line shows its own range and
+        confidence. Generated {new Date(planSet.generatedAt).toLocaleString()} using{" "}
+        {ENGINE_DISPLAY_NAME}. Figures are indicative — obtain a quote from a qualified
+        contractor before commissioning works.
       </p>
     </section>
   );
@@ -358,9 +373,9 @@ function FooterMeta({ estimation }: { estimation: CostEstimation }) {
 function tierPlainSummary(
   tier: TierPlan,
   currentBand: LahrBandId,
-  estimation: CostEstimation | null,
+  planSet: AdaptationPlanSet | null,
 ): string {
-  const count = tier.adaptations.length;
+  const count = tier.lines.length;
   if (count === 0) {
     return `No feasible adaptations fit within a £${tier.budgetGbp.toLocaleString()} budget for this property. The higher tier may be needed before any meaningful band uplift is possible.`;
   }
@@ -375,14 +390,14 @@ function tierPlainSummary(
         ? "Affected rooms will be out of use for short periods, but full decant should not be required."
         : "Works are substantial — discuss a temporary decant with the tenant and adult social care before commissioning.";
   const reachA =
-    tier.budgetGbp === 30000 && estimation?.reachesBandAAt30k === false
+    tier.budgetGbp === 30000 && planSet?.reachesBandAAt30k === false
       ? ` Reaching band A is not feasible within the DFG cap for this property.`
       : "";
   return `Bundling ${count} adaptation${count === 1 ? "" : "s"} under a £${tier.budgetGbp.toLocaleString()} budget, ${bandChange}. ${disruption}${reachA}`;
 }
 
 function adaptationFluentBlurb(
-  a: TierPlan["adaptations"][number],
+  a: PlanLine,
   ruleLookup: Record<number, { capBand: string; description: string }>,
 ): string {
   const trades =
@@ -409,5 +424,5 @@ function adaptationFluentBlurb(
       : a.difficulty === "moderate"
         ? "Moderate disruption is expected"
         : "This is a substantive build";
-  return `${difficultyClause} — typically delivered by ${trades} at approximately £${a.costGbp.toLocaleString()}.${rulesClause}`;
+  return `${difficultyClause} — typically delivered by ${trades} at ${formatCostRange(a.cost)}.${rulesClause}`;
 }

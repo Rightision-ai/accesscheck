@@ -6,14 +6,16 @@ import { useRouter } from 'next/navigation';
 import { saveAssessmentWithStatus } from '@/lib/surveys/assessmentStatus';
 import { Case } from '@/types/dashboard';
 import { toast } from 'sonner';
-import type { CostEstimation } from '@/lib/accessibility/cost-estimation/types';
+import type { AdaptationPlanSet } from '@/lib/adaptation-plans/types';
 
 export default function ReportViewClient({
   caseData,
   costEstimation,
+  activeRateCard,
 }: {
   caseData: Case;
-  costEstimation?: CostEstimation | null;
+  costEstimation?: AdaptationPlanSet | null;
+  activeRateCard?: { id: string; version: number; label: string } | null;
 }) {
   const router = useRouter();
 
@@ -41,6 +43,7 @@ export default function ReportViewClient({
     <ReportView
       caseData={caseData}
       costEstimation={costEstimation}
+      activeRateCard={activeRateCard}
       onBack={() => router.push('/dashboard')}
       onUpdateCase={handleUpdateCase}
     />

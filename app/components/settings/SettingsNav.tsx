@@ -4,6 +4,7 @@ const links = [
   ["/settings/profile", "Profile"],
   ["/settings/organisation", "Organisation"],
   ["/settings/members", "Members"],
+  ["/settings/rate-card", "Rate card"],
   ["/settings/account", "Account"],
 ] as const;
 

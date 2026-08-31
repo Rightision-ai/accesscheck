@@ -2,7 +2,7 @@
  * Rule → minimum-patch lookup. Without this Gemini guesses which `surveys` columns to patch
  * to resolve a triggered LAHR rule and frequently misses (e.g. patches `has_property_ramp:true`
  * but forgets the gradient values, so the gradient-rule still trips). The result is an
- * Adaptation plan that doesn't actually lift the band.
+ * adaptation plan that doesn't actually lift the band.
  *
  * Each entry is a NAMED group of related fields that together resolve a family of rules.
  * Multiple groups can address overlapping rule sets — that's fine, the prompt lists all
@@ -64,7 +64,7 @@ export const RULE_RECIPES: Recipe[] = [
   },
   {
     label: "Property-entrance ramp (1:15 with platform)",
-    rules: [2, 17, 18, 19, 20, 21, 22, 23, 24, 93, 101, 104, 107],
+    rules: [2, 3, 4, 6, 17, 18, 19, 20, 21, 22, 23, 24, 93, 101, 104, 107],
     patches: {
       has_property_ramp: true,
       property_ramp_ah: 10,
@@ -76,7 +76,7 @@ export const RULE_RECIPES: Recipe[] = [
   },
   {
     label: "Communal-entrance ramp (1:15 with platform)",
-    rules: [1, 9, 10, 11, 12, 13, 14, 15, 16, 92, 100, 103, 106],
+    rules: [1, 3, 4, 5, 9, 10, 11, 12, 13, 14, 15, 16, 92, 100, 103, 106],
     patches: {
       has_communal_ramp: true,
       communal_ramp_ah: 10,
@@ -103,7 +103,9 @@ export const RULE_RECIPES: Recipe[] = [
   {
     label: "Stair lift / platform stair lift",
     rules: [44, 45],
-    patches: { has_platform_stair_lift: true, has_stair_lift: true },
+    // has_stair_lift is deliberately absent: buildRuleEnv reads only has_platform_stair_lift
+    // (env.ts:138), so patching it can never change a classification.
+    patches: { has_platform_stair_lift: true },
     preconditions:
       "Stairs suitable for rail mounting (single flight or curved bespoke).",
   },
@@ -153,10 +155,11 @@ export const RULE_RECIPES: Recipe[] = [
   {
     label: "Kitchen turning circle (150 × 150cm)",
     rules: [79],
+    // kitchen_wheelchair_accessible is deliberately absent: buildRuleEnv never reads it.
+    // Rule 79 turns on the two turning-circle booleans below.
     patches: {
       kitchen_turning_150x150: true,
       kitchen_turning_170x140: true,
-      kitchen_wheelchair_accessible: true,
     },
   },
   {
@@ -170,11 +173,10 @@ export const RULE_RECIPES: Recipe[] = [
     preconditions:
       "Vertical void available; floor / ceiling joists permit aperture.",
   },
-  {
-    label: "Remove internal floor-level changes",
-    rules: [87],
-    patches: { internal_steps_count: 0 },
-  },
+  // "Remove internal floor-level changes" (rule 87) was removed: buildRuleEnv hardcodes
+  // InternalSteps: 0 (env.ts:88-94) because rule 87 is about non-stair floor-level changes,
+  // which nothing captures yet. The rule can never trigger, so the recipe could never resolve
+  // anything — and patching internal_steps_count would have targeted the stair count instead.
 ];
 
 /** Build a `rule_number → Recipe[]` index for O(1) lookups. */

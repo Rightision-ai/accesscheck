@@ -25,23 +25,26 @@ import LahrBandBadge from "@/app/components/common/LahrBandBadge";
 import LahrAppendix from "./LahrAppendix";
 import CostEstimationAppendix from "./CostEstimationAppendix";
 import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
-import { buildSurveyData } from "@/lib/surveys/buildSurveyData";
+import { resolveSurveyRow } from "@/lib/surveys/resolveSurveyRow";
 import { saveSurveyClient } from "@/lib/surveys/client";
 import { toast } from "sonner";
 import type { LahrBandId } from "@/lib/accessibility/lahr/types";
-import type { CostEstimation } from "@/lib/accessibility/cost-estimation/types";
+import type { AdaptationPlanSet } from "@/lib/adaptation-plans/types";
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
+import { isAssessmentLocked } from "@/lib/assessments/status";
 
 interface ReportViewProps {
   caseData: Case;
-  costEstimation?: CostEstimation | null;
+  costEstimation?: AdaptationPlanSet | null;
   /** Lift the current cost estimation back to the parent so the case-overview tab and report
    *  tab share state and don't each trigger their own regeneration on tab switches. */
-  onCostEstimationChange?: (next: CostEstimation | null) => void;
+  onCostEstimationChange?: (next: AdaptationPlanSet | null) => void;
   /** True when the parent is resuming a server-side regen on first paint (status=pending).
    *  Forces the cost-estimation appendix into its loading state. */
   costEstimationForceLoading?: boolean;
+  /** The organisation's active rate card, for the "priced by a superseded version" banner. */
+  activeRateCard?: { id: string; version: number; label: string } | null;
   /** Called after a successful in-place save (Reassess). Parent should `router.refresh()` so
    *  the case-detail server component re-fetches and propagates fresh data down. */
   onCaseSaved?: () => void;
@@ -1291,6 +1294,7 @@ const ReportView: React.FC<ReportViewProps> = ({
   costEstimation = null,
   onCostEstimationChange,
   costEstimationForceLoading = false,
+  activeRateCard = null,
   onCaseSaved,
   onBack,
   onUpdateCase,
@@ -1309,8 +1313,13 @@ const ReportView: React.FC<ReportViewProps> = ({
     new Set(Object.keys(caseData.mlData?.userOverrides || {})),
   );
   const [isSaving, setIsSaving] = useState(false);
+  // Seeded from BOTH flags. Reading mlData.isLocked alone left a case that reached `complete`
+  // via the status route — without passing through Finalise & Save — rendering fully editable.
   const [isLocked, setIsLocked] = useState<boolean>(
-    caseData.mlData?.isLocked || false,
+    isAssessmentLocked({
+      status: caseData.status,
+      isLocked: caseData.mlData?.isLocked,
+    }),
   );
 
   // Property location coordinates for map
@@ -1335,23 +1344,16 @@ const ReportView: React.FC<ReportViewProps> = ({
   // Live row reflects unsaved edits; assessed row is the snapshot the band was last computed from.
   // The user must click "Re-assess" to promote live → assessed.
   const liveSurveyRow = useMemo(
-    () => buildSurveyData(wizardData, overrides, rawAhr, caseData, ""),
-    [wizardData, overrides, rawAhr, caseData],
+    () => resolveSurveyRow(caseData, overrides),
+    [overrides, caseData],
   );
-  // Seed the assessed row from the same `buildSurveyData` path as `liveSurveyRow`, using the
+  // Seed the assessed row from the same `resolveSurveyRow` path as `liveSurveyRow`, using the
   // overrides that were *persisted* on this case load. That way an unchanged form produces a
   // byte-equal pair and `isAssessmentStale` stays false. Using the raw DB `surveyRow` as the
   // seed produced a permanent mismatch (DB row has id/timestamps/raw_ai_data that the live
   // build doesn't include).
   const initialAssessedRow = useMemo(
-    () =>
-      buildSurveyData(
-        wizardData,
-        caseData.mlData?.userOverrides || {},
-        rawAhr,
-        caseData,
-        "",
-      ),
+    () => resolveSurveyRow(caseData),
     // Only seed once per case load — overrides changes must not reset this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [caseData.id],
@@ -1371,7 +1373,7 @@ const ReportView: React.FC<ReportViewProps> = ({
     setOverrides(persistedOverrides);
     setUserModifiedKeys(new Set(Object.keys(persistedOverrides)));
     setAssessedSurveyRow(
-      buildSurveyData(wizardData, persistedOverrides, rawAhr, caseData, ""),
+      resolveSurveyRow(caseData, persistedOverrides),
     );
     // Intentionally only depending on the timestamp — caseData/wizardData/rawAhr are read inside
     // for their fresh values.
@@ -1393,7 +1395,7 @@ const ReportView: React.FC<ReportViewProps> = ({
   }, [liveSurveyRow, assessedSurveyRow]);
   const [isReassessing, setIsReassessing] = useState(false);
   const [isCostRegenerating, setIsCostRegenerating] = useState(false);
-  // Page-level lock during the (short) survey save. The Adaptation-plan regen is now a separate
+  // Page-level lock during the (short) survey save. The adaptation-plan regen is now a separate
   // user action — its loading state lives inside CostEstimationAppendix and doesn't lock the
   // page.
   const isReassessmentLocked = isReassessing;
@@ -1421,13 +1423,13 @@ const ReportView: React.FC<ReportViewProps> = ({
         //    seeds re-derive against the persisted row. revalidatePath("/cases/[id]") in the
         //    save route + router.refresh() here re-fetches the server component.
         onCaseSaved?.();
-        // The Adaptation plan is no longer auto-regenerated. The existing staleness banner on
+        // The adaptation plan is no longer auto-regenerated. The existing staleness banner on
         // CostEstimationAppendix (`surveyUpdatedAt > generatedAt`) will appear with an
         // "Update plan" button so the user can trigger the long Gemini job when they're ready.
         const newBand = lahrEvaluation?.band;
         if (newBand && newBand !== "A") {
           toast.success(
-            "Band reassessed. The Adaptation plan is now out of date — open it and click Update plan when ready.",
+            "Band reassessed. The adaptation plan is now out of date — open it and click Update plan when ready.",
           );
         } else {
           toast.success("Band reassessed and saved.");
@@ -1873,7 +1875,7 @@ const ReportView: React.FC<ReportViewProps> = ({
               >
                 {isReassessing
                   ? "Reassessing band…"
-                  : "Generating Adaptation plan…"}
+                  : "Generating adaptation plan…"}
               </h3>
               <p
                 style={{
@@ -2063,7 +2065,7 @@ const ReportView: React.FC<ReportViewProps> = ({
         >
           <span>
             Form inputs have changed. Re-assess the band to refresh the score
-            and the DFG Adaptation plan, then save, download, or print.
+            and the DFG adaptation plan, then save, download, or print.
           </span>
           <button
             type="button"
@@ -10337,7 +10339,7 @@ const ReportView: React.FC<ReportViewProps> = ({
             </div>
           ) : null}
 
-          {/* --- DFG Adaptation PLAN (cost + potential band) --- */}
+          {/* --- DFG ADAPTATION PLAN (cost + potential band) --- */}
           {lahrEvaluation &&
           lahrEvaluation.band !== "A" &&
           Number.isFinite(Number(caseData.id)) ? (
@@ -10359,6 +10361,8 @@ const ReportView: React.FC<ReportViewProps> = ({
                 onRefreshingChange={setIsCostRegenerating}
                 surveyUpdatedAt={caseData.mlData?.surveyUpdatedAt ?? null}
                 inputsDirty={isAssessmentStale}
+                locked={isLocked}
+                activeRateCard={activeRateCard}
                 forceLoading={costEstimationForceLoading}
               />
             </div>
