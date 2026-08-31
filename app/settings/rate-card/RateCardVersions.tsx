@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Download } from "lucide-react";
 import type { RateCardVersionSummary } from "@/lib/rate-cards/repository";
+import Pagination from "@/app/components/settings/Pagination";
+
+const PAGE_SIZE = 5;
 
 export default function RateCardVersions({
   versions,
@@ -15,6 +18,14 @@ export default function RateCardVersions({
 }) {
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pending, startTransition] = useTransition();
+
+  const pageCount = Math.max(1, Math.ceil(versions.length / PAGE_SIZE));
+  // Clamp rather than store out-of-range state: activating a version refreshes
+  // the list, which can shrink it under the current page.
+  const currentPage = Math.min(page, pageCount);
+  const visible = versions.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   async function activate(version: RateCardVersionSummary) {
     setBusyId(version.id);
@@ -54,7 +65,7 @@ export default function RateCardVersions({
         so an issued plan never re-prices on its own.
       </p>
 
-      <div className="mt-4 overflow-x-auto">
+      <div className={`mt-4 overflow-x-auto transition-opacity ${pending ? "opacity-60" : ""}`}>
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -65,7 +76,7 @@ export default function RateCardVersions({
             </tr>
           </thead>
           <tbody>
-            {versions.map((version) => (
+            {visible.map((version) => (
               <tr key={version.id} className="border-b border-slate-100 align-top">
                 <td className="py-2.5 pr-3">
                   <div className="flex items-center gap-2">
@@ -115,6 +126,16 @@ export default function RateCardVersions({
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        page={currentPage}
+        pageCount={pageCount}
+        total={versions.length}
+        pageSize={PAGE_SIZE}
+        pending={pending}
+        onChange={(next) => startTransition(() => setPage(next))}
+        label="versions"
+      />
     </section>
   );
 }

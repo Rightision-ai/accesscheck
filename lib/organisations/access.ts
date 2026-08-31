@@ -11,6 +11,9 @@ import type {
 type MemberRow = {
   id: string;
   organisation_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
 };
 
 type OrganisationRow = {
@@ -30,7 +33,7 @@ export async function getOrganisationContext(): Promise<OrganisationContext | nu
     db.from("platform_admins").select("user_id").eq("user_id", user.id).maybeSingle(),
     db
       .from("organisation_members")
-      .select("id,organisation_id")
+      .select("id,organisation_id,first_name,last_name,avatar_url")
       .eq("user_id", user.id)
       .eq("status", "active")
       .order("created_at", { ascending: true })
@@ -58,6 +61,9 @@ export async function getOrganisationContext(): Promise<OrganisationContext | nu
     organisationName: organisation.name,
     organisationStatus: organisation.status,
     memberId: member.id,
+    firstName: member.first_name,
+    lastName: member.last_name,
+    avatarUrl: member.avatar_url,
     permissions,
     isPlatformAdmin: Boolean(platformResult.data),
   };

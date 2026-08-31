@@ -36,8 +36,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Field too long" }, { status: 400 });
   }
 
-  const fromAddress = process.env.CONTACT_FROM_EMAIL;
-  const toAddress = process.env.CONTACT_TO_EMAIL;
+  // CONTACT_FROM / CONTACT_TO are the older names, still used in some deployments.
+  const fromAddress = process.env.CONTACT_FROM_EMAIL || process.env.CONTACT_FROM;
+  const toAddress = process.env.CONTACT_TO_EMAIL || process.env.CONTACT_TO;
   if (!fromAddress || !toAddress) {
     console.error("[contact] CONTACT_FROM_EMAIL or CONTACT_TO_EMAIL not set");
     return NextResponse.json({ error: "Could not send" }, { status: 500 });

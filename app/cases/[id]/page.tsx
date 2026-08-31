@@ -5,6 +5,7 @@ import CaseDetailView from "./CaseDetailView";
 import { mapSurveyToCase } from "@/lib/surveys/mapper";
 import { loadAdaptationPlanSet } from "@/lib/adaptation-plans/repository";
 import { loadActiveRateCardRef } from "@/lib/rate-cards/repository";
+import { signStorageRefsDeep } from "@/lib/storage/signing";
 
 export default async function CasePage({
   params,
@@ -38,7 +39,9 @@ export default async function CasePage({
     );
   }
 
-  const caseData = mapSurveyToCase(survey);
+  // The survey was loaded through the RLS-scoped client above, so reaching here
+  // means the viewer may see it — only then are its private media refs signed.
+  const caseData = await signStorageRefsDeep(mapSurveyToCase(survey));
   const costEstimation = await loadAdaptationPlanSet(supabase, surveyId);
 
   // Scoped to the survey's own organisation, not the viewer's: the plan was priced for that

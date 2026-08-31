@@ -2,6 +2,75 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { asLooseClient } from "@/lib/supabase/loose";
 import { getOrganisationContext } from "@/lib/organisations/access";
-import SettingsNav from "@/app/components/settings/SettingsNav";
+import { SUPPORT_EMAIL } from "@/lib/config/support";
 
-export default async function AccountSettingsPage() { const context = await getOrganisationContext(); if (!context) redirect("/login"); const db = asLooseClient(await createClient()); const result = await db.from("organisations").select("name,account_type,status,contract_name,contract_start_date,contract_end_date,support_email").eq("id", context.organisationId).single(); const account = result.data as Record<string, unknown>; return <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6"><h1 className="text-3xl font-extrabold text-slate-950">Settings</h1><p className="mb-6 mt-1 text-sm text-slate-500">Manage your AccessCheck account and council workspace.</p><SettingsNav /><section className="rounded-2xl border border-slate-200 bg-white p-6"><div className="flex items-start justify-between gap-4"><div><h2 className="text-lg font-bold">Account and contract</h2><p className="text-sm text-slate-500">Managed by the AccessCheck platform team.</p></div><span className={`rounded-xl px-3 py-1.5 text-xs font-bold capitalize ${account.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{String(account.status)}</span></div><dl className="mt-6 grid gap-4 sm:grid-cols-2">{[["Organisation", account.name], ["Account type", account.account_type], ["Plan or contract", account.contract_name || "Council Contract"], ["Contract start", account.contract_start_date || "Not specified"], ["Contract end", account.contract_end_date || "Not specified"], ["Support", account.support_email || "Contact AccessCheck"]].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-slate-50 p-4"><dt className="text-xs font-semibold text-slate-500">{String(label)}</dt><dd className="mt-1 font-bold capitalize text-slate-900">{String(value)}</dd></div>)}</dl><p className="mt-5 text-sm text-slate-500">Contact AccessCheck support to change contract dates, account type or service status.</p></section></div>; }
+export default async function AccountSettingsPage() {
+  const context = await getOrganisationContext();
+  if (!context) redirect("/login");
+  const db = asLooseClient(await createClient());
+  const result = await db
+    .from("organisations")
+    .select(
+      "name,account_type,status,contract_name,contract_start_date,contract_end_date,support_email",
+    )
+    .eq("id", context.organisationId)
+    .single();
+  const account = result.data as Record<string, unknown>;
+  const supportEmail = String(account.support_email || SUPPORT_EMAIL);
+  const rows: Array<[string, unknown]> = [
+    ["Organisation", account.name],
+    ["Account type", account.account_type],
+    ["Plan or contract", account.contract_name || "Council Contract"],
+    ["Contract start", account.contract_start_date || "Not specified"],
+    ["Contract end", account.contract_end_date || "Not specified"],
+  ];
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold">Account and contract</h2>
+          <p className="text-sm text-slate-500">
+            Managed by the AccessCheck platform team.
+          </p>
+        </div>
+        <span
+          className={`rounded-xl px-3 py-1.5 text-xs font-bold capitalize ${account.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}
+        >
+          {String(account.status)}
+        </span>
+      </div>
+      <dl className="mt-6 grid gap-4 sm:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="rounded-xl bg-slate-50 p-4">
+            <dt className="text-xs font-semibold text-slate-500">{label}</dt>
+            <dd className="mt-1 font-bold capitalize text-slate-900">
+              {String(value)}
+            </dd>
+          </div>
+        ))}
+        {/* Kept out of the loop above: an email address must not be capitalised. */}
+        <div className="rounded-xl bg-slate-50 p-4">
+          <dt className="text-xs font-semibold text-slate-500">Support</dt>
+          <dd className="mt-1 font-bold text-slate-900">
+            <a
+              href={`mailto:${supportEmail}`}
+              className="text-primary hover:underline"
+            >
+              {supportEmail}
+            </a>
+          </dd>
+        </div>
+      </dl>
+      <p className="mt-5 text-sm text-slate-500">
+        Contact{" "}
+        <a
+          href={`mailto:${supportEmail}`}
+          className="font-semibold text-primary hover:underline"
+        >
+          {supportEmail}
+        </a>{" "}
+        to change your information.
+      </p>
+    </section>
+  );
+}

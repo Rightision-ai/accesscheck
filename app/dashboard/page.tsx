@@ -11,6 +11,7 @@ import {
 import type { Case } from "@/types/dashboard";
 import type { AssessmentStatus } from "@/types/accesscheck";
 import DashboardClient from "./DashboardClient";
+import { signStorageRefsDeep } from "@/lib/storage/signing";
 
 export default async function DashboardPage() {
   const context = await getOrganisationContext();
@@ -21,7 +22,9 @@ export default async function DashboardPage() {
     db.from("surveys").select("*").eq("organisation_id", context.organisationId).order("updated_at", { ascending: false }).limit(8),
   ]);
   const analytics = (surveysResult.data ?? []) as AssessmentAnalyticsRow[];
-  const cases: Case[] = ((recentResult.data ?? []) as Array<Record<string, unknown>>).map((survey) => {
+  // Rows are already scoped to the viewer's organisation by the query above, so
+  // signing their private media refs here exposes nothing they cannot see.
+  const cases: Case[] = await signStorageRefsDeep(((recentResult.data ?? []) as Array<Record<string, unknown>>).map((survey) => {
     const raw = (survey.raw_ai_data && typeof survey.raw_ai_data === "object" ? survey.raw_ai_data : {}) as Case["mlData"];
     return {
       id: String(survey.id),
@@ -39,7 +42,7 @@ export default async function DashboardPage() {
       description: String(survey.comments || ""),
       mlData: { ...raw, surveyRow: survey },
     };
-  });
+  }));
 
   return (
     <DashboardClient

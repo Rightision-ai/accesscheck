@@ -8,11 +8,11 @@
  * them still exist. Deleting the rows first would strand the images with nothing pointing at
  * them.
  *
- * The object path has to be derived from the stored URL. `lib/surveys/upload.ts` saves the
- * public URL returned by `getPublicUrl`, not a path, and the wizard writes some files as
- * `wizard/<timestamp>-<random>.jpg` with no survey id anywhere in the path — so a
- * prefix-based delete would miss them and the row is the only link between a case and its
- * files.
+ * The object path has to be derived from the stored reference. Rows written since the media
+ * buckets went private hold a `storage://<bucket>/<path>` reference; older rows still hold the
+ * public URL `getPublicUrl` used to return. Either way legacy objects sit at
+ * `wizard/<timestamp>-<random>.jpg` with no survey id anywhere in the path — so a prefix-based
+ * delete would miss them and the row is the only link between a case and its files.
  *
  * Usage (from the repo root):
  *
@@ -29,6 +29,7 @@
  * contain storage objects — deleted images are gone for good.
  */
 import { createClient } from "@supabase/supabase-js";
+import { parseStorageRef } from "../lib/storage/refs";
 
 type Args = {
   confirm: boolean;
@@ -57,31 +58,17 @@ const IMAGE_SOURCES = [
 ] as const;
 
 /**
- * Turn a stored URL into a `bucket`-relative object path.
+ * Turn a stored reference into a `bucket`-relative object path.
  *
+ * Handles all three shapes the database holds: the canonical `storage://` reference written
+ * since the buckets went private, and the legacy public and signed URLs on older rows.
  * Returns null for anything that is not an object in the expected bucket of this project —
  * the harvester stores third-party URLs in adjacent columns, and a stray `data:` URL from an
  * old wizard build would otherwise be handed to `storage.remove()` as a literal path.
  */
 export function toStoragePath(rawUrl: string, bucket: string): string | null {
-  if (!rawUrl.startsWith("http")) return null;
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    return null;
-  }
-  // Both shapes appear in the wild: public URLs, and signed URLs from a private bucket.
-  const marker = `/storage/v1/object/public/${bucket}/`;
-  const signed = `/storage/v1/object/sign/${bucket}/`;
-  const path = parsed.pathname.startsWith(marker)
-    ? parsed.pathname.slice(marker.length)
-    : parsed.pathname.startsWith(signed)
-      ? parsed.pathname.slice(signed.length)
-      : null;
-  if (!path) return null;
-  // The path is percent-encoded inside a URL; storage expects it decoded.
-  return decodeURIComponent(path);
+  const ref = parseStorageRef(rawUrl);
+  return ref && ref.bucket === bucket ? ref.path : null;
 }
 
 /** `storage.remove()` caps at 1000 paths per call. */

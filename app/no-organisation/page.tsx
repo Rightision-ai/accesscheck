@@ -2,6 +2,7 @@ import { Building2, LogOut, Mail } from "lucide-react";
 import { redirect } from "next/navigation";
 import { signOut, getUser } from "@/lib/auth/actions";
 import { getOrganisationContext } from "@/lib/organisations/access";
+import { SUPPORT_EMAIL } from "@/lib/config/support";
 
 export default async function NoOrganisationPage() {
   const [user, context] = await Promise.all([getUser(), getOrganisationContext()]);
@@ -32,7 +33,7 @@ export default async function NoOrganisationPage() {
         </div>
         <div className="mt-6 flex flex-wrap gap-3">
           <a
-            href="mailto:Shahin@homingo.co.uk"
+            href={`mailto:${SUPPORT_EMAIL}`}
             className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white"
           >
             <Mail size={16} /> Contact support

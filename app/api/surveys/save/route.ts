@@ -9,6 +9,7 @@ import {
 import { getOrganisationContext } from "@/lib/organisations/access";
 import { asLooseClient } from "@/lib/supabase/loose";
 import { refreshAssessmentReadiness } from "@/lib/assessments/repository";
+import { normaliseStorageRefsDeep } from "@/lib/storage/refs";
 
 // Allow larger payloads for case data with base64 images
 export const maxDuration = 60;
@@ -55,6 +56,11 @@ export async function POST(req: NextRequest) {
     if (!context.permissions.includes("author") && !context.isPlatformAdmin) {
       return NextResponse.json({ error: "The author permission is required" }, { status: 403 });
     }
+
+    // Defence in depth: the client normalises too, but nothing that reaches the
+    // database may contain an expiring signed URL. Also upgrades legacy public
+    // URLs on older surveys as they are re-saved.
+    caseData = normaliseStorageRefsDeep(caseData);
 
     const wizardData = caseData.mlData?.wizardData || {};
     const overrides = caseData.mlData?.userOverrides || {};
