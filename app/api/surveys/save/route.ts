@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
-import { buildSurveyData } from "@/lib/surveys/buildSurveyData";
+import {
+  buildSurveyData,
+  surveyDataForInsert,
+  surveyDataForUpdate,
+} from "@/lib/surveys/buildSurveyData";
 import { getOrganisationContext } from "@/lib/organisations/access";
 import { asLooseClient } from "@/lib/supabase/loose";
 import { refreshAssessmentReadiness } from "@/lib/assessments/repository";
@@ -73,13 +77,13 @@ export async function POST(req: NextRequest) {
     if (isExistingRecord) {
       const { error: updateError } = await supabase
         .from("surveys")
-        .update(surveyData as any)
+        .update(surveyDataForUpdate(surveyData) as any)
         .eq("id", Number(caseData.id));
       error = updateError;
     } else {
       const { data: insertedData, error: insertError } = await supabase
         .from("surveys")
-        .insert(surveyData as any)
+        .insert(surveyDataForInsert(surveyData) as any)
         .select("id")
         .single();
 

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Case } from "@/types/dashboard";
 import ReportView from "@/app/components/report/ReportView";
 import { useRouter } from "next/navigation";
-import { saveSurveyClient } from "@/lib/surveys/client";
+import { saveAssessmentWithStatus } from "@/lib/surveys/assessmentStatus";
 import { deleteSurvey } from "@/lib/surveys/actions";
 import { toast } from "sonner";
 import {
@@ -30,6 +30,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import LahrBandBadge from "@/app/components/common/LahrBandBadge";
+import { ASSESSMENT_STATUS_ICONS } from "@/app/components/common/AssessmentStatusBadge";
+import {
+  ASSESSMENT_STATUS_META,
+  assessmentStatusMeta,
+  normalizeAssessmentStatus,
+} from "@/lib/assessments/status";
 import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
 import { buildSurveyData } from "@/lib/surveys/buildSurveyData";
 import CostEstimationRows from "@/app/components/report/CostEstimationRows";
@@ -296,20 +302,35 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   const isLocked = !!(
     caseData.mlData?.isLocked || caseData.status === "complete"
   );
-  const displayStatus = isLocked ? "Finalized & Locked" : "In Review";
-  const statusColor = isLocked ? "#059669" : "#d97706";
-  const statusBg = isLocked ? "#ecfdf5" : "#fffbeb";
-  const StatusIcon = isLocked ? Lock : Clock;
+  // A draft must not read as "In Review" — take the label and colours from the actual
+  // status, and only override when the report itself has been locked.
+  const statusMeta = assessmentStatusMeta(caseData.status);
+  const displayStatus = isLocked ? "Finalised & Locked" : statusMeta.label;
+  const statusColor = isLocked
+    ? ASSESSMENT_STATUS_META.complete.colour
+    : statusMeta.colour;
+  const statusBg = isLocked
+    ? ASSESSMENT_STATUS_META.complete.background
+    : statusMeta.background;
+  const StatusIcon = isLocked
+    ? Lock
+    : ASSESSMENT_STATUS_ICONS[normalizeAssessmentStatus(caseData.status)];
 
+  // This page embeds ReportView, so finalising can happen from here too — route any
+  // status change through the status API rather than the plain save, which ignores it.
   const handleUpdateCase = async (updatedCase: Case) => {
     try {
-      const result = await saveSurveyClient(updatedCase);
+      const result = await saveAssessmentWithStatus(updatedCase, caseData.status);
       if (result.error) {
         toast.error(`Failed to save: ${result.error}`);
-      } else {
-        toast.success("Report updated successfully");
-        router.refresh();
+        return;
       }
+      if (result.statusError) {
+        toast.error(result.statusError);
+        return;
+      }
+      toast.success("Report updated successfully");
+      router.refresh();
     } catch (error) {
       console.error(error);
       toast.error("An unexpected error occurred");

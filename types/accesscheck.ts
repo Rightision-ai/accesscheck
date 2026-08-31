@@ -1,6 +1,6 @@
 export type OrganisationPermission = "author" | "reviewer" | "admin";
 export type OrganisationStatus = "active" | "suspended" | "expired";
-export type AssessmentStatus = "draft" | "in_progress" | "review" | "complete";
+export type AssessmentStatus = "draft" | "review" | "complete";
 export type AssessmentReadiness = "ready" | "partial" | "incomplete";
 
 export interface OrganisationContext {

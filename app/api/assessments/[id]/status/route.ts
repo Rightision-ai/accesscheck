@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { asLooseClient } from "@/lib/supabase/loose";
 import { isApiError, requireApiContext } from "@/lib/api/auth";
 import { canTransitionAssessment, validateAssessment } from "@/lib/assessments/workflow";
+import { ASSESSMENT_STATUSES, normalizeAssessmentStatus } from "@/lib/assessments/status";
 import type { AssessmentStatus } from "@/types/accesscheck";
 
 export async function POST(
@@ -14,6 +15,9 @@ export async function POST(
   const { id } = await params;
   const body = (await request.json()) as { status?: AssessmentStatus; reason?: string };
   if (!body.status) return NextResponse.json({ error: "Target status is required." }, { status: 400 });
+  if (!ASSESSMENT_STATUSES.includes(body.status)) {
+    return NextResponse.json({ error: `Unknown assessment status: ${body.status}` }, { status: 400 });
+  }
   const surveyId = Number(id);
   if (!Number.isInteger(surveyId)) return NextResponse.json({ error: "Invalid assessment ID." }, { status: 400 });
   const db = asLooseClient(await createClient());
@@ -32,8 +36,11 @@ export async function POST(
     overallGrade: survey.overall_grade as string | null,
     evidenceCount: evidenceResult.count ?? 0,
   });
-  const currentStatus = survey.status as AssessmentStatus;
-  if (!canTransitionAssessment(currentStatus, body.status, context.permissions, validation.completionPercent, body.reason)) {
+  const currentStatus = normalizeAssessmentStatus(survey.status);
+  // canTransitionAssessment takes a raw permission list, so platform admins have to be
+  // expanded here the way hasPermission() does it.
+  const permissions = context.isPlatformAdmin ? ["author", "admin"] : context.permissions;
+  if (!canTransitionAssessment(currentStatus, body.status, permissions, validation.completionPercent, body.reason)) {
     return NextResponse.json(
       { error: "This status transition is not allowed.", validation },
       { status: 400 },

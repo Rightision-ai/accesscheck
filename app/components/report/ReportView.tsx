@@ -659,7 +659,7 @@ const AHR_ConfirmModal = ({
             marginBottom: "8px",
           }}
         >
-          Finalize & Lock Report?
+          Finalise & Lock Report?
         </h4>
         <p
           style={{
@@ -704,7 +704,7 @@ const AHR_ConfirmModal = ({
               cursor: "pointer",
             }}
           >
-            {isSaving ? "Finalizing..." : "Yes, Lock & Save"}
+            {isSaving ? "Finalising..." : "Yes, Lock & Save"}
           </button>
         </div>
       </div>
@@ -1533,7 +1533,7 @@ const ReportView: React.FC<ReportViewProps> = ({
     setModalConfig({ isOpen: true, title, value: String(val || ""), key });
   };
 
-  const finalizeSave = async () => {
+  const finaliseSave = async () => {
     setIsSaving(true);
     try {
       const updatedCase = {
@@ -1951,7 +1951,7 @@ const ReportView: React.FC<ReportViewProps> = ({
             ) : (
               <FileText size={18} />
             )}
-            {isLocked ? "Assessment Locked" : "Finalize & Save"}
+            {isLocked ? "Assessment Locked" : "Finalise & Save"}
           </button>
           <button
             onClick={handleDownloadPDF}
@@ -2111,7 +2111,7 @@ const ReportView: React.FC<ReportViewProps> = ({
         isOpen={confirmModal?.isOpen || false}
         isSaving={isSaving}
         onClose={() => setConfirmModal(null)}
-        onConfirm={finalizeSave}
+        onConfirm={finaliseSave}
       />
 
       {/* AHR Main Document Content - fixed width on all devices; zoom/scroll to view on small screens */}

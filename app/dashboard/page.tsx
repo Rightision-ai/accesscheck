@@ -2,7 +2,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { asLooseClient } from "@/lib/supabase/loose";
 import { getOrganisationContext } from "@/lib/organisations/access";
-import { buildAssessmentSummary, buildWeeklyTrend, type AssessmentAnalyticsRow } from "@/lib/assessments/analytics";
+import {
+  buildAssessmentSummary,
+  buildBandDistribution,
+  buildWeeklyTrend,
+  type AssessmentAnalyticsRow,
+} from "@/lib/assessments/analytics";
 import type { Case } from "@/types/dashboard";
 import type { AssessmentStatus } from "@/types/accesscheck";
 import DashboardClient from "./DashboardClient";
@@ -41,6 +46,7 @@ export default async function DashboardPage() {
       initialCases={cases}
       summary={buildAssessmentSummary(analytics)}
       weeklyTrend={buildWeeklyTrend(analytics)}
+      bandDistribution={buildBandDistribution(analytics)}
       canAuthor={context.isPlatformAdmin || context.permissions.includes("author")}
     />
   );

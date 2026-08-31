@@ -1,3 +1,5 @@
+import { normalizeAssessmentStatus } from "@/lib/assessments/status";
+import { LAHR_BANDS, LAHR_BAND_BY_ID, type LahrBandId } from "@/lib/accessibility/lahr/types";
 import type { AssessmentReadiness, AssessmentStatus } from "@/types/accesscheck";
 
 export type AssessmentAnalyticsRow = {
@@ -9,6 +11,53 @@ export type AssessmentAnalyticsRow = {
   assessment_readiness: AssessmentReadiness;
   overall_grade: string | null;
 };
+
+export type BandSlice = {
+  /** A LAHR band id, or null for rows that have not been banded yet. */
+  band: LahrBandId | null;
+  label: string;
+  colour: string;
+  count: number;
+};
+
+/** Light slate, distinct from band G's slate, for rows with no grade recorded. */
+const UNBANDED_COLOUR = "#cbd5e1";
+
+/**
+ * Counts assessments per Accessible Housing Rules band, in band order (A → G), keeping
+ * only the bands that actually occur. Rows whose `overall_grade` is missing or
+ * unrecognised are reported separately rather than folded into G — G is a real band
+ * meaning "cannot be determined", which is not the same as "not assessed yet".
+ */
+export function buildBandDistribution(rows: AssessmentAnalyticsRow[]): BandSlice[] {
+  const counts = new Map<LahrBandId | null, number>();
+  for (const row of rows) {
+    const grade = String(row.overall_grade ?? "").trim().toUpperCase();
+    const band = (grade in LAHR_BAND_BY_ID ? grade : null) as LahrBandId | null;
+    counts.set(band, (counts.get(band) ?? 0) + 1);
+  }
+
+  const slices: BandSlice[] = LAHR_BANDS.slice()
+    .sort((a, b) => a.order - b.order)
+    .filter((definition) => (counts.get(definition.id) ?? 0) > 0)
+    .map((definition) => ({
+      band: definition.id,
+      label: definition.label,
+      colour: definition.color,
+      count: counts.get(definition.id) ?? 0,
+    }));
+
+  const unbanded = counts.get(null) ?? 0;
+  if (unbanded > 0) {
+    slices.push({
+      band: null,
+      label: "Not yet banded",
+      colour: UNBANDED_COLOUR,
+      count: unbanded,
+    });
+  }
+  return slices;
+}
 
 export function median(values: number[]): number | null {
   if (values.length === 0) return null;
@@ -24,13 +73,14 @@ export function buildAssessmentSummary(rows: AssessmentAnalyticsRow[], now = new
     .filter((row) => row.created_at && row.completed_at)
     .map((row) => (new Date(row.completed_at!).valueOf() - new Date(row.created_at!).valueOf()) / 86_400_000)
     .filter((days) => days >= 0);
-  const counts = (status: AssessmentStatus) => rows.filter((row) => row.status === status).length;
+  // Normalise so legacy values (in_progress, "Completed", …) still land in a bucket.
+  const statusOf = (row: AssessmentAnalyticsRow) => normalizeAssessmentStatus(row.status);
+  const counts = (status: AssessmentStatus) => rows.filter((row) => statusOf(row) === status).length;
 
   return {
     total: rows.length,
-    open: rows.filter((row) => row.status !== "complete").length,
+    open: rows.filter((row) => statusOf(row) !== "complete").length,
     draft: counts("draft"),
-    inProgress: counts("in_progress"),
     review: counts("review"),
     complete: counts("complete"),
     completedInPeriod: rows.filter(

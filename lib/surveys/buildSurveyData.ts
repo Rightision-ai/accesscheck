@@ -6,6 +6,23 @@
 import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
 import { lahrBandToScore } from "@/lib/accessibility/lahr/types";
 
+/**
+ * `surveys.status` is owned exclusively by /api/assessments/[id]/status, which validates
+ * the transition, writes the matching completion percent and records an audit event. The
+ * `surveys_validate_status_transition` trigger only fires on UPDATE, so:
+ *
+ * - every insert is pinned to `draft`, or a case could reach review/complete unchecked;
+ * - every update drops `status`, or an ordinary save would trip the trigger and be lost.
+ */
+export function surveyDataForInsert(surveyData: Record<string, unknown>) {
+  return { ...surveyData, status: "draft" };
+}
+
+export function surveyDataForUpdate(surveyData: Record<string, unknown>) {
+  const { status: _status, ...rest } = surveyData;
+  return rest;
+}
+
 function num(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
   const n = Number(v);
@@ -108,19 +125,6 @@ export function buildSurveyData(
     inspector_name: wizardData.fullName || null,
     inspector_phone: wizardData.phoneNumber || null,
     inspection_date: caseData.assessmentDate || new Date().toISOString(),
-    status:
-      String(caseData.status || "draft")
-        .trim()
-        .toLowerCase()
-        .replaceAll(" ", "_") === "in_progress"
-        ? "in_progress"
-        : String(caseData.status || "draft").trim().toLowerCase() === "review"
-          ? "review"
-          : ["complete", "completed", "finalised", "finalized"].includes(
-                String(caseData.status || "draft").trim().toLowerCase(),
-              )
-            ? "complete"
-            : "draft",
     thumbnail_url: caseData.thumbnail || null,
     raw_ai_data: caseData.mlData,
     // overall_grade and compliance_score are set below from the Accessible Housing Rules band —
