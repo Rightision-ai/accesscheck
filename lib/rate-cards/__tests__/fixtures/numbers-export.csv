@@ -1,0 +1,6 @@
+accesscheck-rate-card-template,,,,,,,,
+work_item_code,description,rate_low_gbp,rate_expected_gbp,rate_high_gbp,duration_days_low,duration_days_expected,duration_days_high,source_label
+threshold_ramp,AAaaaadsd,500,800,1000,1,1,1,Council SOR 2027
+handrail_install,Install stair handrails (both sides) and 70cm clearance,300,410,800,1,1,1,Council SOR 2027
+door_widening_entry,Widen entrance door(s) to 85cm+,800,1800,3500,1,2,3,National indicative â obtain quote
+wet_room_conversion,"Convert bathroom to level-access wet room with 150cm turning",5500,8500,14000,5,7,12,National indicative â obtain quote

@@ -31,7 +31,9 @@ export type RateCardCsvIssueCode =
   | "duration_order"
   | "rounded"
   | "unknown_work_item_code"
-  | "duplicate_work_item_code";
+  | "duplicate_work_item_code"
+  | "preamble_skipped"
+  | "suspect_encoding";
 
 export type RateCardCsvIssue = {
   /** Line as it appears in a spreadsheet (header is line 1). Null for file-level issues. */
@@ -154,6 +156,47 @@ function parseCount(raw: string): number | null {
   return Math.round(Number(cleaned));
 }
 
+/** How many lines above the header we are willing to skip. */
+const MAX_PREAMBLE_LINES = 10;
+
+/**
+ * Find the header row, which is not always the first line.
+ *
+ * Numbers and Excel both write the table or sheet name as a title row above the header when
+ * they save a CSV, so downloading our own template, opening it and saving it produces a file
+ * whose line 1 is `accesscheck-rate-card-template,,,,,,,,`. Taking line 1 as the header made
+ * every required column look missing and every real column look unrecognised — eleven errors,
+ * none of which named the actual problem.
+ *
+ * Returns the character offset of the header line and how many lines precede it, so reported
+ * line numbers still match what the officer sees in their spreadsheet.
+ */
+function findHeaderLine(text: string): { charIndex: number; preambleLines: number } {
+  let charIndex = 0;
+  for (let lineIndex = 0; lineIndex < MAX_PREAMBLE_LINES; lineIndex++) {
+    const newline = text.indexOf("\n", charIndex);
+    const end = newline === -1 ? text.length : newline;
+    const line = text.slice(charIndex, end).replace(/\r$/, "");
+    const headers = (Papa.parse<string[]>(line).data[0] ?? []).map(normaliseHeader);
+    // `work_item_code` is the one column that cannot be defaulted or inherited, so it is the
+    // only reliable marker. A file genuinely missing it is not helped by scanning further, and
+    // falls through to the existing "column is required" error.
+    if (headers.includes("work_item_code")) return { charIndex, preambleLines: lineIndex };
+    if (newline === -1) break;
+    charIndex = newline + 1;
+  }
+  return { charIndex: 0, preambleLines: 0 };
+}
+
+/**
+ * C1 control characters (U+0080–U+009F) never occur in legitimate text. They appear when a
+ * UTF-8 file is read as Windows-1252 and saved again, which is what turns
+ * `National indicative – obtain quote` into `National indicative â obtain quote`. The file
+ * still parses, so this is a warning — but `source_label` is printed on the plan a council
+ * takes to a DFG panel, and garbled text should be caught before publishing, not after.
+ */
+const MOJIBAKE = /[\u0080-\u009F\uFFFD]/;
+
 const issue = (
   code: RateCardCsvIssueCode,
   message: string,
@@ -195,10 +238,28 @@ export function parseRateCardCsv(text: string): ParsedRateCardCsv {
     return empty;
   }
 
+  if (MOJIBAKE.test(text)) {
+    warnings.push(
+      issue("suspect_encoding", 'Some characters in this file look corrupted (for example "â€" where a dash or a £ should be). Re-export it from your spreadsheet as "CSV UTF-8" if any label reads wrongly in the preview below.'),
+    );
+  }
+
+  // The header is not always line 1 — spreadsheet apps write the sheet name above it. Work
+  // from the header line onwards, and keep the offset so reported line numbers still match
+  // what the officer sees.
+  const { charIndex, preambleLines } = findHeaderLine(text);
+  const body = charIndex === 0 ? text : text.slice(charIndex);
+  const lineOf = (index: number) => index + 2 + preambleLines;
+  if (preambleLines > 0) {
+    warnings.push(
+      issue("preamble_skipped", `Ignored ${preambleLines} line${preambleLines === 1 ? "" : "s"} above the column headings — spreadsheet apps often add the file name as a title row.`),
+    );
+  }
+
   // Papaparse silently renames a duplicate header to `<name>_1`, so `meta.fields` never
   // collides and the second column would be quietly ignored. Normalise the header line
   // ourselves to catch two columns that mean the same thing.
-  const headerLine = text.slice(0, (text.indexOf("\n") + 1 || text.length + 1) - 1);
+  const headerLine = body.slice(0, (body.indexOf("\n") + 1 || body.length + 1) - 1);
   const rawHeaders = (Papa.parse<string[]>(headerLine).data[0] ?? []).map(normaliseHeader);
   const duplicated = rawHeaders.filter(
     (header, index) => header !== "" && rawHeaders.indexOf(header) !== index,
@@ -209,7 +270,7 @@ export function parseRateCardCsv(text: string): ParsedRateCardCsv {
     );
   }
 
-  const parsed = Papa.parse<Record<string, string>>(text, {
+  const parsed = Papa.parse<Record<string, string>>(body, {
     header: true,
     skipEmptyLines: false,
     transformHeader: (header) => normaliseHeader(header),
@@ -264,14 +325,14 @@ export function parseRateCardCsv(text: string): ParsedRateCardCsv {
     if (isBlankRecord(parsed.data[error.row])) continue;
     errors.push(
       issue("malformed_row", `This line has the wrong number of columns (${error.message}).`, {
-        line: error.row + 2,
+        line: lineOf(error.row),
       }),
     );
   }
 
   const rows: RateCardCsvRow[] = [];
   parsed.data.forEach((record, index) => {
-    const line = index + 2;
+    const line = lineOf(index);
     const cell = (column: string) => (record[column] ?? "").trim();
     if (isBlankRecord(record)) return;
 
