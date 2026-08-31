@@ -9,14 +9,18 @@ import {
 } from "@/lib/accessibility/lahr/types";
 import LahrBandBadge from "@/app/components/common/LahrBandBadge";
 import type {
-  CostEstimation,
+  AdaptationPlanSet,
+  PlanLine,
   TierPlan,
-} from "@/lib/accessibility/cost-estimation/types";
-import { pollCostEstimation } from "@/lib/accessibility/cost-estimation/client";
+  UnpricedWork,
+} from "@/lib/adaptation-plans/types";
+import { pollAdaptationPlan } from "@/lib/adaptation-plans/client";
+import { formatCostRange } from "@/lib/adaptation-plans/narrative";
+import { ENGINE_DISPLAY_NAME } from "@/lib/engine/models";
 
 type Props = {
   surveyId: number;
-  estimation: CostEstimation | null | undefined;
+  estimation: AdaptationPlanSet | null | undefined;
   currentBand: LahrBandId;
   enableReEstimate?: boolean;
   /** When no estimation exists yet, auto-fire the generator on mount. */
@@ -32,10 +36,15 @@ type Props = {
   regenerateSignal?: number;
   /** Bubble new estimations up so the parent can share them across siblings (e.g. overview
    *  tab) and avoid redundant regenerations on tab switches. */
-  onEstimationChange?: (next: CostEstimation | null) => void;
+  onEstimationChange?: (next: AdaptationPlanSet | null) => void;
   /** Notifies the parent whenever the internal POST-then-poll loop starts/stops. Used by the
    *  report's reassess flow to keep the page-level overlay up until the DFG regen finishes. */
   onRefreshingChange?: (isRefreshing: boolean) => void;
+  /** The organisation's active rate card, so a plan priced by a superseded version can say so. */
+  activeRateCard?: { id: string; version: number; label: string } | null;
+  /** A finalised case is read-only: no auto-generate, no regenerate button. The server
+   *  enforces this too (409) — this only avoids firing a request that would be refused. */
+  locked?: boolean;
   /** Parent owns a regen in flight (e.g. user landed mid-job from a refresh). When true the
    *  appendix renders the loading state and skips its own auto-generate. */
   forceLoading?: boolean;
@@ -58,13 +67,15 @@ export default function CostEstimationAppendix({
   regenerateSignal,
   onEstimationChange,
   onRefreshingChange,
+  activeRateCard = null,
+  locked = false,
   forceLoading = false,
 }: Props) {
   const [estimation, _setEstimation] = useState<
-    CostEstimation | null | undefined
+    AdaptationPlanSet | null | undefined
   >(initialEstimation);
   const setEstimation = useCallback(
-    (next: CostEstimation | null | undefined) => {
+    (next: AdaptationPlanSet | null | undefined) => {
       _setEstimation(next);
       if (next !== undefined) onEstimationChange?.(next);
     },
@@ -98,7 +109,7 @@ export default function CostEstimationAppendix({
         return;
       }
       // Background pattern: poll until ready/failed. ~2 minutes max.
-      const finalEstimation = await pollCostEstimation(surveyId);
+      const finalEstimation = await pollAdaptationPlan(surveyId);
       setEstimation(finalEstimation);
     } catch (err) {
       setError((err as Error).message);
@@ -110,6 +121,7 @@ export default function CostEstimationAppendix({
   useEffect(() => {
     if (
       autoGenerateIfMissing &&
+      !locked &&
       !estimation &&
       currentBand !== "A" &&
       !autoFiredRef.current &&
@@ -147,12 +159,19 @@ export default function CostEstimationAppendix({
 
   if (currentBand === "A") return null;
 
-  const isStale =
+  const surveyStale =
     !!estimation &&
     (inputsDirty ||
       (!!surveyUpdatedAt &&
         new Date(surveyUpdatedAt).getTime() >
           new Date(estimation.generatedAt).getTime()));
+  // Both ids must be present: the built-in national fallback has no id, and the plan's FK is
+  // ON DELETE SET NULL, so a null on either side means "provenance unknown", not "stale".
+  const rateCardStale =
+    !!estimation?.rateCardId &&
+    !!activeRateCard?.id &&
+    estimation.rateCardId !== activeRateCard.id;
+  const isStale = surveyStale || rateCardStale;
 
   return (
     <div className="space-y-6 rounded-lg border border-slate-200 bg-white p-5">
@@ -170,7 +189,12 @@ export default function CostEstimationAppendix({
           <button
             type="button"
             onClick={reEstimate}
-            disabled={isRefreshing}
+            disabled={isRefreshing || locked}
+          title={
+            locked
+              ? "This assessment is finalised. Reopen it to a draft to regenerate the plan."
+              : undefined
+          }
             className={`pdf-hide rounded-md border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 ${
               isStale
                 ? "border-amber-400 bg-amber-100 text-amber-900 hover:bg-amber-200"
@@ -192,10 +216,16 @@ export default function CostEstimationAppendix({
         <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
           {inputsDirty ? (
             "Form inputs have changed. Save the report and click Update plan to regenerate the DFG plan against the latest measurements."
-          ) : (
+          ) : surveyStale ? (
             <>
               The survey was edited after this plan was generated. Click{" "}
               <em>Update plan</em> to refresh it with the latest measurements.
+            </>
+          ) : (
+            <>
+              This plan was priced from {estimation?.rateCardLabel}. Your organisation has
+              since published {activeRateCard?.label} (version {activeRateCard?.version}).
+              Click <em>Update plan</em> to re-price it — prices never change on their own.
             </>
           )}
         </div>
@@ -208,9 +238,9 @@ export default function CostEstimationAppendix({
       )}
 
       {forceLoading || isRefreshing ? (
-        <EmptyState isLoading={true} />
+        <EmptyState isLoading={true} locked={locked} />
       ) : !estimation ? (
-        <EmptyState isLoading={false} />
+        <EmptyState isLoading={false} locked={locked} />
       ) : (
         <>
           <SummaryRow estimation={estimation} currentBand={currentBand} />
@@ -224,6 +254,9 @@ export default function CostEstimationAppendix({
               />
             ))}
           </div>
+          {estimation.additionalWorks.length > 0 && (
+            <AdditionalWorks works={estimation.additionalWorks} />
+          )}
           <NarrativeBlock estimation={estimation} />
         </>
       )}
@@ -231,7 +264,13 @@ export default function CostEstimationAppendix({
   );
 }
 
-function EmptyState({ isLoading }: { isLoading: boolean }) {
+function EmptyState({
+  isLoading,
+  locked,
+}: {
+  isLoading: boolean;
+  locked: boolean;
+}) {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-green-200 bg-green-50/40 py-10 text-center">
@@ -248,7 +287,7 @@ function EmptyState({ isLoading }: { isLoading: boolean }) {
         </div>
         <div>
           <h4 className="m-0 text-base font-extrabold text-primary-dark">
-            Generating Adaptation plan…
+            Generating adaptation plan…
           </h4>
           <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
             The Disabled Facilities Grant tiers are being recalculated. This
@@ -260,7 +299,11 @@ function EmptyState({ isLoading }: { isLoading: boolean }) {
   }
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded border border-dashed border-slate-200 py-10 text-[12px] text-slate-500">
-      <span>Adaptation plan not generated yet.</span>
+      <span>
+        {locked
+          ? "No adaptation plan was generated before this assessment was finalised."
+          : "Adaptation plan not generated yet."}
+      </span>
       {
         <span className="text-[11px] text-slate-400">
           Use the button above to generate one for this property.
@@ -274,7 +317,7 @@ function SummaryRow({
   estimation,
   currentBand,
 }: {
-  estimation: CostEstimation;
+  estimation: AdaptationPlanSet;
   currentBand: LahrBandId;
 }) {
   const at30k = estimation.tiers.find((t) => t.budgetGbp === 30000);
@@ -328,7 +371,7 @@ function TierCard({
   const uplifted = tier.potentialBand !== currentBand;
   const diffColor =
     DIFFICULTY_COLOR[tier.overallDifficulty] ?? DIFFICULTY_COLOR.minor;
-  const isEmpty = tier.adaptations.length === 0;
+  const isEmpty = tier.lines.length === 0;
 
   return (
     <article
@@ -338,7 +381,7 @@ function TierCard({
     >
       {/* Full-width meta row: budget on the left; stats and projected band inline on the
           right. Stats only render when a plan exists — empty tiers show just the
-          "No Adaptation" reason, avoiding the implication of a £0 plan that uplifts the band. */}
+          "No adaptation" reason, avoiding the implication of a £0 plan that uplifts the band. */}
       <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-slate-200 pb-2">
         <div className="flex items-center gap-2">
           <h3 className="m-0 text-sm font-extrabold text-slate-900">
@@ -357,8 +400,13 @@ function TierCard({
                 Spend
               </span>
               <span className="text-[12px] font-extrabold text-slate-800">
-                £{tier.totalCostGbp.toLocaleString()}
+                {formatCostRange(tier.totalCost)}
               </span>
+              {tier.totalCost.lowGbp !== tier.totalCost.highGbp && (
+                <span className="text-[10px] text-slate-400">
+                  (£{tier.totalCost.expectedGbp.toLocaleString()} expected)
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
@@ -395,7 +443,7 @@ function TierCard({
       {isEmpty ? (
         <div className="rounded border border-amber-200 bg-amber-50 p-2.5 text-[11px] leading-relaxed text-amber-900">
           <div className="font-bold uppercase tracking-wider text-[10px] text-amber-800 mb-1">
-            No Adaptation available
+            No adaptation available
           </div>
           <p className="m-0">
             {tier.unavailableReason ??
@@ -404,28 +452,46 @@ function TierCard({
         </div>
       ) : (
         <ul className="space-y-2 text-[11px] text-slate-700">
-          {tier.adaptations.map((a, i) => (
+          {tier.lines.map((line) => (
             <li
-              key={i}
+              key={line.id}
               className="pdf-avoid-break rounded border border-slate-100 bg-white p-2"
             >
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-semibold text-slate-800">{a.label}</span>
+                <span className="font-semibold text-slate-800">{line.label}</span>
                 <span className="shrink-0 text-slate-600">
-                  £{a.costGbp.toLocaleString()}
+                  {formatCostRange(line.cost)}
                 </span>
               </div>
               <div className="mt-0.5 text-[10px] text-slate-500">
-                Addresses Accessible Housing Rules rule
-                {a.addressesRules.length > 1 ? "s" : ""}{" "}
-                {a.addressesRules.join(", ")} ·{" "}
-                {a.trades.join(", ") || "general"}
+                {line.addressesRules.length > 0 && (
+                  <>
+                    Addresses Accessible Housing Rules rule
+                    {line.addressesRules.length > 1 ? "s" : ""}{" "}
+                    {line.addressesRules.join(", ")} ·{" "}
+                  </>
+                )}
+                {line.trades.join(", ") || "general"}
               </div>
-              {a.narrative && (
+              {line.narrative && (
                 <p className="mt-1 text-[10px] italic text-slate-600">
-                  {a.narrative}
+                  {line.narrative}
                 </p>
               )}
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                <ConfidencePill confidence={line.confidence} />
+                {line.isInherited && (
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                    Carried over
+                  </span>
+                )}
+                <span className="text-[9px] text-slate-400">
+                  Priced from: {line.costBasis.rateCardLabel}
+                  {line.costBasis.workItemCode
+                    ? ` · ${line.costBasis.workItemCode} · ${line.costBasis.quantity} × ${line.costBasis.unit}`
+                    : ""}
+                </span>
+              </div>
             </li>
           ))}
         </ul>
@@ -465,8 +531,60 @@ function DroppedList({
   );
 }
 
-function NarrativeBlock({ estimation }: { estimation: CostEstimation }) {
-  const confidencePct = Math.round(estimation.confidence * 100);
+/**
+ * Per-line confidence, replacing the single plan-level bar. A threshold ramp measured on site
+ * and a wet room inferred from one photograph do not deserve the same number.
+ */
+function ConfidencePill({
+  confidence,
+}: {
+  confidence: PlanLine["confidence"];
+}) {
+  const pct = Math.round(confidence.score * 100);
+  const tone =
+    pct >= 70
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : pct >= 50
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-rose-200 bg-rose-50 text-rose-700";
+  return (
+    <span
+      className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${tone}`}
+      title={confidence.verifyNote ?? undefined}
+    >
+      {pct}% confidence
+      {confidence.verifyOnSite ? " · verify on site" : ""}
+    </span>
+  );
+}
+
+/**
+ * Work the model identified that no rate-card line prices. Kept visible but deliberately
+ * outside the totals and the band projection — an unpriced guess must not move a band.
+ */
+function AdditionalWorks({ works }: { works: UnpricedWork[] }) {
+  return (
+    <section className="pdf-avoid-break rounded border border-amber-200 bg-amber-50/60 p-3 text-[11px] text-amber-900">
+      <h3 className="m-0 mb-1.5 text-[10px] font-black uppercase tracking-wider">
+        Additional works identified — quote required
+      </h3>
+      <p className="m-0 mb-2 text-[10px] text-amber-800">
+        Not priced from the rate card, so these are excluded from the tier totals and the
+        projected band.
+      </p>
+      <ul className="space-y-1">
+        {works.map((work, index) => (
+          <li key={index}>
+            <span className="font-semibold">{work.label}</span>
+            {work.narrative ? ` — ${work.narrative}` : ""}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function NarrativeBlock({ estimation }: { estimation: AdaptationPlanSet }) {
   return (
     <section className="pdf-avoid-break space-y-3 rounded border border-slate-100 bg-slate-50 p-3 text-[11px] text-slate-700">
       <p>{estimation.overallNarrative}</p>
@@ -476,23 +594,17 @@ function NarrativeBlock({ estimation }: { estimation: CostEstimation }) {
           {estimation.rationaleIfNotBandA}
         </p>
       )}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-          Confidence
-        </span>
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200">
-          <div
-            className="h-full bg-primary"
-            style={{ width: `${confidencePct}%` }}
-          />
-        </div>
-        <span className="text-[10px] font-semibold text-slate-600">
-          {confidencePct}%
-        </span>
-      </div>
+      <p className="m-0 text-[10px] text-slate-500">
+        Tiers are packed against the expected cost; the range shows the spread. Confidence is
+        shown per line rather than for the plan as a whole.
+      </p>
       <p className="text-[10px] text-slate-400">
-        Generated {new Date(estimation.generatedAt).toLocaleString()} · AI
-        engine
+        Priced from: {estimation.rateCardLabel}
+        {estimation.rateCardEffectiveFrom
+          ? ` · version ${estimation.rateCardEffectiveFrom}`
+          : ""}{" "}
+        · Generated {new Date(estimation.generatedAt).toLocaleString()} ·{" "}
+        {ENGINE_DISPLAY_NAME}
       </p>
     </section>
   );

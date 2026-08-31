@@ -19,7 +19,7 @@
     "WidthofStairs": "stair_width_cm",
     "WidthofStairs1": "stair_width_cm",
     "MoreThan70cm": { "column": "stair_70cm_clearance", "bool_as_yes_no": true },
-    "InternalSteps": "internal_steps_count",
+    "InternalSteps": { "column": null, "note": "Deliberately unmapped. Rule 87 is about non-stair internal floor-level changes; internal_steps_count is the STAIR step count used by rules 44-48. buildRuleEnv hardcodes InternalSteps: 0 until a dedicated wizard field exists — do NOT map this to internal_steps_count." },
     "CommunalFrontDoor": { "column": "has_communal_front_door", "bool_as_yes_no": true },
     "CommunalFrontDoorNumSteps": "communal_door_steps_count",
     "CommunalFrontDoorWidth": { "column": "communal_door_opening_width", "unit": "cm" },
@@ -32,7 +32,9 @@
     "CommunalRampPlatform": { "column": "communal_ramp_adequate_platform", "bool_as_yes_no": true },
     "CommunalRampGradient": { "derived_from": ["communal_ramp_ah", "communal_ramp_al"], "formula": "gradient_percent = (ah/al) * 100", "unit": "percent" },
     "CommunalRampLength": { "derived_from": ["communal_ramp_al", "communal_ramp_bl"], "unit": "cm" },
-    "CommunalRampType": "$question_only — not in surveys yet",
+    "CommunalRampType": "communal_ramp_type",
+    "PropertyRampType": "property_ramp_type",
+    "SecondExitRampType": "second_exit_ramp_type",
     "PropertyFrontDoor": "has_property_front_door",
     "PropertyFrontDoorNumSteps": "property_door_steps_count",
     "PropertyNumSteps": "property_door_steps_count",
@@ -105,10 +107,6 @@
     "OtherUPRN_2": "$question_only"
   },
   "not_yet_in_schema": [
-    "CommunalRampType / PropertyRampType / SecondExitRampType — concrete ramp type enum (straight, dog-leg, etc.)",
-    "second_exit_door_width — referenced by rule 42/43; check column name in surveys",
-    "second_exit_threshold_height — referenced by rule 33; check column name",
-    "access_living_room — referenced by rule 45/70; some schemas call this `living_room` under the facilities-access block",
-    "num_bed_spaces — referenced by rules 65/66; some schemas call this occupancy_capacity"
+    "Non-stair internal floor-level changes — the input rule 87 actually needs. Not captured by the wizard or AI extraction; see the InternalSteps entry above."
   ]
 }

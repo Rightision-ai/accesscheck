@@ -1,6 +1,6 @@
 /**
  * Client-side helpers for the Evidence Harvester UI: upload a CSV to the private bucket, kick off a
- * job, and poll its status (mirrors lib/accessibility/cost-estimation/client.ts).
+ * job, and poll its status (mirrors lib/adaptation-plans/client.ts).
  */
 'use client';
 

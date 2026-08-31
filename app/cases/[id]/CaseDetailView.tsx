@@ -20,6 +20,7 @@ import {
   Calendar,
   MapPin,
   Trash2,
+  PoundSterling,
   Loader2,
   ChevronLeft,
   ChevronRight,
@@ -34,17 +35,21 @@ import { ASSESSMENT_STATUS_ICONS } from "@/app/components/common/AssessmentStatu
 import {
   ASSESSMENT_STATUS_META,
   assessmentStatusMeta,
+  isAssessmentLocked,
   normalizeAssessmentStatus,
 } from "@/lib/assessments/status";
 import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
-import { buildSurveyData } from "@/lib/surveys/buildSurveyData";
+import { resolveSurveyRow } from "@/lib/surveys/resolveSurveyRow";
 import CostEstimationRows from "@/app/components/report/CostEstimationRows";
-import type { CostEstimation } from "@/lib/accessibility/cost-estimation/types";
-import { pollCostEstimation } from "@/lib/accessibility/cost-estimation/client";
+import type { AdaptationPlanSet } from "@/lib/adaptation-plans/types";
+import { pollAdaptationPlan } from "@/lib/adaptation-plans/client";
 import {
   LAHR_BAND_BY_ID,
+  rankOf,
   type LahrBandId,
 } from "@/lib/accessibility/lahr/types";
+import { formatCostRange } from "@/lib/adaptation-plans/narrative";
+import Link from "next/link";
 
 /**
  * Plain-English audience profile per band — what the home actually serves and where it falls
@@ -128,10 +133,12 @@ const BAND_SUITABILITY: Record<
 
 interface CaseDetailViewProps {
   caseData: Case;
-  costEstimation?: CostEstimation | null;
+  costEstimation?: AdaptationPlanSet | null;
   /** Server-known background job state. When "pending", a regen is in flight server-side and
    *  the persisted plan is the stale one — we should show the loading state instead. */
   costEstimationJobStatus?: "pending" | "failed" | null;
+  /** The organisation's active rate card, for the "priced by a superseded version" banner. */
+  activeRateCard?: { id: string; version: number; label: string } | null;
 }
 
 function toBulletItems(text: string | undefined): string[] {
@@ -165,13 +172,142 @@ function SummaryBulletList({
   );
 }
 
+/**
+ * Headline strip for the Adaptation Plans tab, mirroring the Case Overview summary card:
+ * bordered tiles either side of a flexible middle column.
+ *
+ * The cost shown is the CHEAPEST tier that reaches the best achievable band, not the £30,000
+ * tier's total. If £15,000 already gets the property to band C and £30,000 lands on C too,
+ * quoting the larger figure would overstate what the uplift actually costs.
+ */
+function AdaptationPlanSummary({
+  currentBand,
+  planSet,
+}: {
+  currentBand: LahrBandId;
+  planSet: AdaptationPlanSet | null | undefined;
+}) {
+  const currentDef = LAHR_BAND_BY_ID[currentBand];
+  const best = planSet?.tiers.reduce<(typeof planSet.tiers)[number] | null>(
+    (chosen, tier) => {
+      if (tier.lines.length === 0) return chosen;
+      if (!chosen) return tier;
+      const better = rankOf(tier.potentialBand) < rankOf(chosen.potentialBand);
+      const sameBandButCheaper =
+        tier.potentialBand === chosen.potentialBand &&
+        tier.totalCost.expectedGbp < chosen.totalCost.expectedGbp;
+      return better || sameBandButCheaper ? tier : chosen;
+    },
+    null,
+  );
+  const potentialDef = best ? LAHR_BAND_BY_ID[best.potentialBand] : null;
+  const uplifted = best ? best.potentialBand !== currentBand : false;
+
+  return (
+    /* One column on phones, two once there is room for a pair, three from lg. Nothing carries a
+       fixed width, so the grade tiles share the row evenly at any size instead of overflowing. */
+    <div className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-4 sm:p-5 md:grid-cols-2 xl:grid-cols-[auto_1fr_auto] xl:items-center xl:gap-6">
+      {/* Current → potential grade. The band badge draws the whole A-F scale (~296px), so two
+          of them only sit side by side once there is room; below xl they stack and the arrow
+          turns to point down. */}
+      <div className="flex flex-col items-center justify-center gap-2 xl:flex-row xl:gap-3 xl:border-r xl:border-slate-200 xl:pr-6">
+        <div
+          className="flex w-full max-w-sm flex-col items-center justify-center rounded-[20px] border p-3 sm:p-4 xl:w-auto"
+          style={{ borderColor: currentDef.color + "40" }}
+        >
+          <div className="mb-2 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Current grade
+          </div>
+          <LahrBandBadge band={currentBand} size="md" showLabel={false} />
+        </div>
+        <span
+          className="shrink-0 rotate-90 text-xl text-slate-300 sm:text-2xl xl:rotate-0"
+          aria-hidden="true"
+        >
+          →
+        </span>
+        <div
+          className="flex w-full max-w-sm flex-col items-center justify-center rounded-[20px] border p-3 sm:p-4 xl:w-auto"
+          style={{
+            borderColor: (potentialDef?.color ?? "#cbd5e1") + "40",
+            background: uplifted ? "#f0fdf4" : undefined,
+          }}
+        >
+          <div className="mb-2 text-center text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Potential grade
+          </div>
+          {best ? (
+            <LahrBandBadge band={best.potentialBand} size="md" showLabel={false} />
+          ) : (
+            <span className="text-sm font-bold text-slate-300">—</span>
+          )}
+        </div>
+      </div>
+
+      {/* Cost of reaching it */}
+      <div className="flex min-w-0 flex-col justify-center">
+        <div className="mb-1 text-[11px] font-bold uppercase text-slate-500 sm:text-xs">
+          Adaptation cost
+        </div>
+        {best ? (
+          <>
+            <div className="text-lg font-black leading-tight text-slate-900 sm:text-xl xl:text-2xl">
+              {formatCostRange(best.totalCost)}
+            </div>
+            <div className="mt-1 text-[11px] font-semibold text-slate-500 sm:text-xs">
+              £{best.totalCost.expectedGbp.toLocaleString()} expected ·{" "}
+              {best.lines.length} adaptation
+              {best.lines.length === 1 ? "" : "s"}
+            </div>
+            <div className="mt-0.5 text-[11px] text-slate-400">
+              within the £{best.budgetGbp.toLocaleString()} tier
+            </div>
+          </>
+        ) : (
+          <div className="text-sm font-semibold text-slate-400">
+            No plan generated yet.
+          </div>
+        )}
+      </div>
+
+      {/* Rate card provenance — the whole block is the link to the card itself. */}
+      <Link
+        href="/settings/rate-card"
+        aria-label="View the rate card these plans are priced from"
+        className="group flex min-w-0 items-center justify-between gap-3 rounded-xl px-2 py-1 -mx-2 no-underline transition-colors hover:bg-green-50/60 md:col-span-2 xl:col-span-1 xl:ml-0 xl:border-l xl:border-slate-200 xl:pl-6"
+      >
+        <span className="flex min-w-0 flex-col">
+          <span className="mb-1 text-[11px] font-bold uppercase text-slate-500 sm:text-xs">
+            Rate card
+          </span>
+          <span className="text-sm font-extrabold leading-snug text-slate-900 xl:max-w-60">
+            {planSet?.rateCardLabel ?? "National indicative — obtain quote"}
+          </span>
+          {planSet?.rateCardEffectiveFrom && (
+            <span className="mt-0.5 text-[11px] font-semibold text-slate-500">
+              Version {planSet.rateCardEffectiveFrom}
+            </span>
+          )}
+        </span>
+        <ChevronRight
+          size={18}
+          className="shrink-0 text-slate-400 transition-colors group-hover:text-primary"
+        />
+      </Link>
+    </div>
+  );
+}
+
 const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   caseData,
   costEstimation = null,
   costEstimationJobStatus = null,
+  activeRateCard = null,
 }) => {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"details" | "ahr">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "plans" | "ahr">(
+    "details",
+  );
   // Lifted out of the tab-children so that whichever tab triggers a regeneration shares the
   // result with the other. Without this, switching tabs unmounts each child, the prop reverts
   // to the server-loaded snapshot, and `autoGenerateIfMissing` fires another redundant POST.
@@ -179,7 +315,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   // estimation — it's the stale "previous" plan and the children should show the loading
   // overlay until the background job finishes.
   const [sharedCostEstimation, setSharedCostEstimation] = useState<
-    CostEstimation | null | undefined
+    AdaptationPlanSet | null | undefined
   >(costEstimationJobStatus === "pending" ? null : costEstimation);
   const [isResumingRegen, setIsResumingRegen] = useState(
     costEstimationJobStatus === "pending",
@@ -193,8 +329,8 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
     const surveyId = Number(caseData.id);
     if (!Number.isFinite(surveyId)) return;
     let cancelled = false;
-    pollCostEstimation(surveyId)
-      .then((estimation: CostEstimation) => {
+    pollAdaptationPlan(surveyId)
+      .then((estimation: AdaptationPlanSet) => {
         if (cancelled) return;
         setSharedCostEstimation(estimation);
         setIsResumingRegen(false);
@@ -221,24 +357,18 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   const summary = aiReport?.Summary;
   // Build the same row the report tab classifies against, so both tabs always show the same
   // Accessible Housing Rules band. Using the persisted `mlData.surveyRow` here would drift
-  // from `buildSurveyData(...)` output and the two views could disagree.
-  const overviewSurveyRow = useMemo(
-    () =>
-      buildSurveyData(
-        caseData.mlData?.wizardData || {},
-        caseData.mlData?.userOverrides || {},
-        caseData.mlData?.rawAhr || {},
-        caseData,
-        "",
-      ),
-    [caseData],
-  );
+  // from `resolveSurveyRow(...)` output and the two views could disagree.
+  const overviewSurveyRow = useMemo(() => resolveSurveyRow(caseData), [caseData]);
   const lahrSurveySource = overviewSurveyRow ?? null;
   const lahrEvaluation = lahrSurveySource
     ? classifyLahr(lahrSurveySource)
     : null;
   const lahrBand = lahrEvaluation?.band ?? null;
   const lahrBandDef = lahrBand ? LAHR_BAND_BY_ID[lahrBand] : null;
+  // Band A needs no adaptation, and a case without a numeric survey id has nothing to plan
+  // against — in either case the tab is not offered rather than shown empty.
+  const showAdaptationPlans =
+    Boolean(lahrBand) && lahrBand !== "A" && Number.isFinite(Number(caseData.id));
 
   const confidenceScoreRaw = aiReport?.ConfidenceScore;
   const parsedConfidence = confidenceScoreRaw
@@ -299,9 +429,10 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
       .catch(() => {})
       .finally(() => setIsMapLoading(false));
   }, [caseData.postcode, wizardData?.postcode, wizardData?.street]);
-  const isLocked = !!(
-    caseData.mlData?.isLocked || caseData.status === "complete"
-  );
+  const isLocked = isAssessmentLocked({
+    status: caseData.status,
+    isLocked: caseData.mlData?.isLocked,
+  });
   // A draft must not read as "In Review" — take the label and colours from the actual
   // status, and only override when the report itself has been locked.
   const statusMeta = assessmentStatusMeta(caseData.status);
@@ -411,6 +542,21 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                 <List size={16} className="shrink-0" />
                 <span className="hidden sm:inline">Case Overview</span>
               </button>
+              {showAdaptationPlans && (
+                <button
+                  onClick={() => setActiveTab("plans")}
+                  className={cn(
+                    "py-1.5 px-2 sm:px-4 rounded-md text-xs font-semibold border-none cursor-pointer flex items-center gap-2 transition-all touch-manipulation",
+                    activeTab === "plans"
+                      ? "bg-white text-slate-900 "
+                      : "bg-transparent text-slate-500",
+                  )}
+                  aria-label="Adaptation Plans"
+                >
+                  <PoundSterling size={16} className="shrink-0" />
+                  <span className="hidden sm:inline">Adaptation Plans</span>
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab("ahr")}
                 className={cn(
@@ -676,29 +822,16 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                         <span className="font-semibold text-primary-dark">
                           Potential changes:
                         </span>{" "}
-                        the DFG Adaptation Plan below shows the bespoke
-                        adaptations that could lift this property&apos;s rating
-                        within the £15K, £20K, and £30K Disabled Facilities
-                        Grant tiers.
+                        the <strong>Adaptation Plans</strong> tab shows the
+                        bespoke adaptations that could lift this property&apos;s
+                        rating within the £15K, £20K, and £30K Disabled
+                        Facilities Grant tiers.
                       </p>
                     </div>
                   </section>
                 )}
               </div>
             )}
-
-            {lahrBand &&
-              lahrBand !== "A" &&
-              Number.isFinite(Number(caseData.id)) && (
-                <CostEstimationRows
-                  surveyId={Number(caseData.id)}
-                  currentBand={lahrBand}
-                  estimation={sharedCostEstimation}
-                  onEstimationChange={setSharedCostEstimation}
-                  surveyUpdatedAt={caseData.mlData?.surveyUpdatedAt ?? null}
-                  forceLoading={isResumingRegen}
-                />
-              )}
 
             {/* AI Analysis Summary */}
             {summary ? (
@@ -889,6 +1022,26 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           </div>
         )}
 
+        {activeTab === "plans" && showAdaptationPlans && lahrBand && (
+          <div className="flex flex-col gap-4">
+            <AdaptationPlanSummary
+              currentBand={lahrBand}
+              planSet={sharedCostEstimation}
+            />
+
+            <CostEstimationRows
+              surveyId={Number(caseData.id)}
+              currentBand={lahrBand}
+              estimation={sharedCostEstimation}
+              onEstimationChange={setSharedCostEstimation}
+              surveyUpdatedAt={caseData.mlData?.surveyUpdatedAt ?? null}
+              locked={isLocked}
+              activeRateCard={activeRateCard}
+              forceLoading={isResumingRegen}
+            />
+          </div>
+        )}
+
         {activeTab === "ahr" && (
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden ">
             <ReportView
@@ -896,6 +1049,7 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
               costEstimation={sharedCostEstimation}
               onCostEstimationChange={setSharedCostEstimation}
               costEstimationForceLoading={isResumingRegen}
+              activeRateCard={activeRateCard}
               onCaseSaved={() => router.refresh()}
               onBack={() => setActiveTab("details")}
               onUpdateCase={handleUpdateCase}

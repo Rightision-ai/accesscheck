@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildReportFillPrompt } from "@/lib/engine/prompts/reportFillPrompt";
+import { ENGINE_MODELS, engineUrl, thinkingConfig } from "@/lib/engine/models";
 
 const ENGINE_API_KEY = process.env.ENGINE_API_KEY;
-const ENGINE_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
+const ENGINE_API_URL = engineUrl(ENGINE_MODELS.reportFill);
 
 export const maxDuration = 60;
 
@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
     const requestBody = {
       contents: [{ parts: [{ text: finalPrompt }] }],
       generationConfig: {
-        temperature: 0.2,
+        // No temperature override: Gemini 3 degrades when it is lowered.
+        // Thinking depth is nested; a flat `thinking_level` here is a 400.
+        ...thinkingConfig("high"),
         maxOutputTokens: 8192,
       },
     };

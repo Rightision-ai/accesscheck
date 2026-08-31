@@ -78,3 +78,23 @@ export function normalizeAssessmentStatus(value: unknown): AssessmentStatus {
 export function assessmentStatusMeta(value: unknown): AssessmentStatusMeta {
   return ASSESSMENT_STATUS_META[normalizeAssessmentStatus(value)];
 }
+
+/**
+ * Whether a case is finalised, and so read-only.
+ *
+ * There are two flags and they drift. `surveys.status = 'complete'` is the workflow state,
+ * written by /api/assessments/[id]/status. `raw_ai_data.isLocked` is written only by the
+ * report's own "Finalise & Save" button. A case can reach `complete` without ever passing
+ * through that button — a reviewer using the status route directly, or the backfill — and then
+ * the report renders unlocked because it seeds from `isLocked` alone.
+ *
+ * Either flag means finalised. Every surface should ask this function rather than pick one.
+ */
+export function isAssessmentLocked(input: {
+  status?: unknown;
+  isLocked?: boolean | null;
+}): boolean {
+  return (
+    input.isLocked === true || normalizeAssessmentStatus(input.status) === "complete"
+  );
+}

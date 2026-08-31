@@ -53,3 +53,5 @@ build_training_dataset.py
 
 # generated fine-tuning artifacts (splits, JSONL, eval reports)
 training/accessibility_sft/artifacts/
+# Playwright CLI scratch logs
+.playwright-cli/

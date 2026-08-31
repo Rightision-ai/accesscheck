@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ASSESSMENT_STATUSES,
   assessmentStatusMeta,
+  isAssessmentLocked,
   normalizeAssessmentStatus,
 } from "@/lib/assessments/status";
 
@@ -33,5 +34,31 @@ describe("assessment status normalisation", () => {
       expect(normalizeAssessmentStatus(status)).toBe(status);
       expect(assessmentStatusMeta(status).label).toBeTruthy();
     }
+  });
+});
+
+describe("isAssessmentLocked", () => {
+  it("treats a complete status as locked", () => {
+    expect(isAssessmentLocked({ status: "complete" })).toBe(true);
+    expect(isAssessmentLocked({ status: "finalised" })).toBe(true);
+  });
+
+  it("treats the report's own lock flag as locked", () => {
+    expect(isAssessmentLocked({ status: "draft", isLocked: true })).toBe(true);
+  });
+
+  it("closes the drift between the two flags", () => {
+    // The bug this exists for: a case reaches `complete` via the status route without passing
+    // through the report's "Finalise & Save", so raw_ai_data.isLocked is never written. Reading
+    // isLocked alone — as ReportView did — rendered that case fully editable.
+    expect(isAssessmentLocked({ status: "complete", isLocked: undefined })).toBe(true);
+    expect(isAssessmentLocked({ status: "complete", isLocked: false })).toBe(true);
+  });
+
+  it("leaves an unfinished case unlocked", () => {
+    expect(isAssessmentLocked({ status: "draft" })).toBe(false);
+    expect(isAssessmentLocked({ status: "review" })).toBe(false);
+    expect(isAssessmentLocked({})).toBe(false);
+    expect(isAssessmentLocked({ status: null, isLocked: null })).toBe(false);
   });
 });

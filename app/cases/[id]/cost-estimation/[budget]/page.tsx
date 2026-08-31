@@ -5,12 +5,11 @@ import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
 import {
   DFG_BUDGET_TIERS,
   type DfgBudgetGbp,
-} from "@/lib/accessibility/cost-estimation/types";
-import { loadCostEstimation } from "@/lib/accessibility/cost-estimation/repository";
+} from "@/lib/adaptation-plans/types";
+import { loadAdaptationPlanSet } from "@/lib/adaptation-plans/repository";
 import CostEstimationDetailView from "./CostEstimationDetailView";
 import businessRules from "@/lib/accessibility/lahr/tables/business-rules.json";
-import { mapSurveyToCase } from "@/lib/surveys/mapper";
-import { buildSurveyData } from "@/lib/surveys/buildSurveyData";
+import { resolveSurveyRowFromDb } from "@/lib/surveys/resolveSurveyRow";
 
 type RuleRef = { n: number; cap_band: string; description: string };
 
@@ -47,28 +46,17 @@ export default async function CostEstimationDetailPage({
 
   if (error || !survey) notFound();
 
-  const costEstimation = await loadCostEstimation(supabase, surveyId);
+  const planSet = await loadAdaptationPlanSet(supabase, surveyId);
 
-  // Mirror the case detail page: rebuild the survey row from wizard/override/rawAhr data so
-  // that user overrides stored in raw_ai_data are applied before classifying. Calling
-  // classifyLahr(survey) on the raw DB row skips those overrides and gives a stale band.
-  const caseData = mapSurveyToCase(survey);
-  const surveyRow = buildSurveyData(
-    caseData.mlData?.wizardData || {},
-    caseData.mlData?.userOverrides || {},
-    caseData.mlData?.rawAhr || {},
-    caseData,
-    "",
-  );
-  const evaluation = classifyLahr(surveyRow);
+  const evaluation = classifyLahr(resolveSurveyRowFromDb(survey));
 
-  const tier = costEstimation?.tiers.find((t) => t.budgetGbp === tierBudget) ?? null;
+  const tier = planSet?.tiers.find((t) => t.budgetGbp === tierBudget) ?? null;
 
   const ruleRefs = collectRulesByNumber();
   const ruleLookup: Record<number, { capBand: string; description: string }> = {};
   if (tier) {
     const rulesToLookup = new Set<number>();
-    for (const a of tier.adaptations) for (const n of a.addressesRules) rulesToLookup.add(n);
+    for (const line of tier.lines) for (const n of line.addressesRules) rulesToLookup.add(n);
     for (const n of rulesToLookup) {
       const r = ruleRefs.get(n);
       if (r) ruleLookup[n] = { capBand: r.cap_band, description: r.description };
@@ -81,7 +69,7 @@ export default async function CostEstimationDetailPage({
       currentBand={evaluation.band}
       tier={tier}
       tierBudget={tierBudget}
-      estimation={costEstimation}
+      planSet={planSet}
       ruleLookup={ruleLookup}
     />
   );

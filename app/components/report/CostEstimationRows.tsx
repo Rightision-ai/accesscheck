@@ -13,27 +13,38 @@ import {
   LAHR_BAND_BY_ID,
   type LahrBandId,
 } from "@/lib/accessibility/lahr/types";
-import type {
-  CostEstimation,
-  TierPlan,
-} from "@/lib/accessibility/cost-estimation/types";
-import { pollCostEstimation } from "@/lib/accessibility/cost-estimation/client";
+import type { AdaptationPlanSet, TierPlan } from "@/lib/adaptation-plans/types";
+import { pollAdaptationPlan } from "@/lib/adaptation-plans/client";
+import { formatCostRange } from "@/lib/adaptation-plans/narrative";
 
 type Props = {
   surveyId: number;
   currentBand: LahrBandId;
-  estimation: CostEstimation | null | undefined;
+  estimation: AdaptationPlanSet | null | undefined;
   /** Auto-generate on mount if no estimation exists yet. */
   autoGenerateIfMissing?: boolean;
   /** ISO string of the last time the survey was modified. Used to flag a stale plan. */
   surveyUpdatedAt?: string | null;
   /** Bubble new estimations up so a parent can share them across siblings (e.g. report tab vs.
    *  overview tab) and avoid redundant regenerations. */
-  onEstimationChange?: (next: CostEstimation | null) => void;
+  onEstimationChange?: (next: AdaptationPlanSet | null) => void;
+  /** The organisation's active rate card, so a plan priced by a superseded version can say so. */
+  activeRateCard?: { id: string; version: number; label: string } | null;
+  /** A finalised case is read-only: no auto-generate, no regenerate button. The server
+   *  enforces this too (409) — this only avoids firing a request that would be refused. */
+  locked?: boolean;
   /** Parent owns a regen in flight (e.g. user landed mid-job from a refresh). When true the
    *  component renders the loading state and ignores its own estimation prop. */
   forceLoading?: boolean;
 };
+
+/** "2026-04-01" -> "Apr 2026" — the rate card version, not a precise date. */
+function formatEffectiveFrom(value: string): string {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : parsed.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+}
 
 const DIFFICULTY_COLOR: Record<string, string> = {
   minor: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -48,15 +59,17 @@ export default function CostEstimationRows({
   autoGenerateIfMissing = true,
   surveyUpdatedAt = null,
   onEstimationChange,
+  activeRateCard = null,
+  locked = false,
   forceLoading = false,
 }: Props) {
   const [estimation, _setEstimation] = useState<
-    CostEstimation | null | undefined
+    AdaptationPlanSet | null | undefined
   >(initialEstimation);
   // Keep parent in sync. When parent's prop later changes (e.g. sibling tab regenerated and
   // pushed up), an effect below seeds the local state from it.
   const setEstimation = useCallback(
-    (next: CostEstimation | null | undefined) => {
+    (next: AdaptationPlanSet | null | undefined) => {
       _setEstimation(next);
       if (next !== undefined) onEstimationChange?.(next);
     },
@@ -88,7 +101,7 @@ export default function CostEstimationRows({
         setEstimation(null);
         return;
       }
-      const finalEstimation = await pollCostEstimation(surveyId);
+      const finalEstimation = await pollAdaptationPlan(surveyId);
       setEstimation(finalEstimation);
     } catch (err) {
       setError((err as Error).message);
@@ -100,6 +113,7 @@ export default function CostEstimationRows({
   useEffect(() => {
     if (
       autoGenerateIfMissing &&
+      !locked &&
       !estimation &&
       currentBand !== "A" &&
       !autoFiredRef.current &&
@@ -120,11 +134,18 @@ export default function CostEstimationRows({
 
   if (currentBand === "A") return null;
 
-  const isStale =
+  const surveyStale =
     !!estimation &&
     !!surveyUpdatedAt &&
     new Date(surveyUpdatedAt).getTime() >
       new Date(estimation.generatedAt).getTime();
+  // Both ids must be present: the built-in national fallback has no id, and the plan's FK is
+  // ON DELETE SET NULL, so a null on either side means "provenance unknown", not "stale".
+  const rateCardStale =
+    !!estimation?.rateCardId &&
+    !!activeRateCard?.id &&
+    estimation.rateCardId !== activeRateCard.id;
+  const isStale = surveyStale || rateCardStale;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
@@ -139,12 +160,25 @@ export default function CostEstimationRows({
               Three funded tiers under the £30,000 Disabled Facilities Grant
               cap. Click a row for the detailed plan.
             </p>
+            {estimation && (
+              <p className="text-[10px] text-slate-400 m-0 mt-0.5">
+                Priced from: {estimation.rateCardLabel}
+                {estimation.rateCardEffectiveFrom
+                  ? ` (${formatEffectiveFrom(estimation.rateCardEffectiveFrom)})`
+                  : ""}
+              </p>
+            )}
           </div>
         </div>
         <button
           type="button"
           onClick={reEstimate}
-          disabled={isRefreshing}
+          disabled={isRefreshing || locked}
+          title={
+            locked
+              ? "This assessment is finalised. Reopen it to a draft to regenerate the plan."
+              : undefined
+          }
           className={`pdf-hide inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 ${
             isStale
               ? "border-amber-400 bg-amber-100 text-amber-900 hover:bg-amber-200"
@@ -166,8 +200,12 @@ export default function CostEstimationRows({
         <div className="mb-3 flex items-start gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span>
-            The survey was edited after this plan was generated. Click{" "}
-            <em>Update plan</em> to refresh it with the latest measurements.
+            {surveyStale && rateCardStale
+              ? "The survey was edited and the rate card has moved on since this plan was generated."
+              : surveyStale
+                ? "The survey was edited after this plan was generated."
+                : `This plan was priced from ${estimation?.rateCardLabel}. Your organisation has since published ${activeRateCard?.label} (version ${activeRateCard?.version}).`}{" "}
+            Click <em>Update plan</em> to re-price it. Prices never change on their own.
           </span>
         </div>
       )}
@@ -179,9 +217,9 @@ export default function CostEstimationRows({
       )}
 
       {forceLoading || isRefreshing ? (
-        <EmptyState isLoading={true} />
+        <EmptyState isLoading={true} locked={locked} />
       ) : !estimation ? (
-        <EmptyState isLoading={false} />
+        <EmptyState isLoading={false} locked={locked} />
       ) : (
         <ul className="space-y-2">
           {estimation.tiers.map((tier) => (
@@ -198,16 +236,26 @@ export default function CostEstimationRows({
   );
 }
 
-function EmptyState({ isLoading }: { isLoading: boolean }) {
+function EmptyState({
+  isLoading,
+  locked,
+}: {
+  isLoading: boolean;
+  locked: boolean;
+}) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded border border-dashed border-slate-200 py-8 text-center text-[12px] text-slate-500">
       {isLoading ? (
         <>
           <Loader2 size={18} className="animate-spin text-primary" />
-          <span>Generating Adaptation plan — this can take 30–60 seconds.</span>
+          <span>Generating adaptation plan — this can take 30–60 seconds.</span>
         </>
       ) : (
-        <span>Adaptation plan not generated yet. Click Generate above.</span>
+        <span>
+          {locked
+            ? "No adaptation plan was generated before this assessment was finalised."
+            : "Adaptation plan not generated yet. Click Generate above."}
+        </span>
       )}
     </div>
   );
@@ -227,20 +275,20 @@ function TierRow({
     DIFFICULTY_COLOR[tier.overallDifficulty] ?? DIFFICULTY_COLOR.minor;
   const isCap = tier.budgetGbp === 30000;
   const bandColor = LAHR_BAND_BY_ID[tier.potentialBand].color;
-  const isEmpty = tier.adaptations.length === 0;
+  const isEmpty = tier.lines.length === 0;
 
   return (
     <li>
       <Link
         href={`/cases/${surveyId}/cost-estimation/${tier.budgetGbp}`}
-        className={`group flex items-center gap-3 rounded-lg border p-3 transition-colors hover:border-green-300 hover:bg-green-50/40 ${
+        className={`group flex flex-col gap-3 rounded-lg border p-3 transition-colors hover:border-green-300 hover:bg-green-50/40 sm:flex-row sm:items-center ${
           isCap
             ? "border-green-200 bg-green-50/20"
             : "border-slate-200 bg-white"
         }`}
       >
         {/* Budget — always shown so the user can see which tier this row represents. */}
-        <div className="w-[110px] shrink-0">
+        <div className="shrink-0 sm:w-[110px]">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
             Budget
           </div>
@@ -261,7 +309,7 @@ function TierRow({
              those would imply a plan that doesn't exist. */
           <div className="flex-1 min-w-0">
             <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
-              No Adaptation available
+              No adaptation available
             </div>
             <div
               className="text-sm text-amber-800 truncate"
@@ -273,8 +321,10 @@ function TierRow({
           </div>
         ) : (
           <>
+            {/* Stats wrap into a grid below sm; from sm they resume the original fixed columns. */}
+            <div className="grid flex-1 grid-cols-2 gap-3 sm:contents">
             {/* Projected band */}
-            <div className="w-[140px] shrink-0">
+            <div className="min-w-0 sm:w-[140px] sm:shrink-0">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Projected band
               </div>
@@ -296,17 +346,22 @@ function TierRow({
             </div>
 
             {/* Spend */}
-            <div className="w-[90px] shrink-0">
+            <div className="min-w-0 sm:w-[90px] sm:shrink-0">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Spend
               </div>
               <div className="text-sm font-bold text-slate-800">
-                £{tier.totalCostGbp.toLocaleString()}
+                {formatCostRange(tier.totalCost)}
               </div>
+              {tier.totalCost.lowGbp !== tier.totalCost.highGbp && (
+                <div className="text-[10px] text-slate-400">
+                  £{tier.totalCost.expectedGbp.toLocaleString()} expected
+                </div>
+              )}
             </div>
 
             {/* Difficulty */}
-            <div className="w-[110px] shrink-0">
+            <div className="min-w-0 sm:w-[110px] sm:shrink-0">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Difficulty
               </div>
@@ -318,20 +373,21 @@ function TierRow({
             </div>
 
             {/* Adaptation list summary */}
-            <div className="flex-1 min-w-0">
+            <div className="col-span-2 min-w-0 sm:flex-1">
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Adaptations
               </div>
               <div className="text-sm text-slate-700 truncate">
-                {`${tier.adaptations.length} · ${tier.adaptations.map((a) => a.label).join(", ")}`}
+                {`${tier.lines.length} · ${tier.lines.map((line) => line.label).join(", ")}`}
               </div>
+            </div>
             </div>
           </>
         )}
 
         <ChevronRight
           size={18}
-          className="shrink-0 text-slate-400 group-hover:text-primary"
+          className="hidden shrink-0 text-slate-400 group-hover:text-primary sm:block"
         />
       </Link>
     </li>
