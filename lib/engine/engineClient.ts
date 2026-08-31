@@ -1,6 +1,8 @@
 import { fetchWithRetry } from "@/lib/evidence-harvester/http";
 import { engineUrl, type ThinkingLevel } from "./models";
 import { repairJson } from "./json";
+import { parseStorageRef } from "@/lib/storage/refs";
+import { downloadStorageRef } from "@/lib/storage/signing";
 
 export type InlineImagePart = {
   inline_data: { mime_type: string; data: string };
@@ -27,19 +29,48 @@ export function redactVendor(text: string): string {
     .replace(/\bgoogle(?:apis)?\b/gi, "the engine");
 }
 
-/** Fetch an image and inline it as base64, or return null if it is unusable. */
+/**
+ * Load an evidence image and inline it as base64, or return null if unusable.
+ *
+ * Evidence lives in a private bucket, so `reference` is normally a
+ * `storage://` ref (or a legacy public URL) and is read directly with the
+ * service role — fetching a signed URL over the network to read our own bucket
+ * would be a pointless round trip that also breaks the moment one expires.
+ *
+ * Every failure path is logged. A silent null here does not fail the request:
+ * it just removes a photo from the model's input, so plan quality degrades with
+ * nothing on screen to explain why.
+ */
 export async function toInlinePart(
-  url: string | null | undefined,
+  reference: string | null | undefined,
   mime: string | null | undefined,
 ): Promise<InlineImagePart | null> {
-  if (!url || !mime?.startsWith("image/")) return null;
-  try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.byteLength > MAX_INLINE_IMAGE_BYTES) return null;
+  if (!reference || !mime?.startsWith("image/")) return null;
+
+  const inline = (buffer: Buffer): InlineImagePart | null => {
+    if (buffer.byteLength > MAX_INLINE_IMAGE_BYTES) {
+      console.warn(`[engine] skipping evidence image over ${MAX_INLINE_IMAGE_BYTES} bytes`);
+      return null;
+    }
     return { inline_data: { mime_type: mime, data: buffer.toString("base64") } };
-  } catch {
+  };
+
+  if (parseStorageRef(reference)) {
+    const object = await downloadStorageRef(reference);
+    if (!object) return null; // downloadStorageRef already warned
+    return inline(object.bytes);
+  }
+
+  // Not one of our objects — an external URL, or a shape we no longer recognise.
+  try {
+    const response = await fetch(reference);
+    if (!response.ok) {
+      console.warn(`[engine] evidence fetch failed (${response.status})`);
+      return null;
+    }
+    return inline(Buffer.from(await response.arrayBuffer()));
+  } catch (error) {
+    console.warn("[engine] evidence fetch threw:", error instanceof Error ? error.message : error);
     return null;
   }
 }

@@ -1,9 +1,24 @@
 import { createClient } from "@/lib/supabase/client";
+import { toStorageRef } from "@/lib/storage/refs";
 
 const BASE64_DATA_URL_REGEX = /^data:image\/[a-z]+;base64,/;
 
 function isBase64DataUrl(s: unknown): s is string {
   return typeof s === "string" && BASE64_DATA_URL_REGEX.test(s);
+}
+
+/**
+ * What an upload hands back.
+ *
+ * Private buckets (survey media) return a `storage://` reference, because a
+ * signed URL must never be persisted — it expires and the row rots. Public
+ * buckets (`branding`) return a public URL, which is stable and renderable
+ * directly. `PUBLIC_BUCKETS` decides which.
+ */
+const PUBLIC_BUCKETS = new Set(["branding", "marketing-assets"]);
+
+function referenceFor(bucket: string, path: string, publicUrl: () => string): string {
+  return PUBLIC_BUCKETS.has(bucket) ? publicUrl() : toStorageRef(bucket, path);
 }
 
 export async function uploadBase64ToStorage(
@@ -31,10 +46,7 @@ export async function uploadBase64ToStorage(
 
   if (error) throw error;
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(bucket).getPublicUrl(data.path);
-  return publicUrl;
+  return referenceFor(bucket, data.path, () => supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl);
 }
 
 /**
@@ -54,15 +66,13 @@ export async function uploadFileToStorage(
       upsert: true,
     });
   if (error) throw error;
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(bucket).getPublicUrl(data.path);
-  return publicUrl;
+  return referenceFor(bucket, data.path, () => supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl);
 }
 
 /**
  * Recursively find all base64 data URLs, upload to Supabase Storage,
- * and return a new object with URLs replacing base64. Deduplicates same images.
+ * and return a new object with storage references replacing base64.
+ * Deduplicates same images.
  */
 export async function uploadImagesAndReplaceUrls<T extends object>(
   obj: T,

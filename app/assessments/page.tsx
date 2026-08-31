@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { asLooseClient } from "@/lib/supabase/loose";
 import { getOrganisationContext } from "@/lib/organisations/access";
 import { mapSurveyToCase } from "@/lib/surveys/mapper";
+import { signStorageRefsDeep } from "@/lib/storage/signing";
 import { ASSESSMENT_STATUS_META, ASSESSMENT_STATUSES } from "@/lib/assessments/status";
 import type { AssessmentStatus } from "@/types/accesscheck";
 import type { Case } from "@/types/dashboard";
@@ -44,7 +45,8 @@ export default async function AssessmentsPage({
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
   const rows = (result.data ?? []) as Array<Record<string, unknown>>;
-  const cases: Case[] = rows.map((row) => mapSurveyToCase(row));
+  // One batched signing pass for the whole page of cards rather than per row.
+  const cases: Case[] = await signStorageRefsDeep(rows.map((row) => mapSurveyToCase(row)));
   const total = result.count ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const canAuthor =

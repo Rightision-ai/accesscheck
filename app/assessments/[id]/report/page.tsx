@@ -5,6 +5,7 @@ import ReportViewClient from './ReportViewClient';
 import { mapSurveyToCase } from '@/lib/surveys/mapper';
 import { loadAdaptationPlanSet } from '@/lib/adaptation-plans/repository';
 import { loadActiveRateCardRef } from '@/lib/rate-cards/repository';
+import { signStorageRefsDeep } from '@/lib/storage/signing';
 
 export default async function ReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,7 +24,9 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
     redirect('/dashboard');
   }
 
-  const caseData = mapSurveyToCase(survey);
+  // The survey was loaded through the RLS-scoped client above, so reaching here
+  // means the viewer may see it — only then are its private media refs signed.
+  const caseData = await signStorageRefsDeep(mapSurveyToCase(survey));
   const costEstimation = await loadAdaptationPlanSet(supabase, Number(id));
   const activeRateCard = survey.organisation_id
     ? await loadActiveRateCardRef(supabase, survey.organisation_id)

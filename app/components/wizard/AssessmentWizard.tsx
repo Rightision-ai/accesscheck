@@ -36,7 +36,7 @@ import {
   urlToBase64,
 } from "@/lib/utils/ImageAnalysisUtils";
 import { deriveInferredAnswersFromAssessment } from "@/lib/engine/prompts";
-import { uploadBase64ToStorage, uploadFileToStorage } from "@/lib/surveys/upload";
+import { uploadMediaBase64, uploadMediaFile } from "@/lib/storage/client";
 import { convertHeicToJpegIfNeeded } from "@/lib/utils/imageUtils";
 import { renderPdfFirstPageToJpeg } from "@/lib/utils/pdfToImage";
 import { saveSurveyClient } from "@/lib/surveys/client";
@@ -674,9 +674,10 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         if (base64) {
           try {
             const compressed = await compressBase64Image(base64);
-            stableUrl = await uploadBase64ToStorage(
+            stableUrl = await uploadMediaBase64(
               compressed,
-              `wizard/streetview-${Date.now()}.jpg`,
+              formData.id,
+              `streetview-${Date.now()}.jpg`,
             );
           } catch {
             stableUrl = base64;
@@ -721,18 +722,20 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
       const isPdf = (file.type || "").includes("pdf");
       const ext = isPdf ? "pdf" : "jpg";
       try {
-        const url = await uploadFileToStorage(
+        const url = await uploadMediaFile(
           file,
-          `survey/${formData.id || "new"}/floorplan-${Date.now()}.${ext}`,
+          formData.id,
+          `floorplan-${Date.now()}.${ext}`,
         );
         // For PDFs, also persist the rendered first-page image so the report and
         // case overview can show an image preview (a PDF can't render in <img>).
         let previewUrl: string | null = null;
         if (isPdf && floorPlanImageRef.current) {
           try {
-            previewUrl = await uploadBase64ToStorage(
+            previewUrl = await uploadMediaBase64(
               floorPlanImageRef.current,
-              `survey/${formData.id || "new"}/floorplan-preview-${Date.now()}.jpg`,
+              formData.id,
+              `floorplan-preview-${Date.now()}.jpg`,
             );
           } catch (e) {
             console.warn("Floor plan preview upload failed:", e);
@@ -762,10 +765,10 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     if (!src || typeof src !== "string") return floorPlanDetection;
     try {
       const annotated = await renderAnnotatedFloorPlan(src, floorPlanDetection);
-      const path = `survey/${formData.id || "new"}/annotated-${Date.now()}.jpg`;
-      const annotatedUrl = await uploadBase64ToStorage(
+      const annotatedUrl = await uploadMediaBase64(
         annotated,
-        path,
+        formData.id,
+        `annotated-${Date.now()}.jpg`,
         "floor-plan-detections",
       );
       return { ...floorPlanDetection, annotated_image_url: annotatedUrl };
@@ -853,11 +856,11 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
           reader.readAsDataURL(file);
         });
 
-      /** Compress then upload to Supabase; return the public URL */
+      /** Compress then upload to Supabase; return a signed URL fit for display. */
       const uploadPhoto = async (base64: string): Promise<string> => {
         const compressed = await compressBase64Image(base64);
-        const path = `wizard/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-        return uploadBase64ToStorage(compressed, path);
+        const name = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+        return uploadMediaBase64(compressed, formData.id, name);
       };
 
       // ── Floor plan (Step 3) ──────────────────────────────────────────────
