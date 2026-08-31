@@ -105,7 +105,11 @@ const HEADER_ALIASES: Record<string, string> = {
   days: "duration_days_expected",
   duration_days: "duration_days_expected",
   label: "source_label",
-  source: "source_label",
+  // Deliberately no `source` alias. The export writes a `source` column holding "national" or
+  // "organisation" — provenance, not a price label — alongside `source_label`, so aliasing the
+  // two together made the app's own download fail to re-upload ("two columns both mean
+  // source_label"), and a file carrying only `source` would have written "national" as the
+  // label on every line. It is ignored instead; see IGNORED_COLUMNS.
 };
 
 const IGNORED_COLUMNS = new Set([
