@@ -5,6 +5,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { asLooseClient } from "@/lib/supabase/loose";
 import { isApiError, requireApiContext } from "@/lib/api/auth";
 import { sendViaResend } from "@/lib/email/resend";
+import { buildInvitationEmail } from "@/lib/email/invitation-template";
 
 function slugify(value: string): string {
   return value
@@ -109,9 +110,9 @@ export async function POST(request: NextRequest) {
       await sendViaResend({
         from: process.env.RESEND_FROM || "AccessCheck <noreply@homingo.co.uk>",
         to: [adminEmail],
-        subject: `Join ${name} on AccessCheck`,
-        text: `You are the initial Admin for ${name}. Accept your invitation: ${inviteUrl}`,
-        html: `<p>You are the initial Admin for <strong>${name}</strong>.</p><p><a href="${inviteUrl}">Accept invitation</a></p>`,
+        // The same branded invitation every other member receives — this one just happens
+        // to be for the organisation's first administrator.
+        ...buildInvitationEmail({ organisationName: name, inviteUrl, origin }),
       });
     } catch (error) {
       invitationWarning =

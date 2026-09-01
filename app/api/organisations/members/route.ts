@@ -40,8 +40,25 @@ export async function PATCH(request: NextRequest) {
     if (seats.isFull) return NextResponse.json({ error: seatLimitMessage(seats.limit) }, { status: 409 });
   }
   if (body.status) await db.from("organisation_members").update({ status: body.status, updated_at: new Date().toISOString() }).eq("id", body.memberId);
-  await db.from("organisation_member_permissions").delete().eq("member_id", body.memberId);
-  if (permissions.length) await db.from("organisation_member_permissions").insert(permissions.map((permission) => ({ member_id: body.memberId, permission, granted_by: context.userId })));
+  // Only the difference is written, and additions go in before removals.
+  //
+  // Rewriting the whole set — delete everything, insert the new list — locks an admin out of
+  // their own organisation. Writing this table requires the caller to hold `admin` (policy
+  // organisation_permissions_admin_write), so an admin saving their own row lost that grant on
+  // the delete and had every insert rejected by RLS a moment later. The errors were unchecked,
+  // so the response still said "Member updated" while the member was left with no permissions
+  // at all. Keeping the caller's own admin row in place throughout is what prevents that.
+  const current = member.organisation_member_permissions.map((role) => role.permission);
+  const added = permissions.filter((permission) => !current.includes(permission));
+  const removed = current.filter((permission) => !permissions.includes(permission as OrganisationPermission));
+  if (added.length) {
+    const insert = await db.from("organisation_member_permissions").insert(added.map((permission) => ({ member_id: body.memberId, permission, granted_by: context.userId })));
+    if (insert.error) return NextResponse.json({ error: insert.error.message }, { status: 400 });
+  }
+  if (removed.length) {
+    const remove = await db.from("organisation_member_permissions").delete().eq("member_id", body.memberId).in("permission", removed);
+    if (remove.error) return NextResponse.json({ error: remove.error.message }, { status: 400 });
+  }
   await db.from("organisation_audit_events").insert({ organisation_id: context.organisationId, actor_user_id: context.userId, action: "member.permissions_updated", entity_type: "organisation_member", entity_id: body.memberId, metadata: { status: body.status ?? member.status, permissions } });
   return NextResponse.json({ success: true });
 }

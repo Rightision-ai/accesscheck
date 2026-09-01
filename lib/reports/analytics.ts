@@ -33,9 +33,36 @@ export type PlanRow = {
 export type PlanLineRow = {
   plan_id: string;
   label: string;
+  cost_low_gbp: number;
   cost_expected_gbp: number;
+  cost_high_gbp: number;
   difficulty: string;
 };
+
+/**
+ * Every cost the planner produces is a range.
+ *
+ * A single figure implies a precision the evidence does not support, so the reports carry
+ * the range and use the expected value as the one exact number in it.
+ */
+export type CostRange = { lowGbp: number; expectedGbp: number; highGbp: number };
+
+const emptyRange = (): CostRange => ({ lowGbp: 0, expectedGbp: 0, highGbp: 0 });
+
+const addRange = (total: CostRange, add: CostRange): CostRange => ({
+  lowGbp: total.lowGbp + add.lowGbp,
+  expectedGbp: total.expectedGbp + add.expectedGbp,
+  highGbp: total.highGbp + add.highGbp,
+});
+
+const meanRange = (total: CostRange, count: number): CostRange | null =>
+  count === 0
+    ? null
+    : {
+        lowGbp: Math.round(total.lowGbp / count),
+        expectedGbp: Math.round(total.expectedGbp / count),
+        highGbp: Math.round(total.highGbp / count),
+      };
 
 const bandRank = (band: string): number =>
   LAHR_BAND_BY_ID[band?.trim().toUpperCase() as LahrBandId]?.order ?? Number.MAX_SAFE_INTEGER;
@@ -63,23 +90,31 @@ export function pickHeadlinePlans(plans: PlanRow[]): PlanRow[] {
 
 export type CostSummary = {
   casesPlanned: number;
-  totalExpectedGbp: number;
-  averageGbp: number | null;
-  medianGbp: number | null;
+  /** Every headline plan added together, low, expected and high. */
+  total: CostRange;
+  /** The per-case mean of that range, or null when nothing was planned. */
+  average: CostRange | null;
+  /** The middle expected cost — a single case's figure, so it has no range. */
+  medianExpectedGbp: number | null;
   upliftedCases: number;
   tiers: Array<{
     budgetGbp: number;
     cases: number;
-    totalExpectedGbp: number;
-    averageGbp: number | null;
+    total: CostRange;
+    average: CostRange | null;
     upliftedCases: number;
   }>;
 };
 
+const planRange = (plan: PlanRow): CostRange => ({
+  lowGbp: plan.total_cost_low_gbp,
+  expectedGbp: plan.total_cost_expected_gbp,
+  highGbp: plan.total_cost_high_gbp,
+});
+
 export function buildCostSummary(plans: PlanRow[]): CostSummary {
   const headline = pickHeadlinePlans(plans);
-  const costs = headline.map((plan) => plan.total_cost_expected_gbp);
-  const total = costs.reduce((sum, cost) => sum + cost, 0);
+  const total = headline.reduce((sum, plan) => addRange(sum, planRange(plan)), emptyRange());
 
   const byTier = new Map<number, PlanRow[]>();
   for (const plan of plans) {
@@ -88,19 +123,19 @@ export function buildCostSummary(plans: PlanRow[]): CostSummary {
 
   return {
     casesPlanned: headline.length,
-    totalExpectedGbp: total,
-    averageGbp: costs.length ? Math.round(total / costs.length) : null,
-    medianGbp: median(costs) == null ? null : Math.round(median(costs)!),
+    total,
+    average: meanRange(total, headline.length),
+    medianExpectedGbp: median(headline.map((plan) => plan.total_cost_expected_gbp)),
     upliftedCases: headline.filter(isUplift).length,
     tiers: [...byTier.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([budgetGbp, tierPlans]) => {
-        const tierTotal = tierPlans.reduce((sum, plan) => sum + plan.total_cost_expected_gbp, 0);
+        const tierTotal = tierPlans.reduce((sum, plan) => addRange(sum, planRange(plan)), emptyRange());
         return {
           budgetGbp,
           cases: tierPlans.length,
-          totalExpectedGbp: tierTotal,
-          averageGbp: tierPlans.length ? Math.round(tierTotal / tierPlans.length) : null,
+          total: tierTotal,
+          average: meanRange(tierTotal, tierPlans.length),
           upliftedCases: tierPlans.filter(isUplift).length,
         };
       }),
@@ -110,8 +145,9 @@ export function buildCostSummary(plans: PlanRow[]): CostSummary {
 export type Improvement = {
   label: string;
   cases: number;
-  totalGbp: number;
-  averageGbp: number;
+  total: CostRange;
+  /** What this work typically comes to on one property. */
+  average: CostRange;
 };
 
 /**
@@ -125,23 +161,32 @@ export function buildTopImprovements(
   planIds: Set<string>,
   limit = 8,
 ): Improvement[] {
-  const totals = new Map<string, { cases: number; totalGbp: number }>();
+  const totals = new Map<string, { cases: number; total: CostRange }>();
   for (const line of lines) {
     if (!planIds.has(line.plan_id)) continue;
     const label = line.label.trim() || "Unnamed work item";
-    const entry = totals.get(label) ?? { cases: 0, totalGbp: 0 };
+    const entry = totals.get(label) ?? { cases: 0, total: emptyRange() };
     entry.cases += 1;
-    entry.totalGbp += line.cost_expected_gbp;
+    entry.total = addRange(entry.total, {
+      lowGbp: line.cost_low_gbp,
+      expectedGbp: line.cost_expected_gbp,
+      highGbp: line.cost_high_gbp,
+    });
     totals.set(label, entry);
   }
   return [...totals.entries()]
     .map(([label, entry]) => ({
       label,
       cases: entry.cases,
-      totalGbp: entry.totalGbp,
-      averageGbp: Math.round(entry.totalGbp / entry.cases),
+      total: entry.total,
+      average: meanRange(entry.total, entry.cases)!,
     }))
-    .sort((a, b) => b.cases - a.cases || b.totalGbp - a.totalGbp || a.label.localeCompare(b.label))
+    .sort(
+      (a, b) =>
+        b.cases - a.cases ||
+        b.total.expectedGbp - a.total.expectedGbp ||
+        a.label.localeCompare(b.label),
+    )
     .slice(0, limit);
 }
 
@@ -224,4 +269,16 @@ export function pickTopMember(activity: MemberActivity[]): MemberActivity | null
 export function formatGbp(value: number | null): string {
   if (value == null) return "—";
   return `£${Math.round(value).toLocaleString("en-GB")}`;
+}
+
+/**
+ * "£10,200 – £15,300" — the low and high ends only.
+ *
+ * The expected value is deliberately absent: it is shown separately as the one exact
+ * number, and repeating it inside the range reads as a third estimate of equal standing.
+ */
+export function formatGbpRange(range: CostRange | null): string {
+  if (!range) return "—";
+  if (range.lowGbp === range.highGbp) return formatGbp(range.expectedGbp);
+  return `${formatGbp(range.lowGbp)} – ${formatGbp(range.highGbp)}`;
 }

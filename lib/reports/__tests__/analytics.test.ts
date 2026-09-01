@@ -4,6 +4,7 @@ import {
   buildMemberActivity,
   buildTopImprovements,
   formatGbp,
+  formatGbpRange,
   isUplift,
   pickHeadlinePlans,
   pickTopMember,
@@ -56,8 +57,11 @@ describe("adaptation plan costs", () => {
     expect(pickHeadlinePlans(plans).map((row) => row.id).sort()).toEqual(["b", "c"]);
     const summary = buildCostSummary(plans);
     expect(summary.casesPlanned).toBe(2);
-    expect(summary.totalExpectedGbp).toBe(35000);
-    expect(summary.averageGbp).toBe(17500);
+    expect(summary.total.expectedGbp).toBe(35000);
+    expect(summary.average?.expectedGbp).toBe(17500);
+    // The low and high ends are carried through the same way, so the range stays honest.
+    expect(summary.total.lowGbp).toBe(28000);
+    expect(summary.total.highGbp).toBe(42000);
   });
 
   it("breaks the same plans down by funding tier", () => {
@@ -67,8 +71,10 @@ describe("adaptation plan costs", () => {
       plan("c", 1, 30000, 26000),
     ]);
     expect(summary.tiers.map((tier) => tier.budgetGbp)).toEqual([15000, 30000]);
-    expect(summary.tiers[0]).toMatchObject({ cases: 2, averageGbp: 13000 });
-    expect(summary.tiers[1]).toMatchObject({ cases: 1, averageGbp: 26000 });
+    expect(summary.tiers[0].cases).toBe(2);
+    expect(summary.tiers[0].average?.expectedGbp).toBe(13000);
+    expect(summary.tiers[1].cases).toBe(1);
+    expect(summary.tiers[1].average?.expectedGbp).toBe(26000);
   });
 
   it("counts an uplift only when the band actually improves", () => {
@@ -80,7 +86,8 @@ describe("adaptation plan costs", () => {
 
   it("reports nothing rather than zero for an empty period", () => {
     const summary = buildCostSummary([]);
-    expect(summary).toMatchObject({ casesPlanned: 0, totalExpectedGbp: 0, averageGbp: null, medianGbp: null });
+    expect(summary).toMatchObject({ casesPlanned: 0, average: null, medianExpectedGbp: null });
+    expect(summary.total).toEqual({ lowGbp: 0, expectedGbp: 0, highGbp: 0 });
     expect(summary.tiers).toEqual([]);
   });
 });
@@ -89,7 +96,9 @@ describe("top improvements", () => {
   const line = (plan_id: string, label: string, cost: number): PlanLineRow => ({
     plan_id,
     label,
+    cost_low_gbp: Math.round(cost * 0.8),
     cost_expected_gbp: cost,
+    cost_high_gbp: Math.round(cost * 1.25),
     difficulty: "moderate",
   });
 
@@ -102,7 +111,12 @@ describe("top improvements", () => {
       ],
       new Set(["a", "b"]),
     );
-    expect(improvements[0]).toMatchObject({ label: "Level access shower", cases: 2, totalGbp: 13000, averageGbp: 6500 });
+    expect(improvements[0].label).toBe("Level access shower");
+    expect(improvements[0].cases).toBe(2);
+    expect(improvements[0].total.expectedGbp).toBe(13000);
+    expect(improvements[0].average.expectedGbp).toBe(6500);
+    // The average carries the low and high ends too, not just the central estimate.
+    expect(improvements[0].average.lowGbp).toBe(5200);
     expect(improvements[1].label).toBe("Threshold ramp");
   });
 
@@ -172,9 +186,19 @@ describe("member activity", () => {
   });
 });
 
-describe("formatGbp", () => {
+describe("money formatting", () => {
   it("renders whole pounds and an em dash for nothing", () => {
     expect(formatGbp(12400)).toBe("£12,400");
     expect(formatGbp(null)).toBe("—");
+  });
+
+  it("shows a range as its two ends, leaving the expected value to be shown separately", () => {
+    expect(formatGbpRange({ lowGbp: 10200, expectedGbp: 12400, highGbp: 15300 })).toBe(
+      "£10,200 – £15,300",
+    );
+  });
+
+  it("collapses a range with no spread to a single figure", () => {
+    expect(formatGbpRange({ lowGbp: 900, expectedGbp: 900, highGbp: 900 })).toBe("£900");
   });
 });

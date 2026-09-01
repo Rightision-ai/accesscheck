@@ -1,14 +1,19 @@
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
+import { drawReportCover, type CoverDetails } from "@/lib/reports/pdfCover";
 
 /**
- * Renders the reports page to an A4 PDF, one captured block at a time.
+ * Renders a stack of on-screen cards to an A4 PDF behind the standard cover.
  *
  * Unlike the AHR report — which flows continuously and needs break-zone logic to avoid
- * cutting through a photograph — this page is a stack of self-contained cards. Capturing
- * each `.report-block` separately and starting a new page whenever one does not fit keeps
- * every chart and table whole, which is the only thing that matters here.
+ * cutting through a photograph — the pages that use this are built from self-contained
+ * blocks. Capturing each `.report-block` separately and starting a new page whenever one
+ * does not fit keeps every chart, card and table whole, which is the only thing that
+ * matters here. A block taller than a page is the one case that still gets sliced.
  */
+
+/** Marks an element as one unit of the export. Blocks are captured in document order. */
+export const REPORT_BLOCK_CLASS = "report-block";
 
 const PAGE_WIDTH_MM = 210;
 const PAGE_HEIGHT_MM = 297;
@@ -23,12 +28,14 @@ const GAP_MM = 5;
  */
 const CAPTURE_WIDTH_PX = 1120;
 
-export async function exportReportPdf(
+export async function exportBlocksToPdf(
   container: HTMLElement,
-  { fileName, title }: { fileName: string; title: string },
+  { fileName, cover }: { fileName: string; cover: CoverDetails },
 ): Promise<void> {
-  const blocks = Array.from(container.querySelectorAll<HTMLElement>(".report-block"));
-  if (blocks.length === 0) throw new Error("Nothing to export.");
+  const found = Array.from(container.querySelectorAll<HTMLElement>(`.${REPORT_BLOCK_CLASS}`));
+  // A caller that marked nothing still gets a sensible export: the whole container as one
+  // block, sliced across pages.
+  const blocks = found.length > 0 ? found : [container];
 
   const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const contentWidthMm = PAGE_WIDTH_MM - MARGIN_MM * 2;
@@ -40,9 +47,12 @@ export async function exportReportPdf(
     /* non-blocking: a swapped font is better than no export */
   }
 
-  pdf.setFontSize(16);
-  pdf.text(title, MARGIN_MM, MARGIN_MM + 6);
-  let cursorMm = MARGIN_MM + 12;
+  await drawReportCover(pdf, cover);
+  pdf.addPage();
+
+  // No repeated title here: the cover already names the document, and the first block
+  // carries its own heading.
+  let cursorMm = MARGIN_MM;
 
   for (const block of blocks) {
     // Rasterise a detached clone at a fixed width so the PDF does not inherit whatever
@@ -123,4 +133,12 @@ export async function exportReportPdf(
   }
 
   pdf.save(fileName);
+}
+
+/** "1 September 2026" — the form the covers and headers use. */
+export function formatCoverDate(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.valueOf())
+    ? iso
+    : date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }

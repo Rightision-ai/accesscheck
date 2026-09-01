@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { asLooseClient } from "@/lib/supabase/loose";
 import { isApiError, requireApiContext } from "@/lib/api/auth";
 import { sendViaResend } from "@/lib/email/resend";
-import { escapeHtml } from "@/lib/email/contact-template";
+import { buildInvitationEmail } from "@/lib/email/invitation-template";
 import { SUPPORT_EMAIL } from "@/lib/config/support";
 import { getSeatUsage, seatLimitMessage } from "@/lib/organisations/seats";
 import type { OrganisationPermission } from "@/types/accesscheck";
@@ -28,11 +28,11 @@ export async function POST(request: NextRequest) {
     : await db.from("organisation_invitations").insert({ organisation_id: context.organisationId, email, permissions, token_hash: tokenHash, invited_by: context.userId, expires_at: expiresAt.toISOString() }).select("id").single();
   if (insert.error || !insert.data) return NextResponse.json({ error: insert.error?.message ?? "Unable to create invitation." }, { status: 400 });
   const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin; const inviteUrl = `${origin}/invite/${token}`;
-  const organisationName = escapeHtml(context.organisationName);
+  const message = buildInvitationEmail({ organisationName: context.organisationName, inviteUrl, origin });
   try {
     // The domain here must be verified in Resend for the active API key, or the
     // send fails with a 403. Both accesscheck.co.uk and rightision.co.uk are.
-    await sendViaResend({ from: process.env.RESEND_FROM || "AccessCheck <noreply@accesscheck.co.uk>", to: [email], replyTo: SUPPORT_EMAIL, subject: `Join ${context.organisationName} on AccessCheck`, text: `You have been invited to ${context.organisationName} on AccessCheck. Accept your invitation: ${inviteUrl}`, html: `<p>You have been invited to <strong>${organisationName}</strong> on AccessCheck.</p><p><a href="${inviteUrl}">Accept invitation</a></p><p>This link expires in 7 days.</p>` });
+    await sendViaResend({ from: process.env.RESEND_FROM || "AccessCheck <noreply@accesscheck.co.uk>", to: [email], replyTo: SUPPORT_EMAIL, ...message });
   } catch (error) {
     await db.from("organisation_invitations").delete().eq("id", (insert.data as { id: string }).id);
     return NextResponse.json({ error: error instanceof Error ? `Invitation was not sent: ${error.message}` : "Invitation was not sent." }, { status: 502 });
