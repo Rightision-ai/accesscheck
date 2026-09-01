@@ -14,8 +14,10 @@ import { toast } from "sonner";
 import AssessmentWizard from "@/app/components/wizard/AssessmentWizard";
 import CaseCard from "@/app/components/dashboard/CaseCard";
 import BandDonutChart from "@/app/components/dashboard/BandDonutChart";
+import WeeklyTrendChart from "@/app/components/dashboard/WeeklyTrendChart";
+import TeamWorkloadCard from "@/app/components/dashboard/TeamWorkloadCard";
 import { useOpenAssessment } from "@/app/components/dashboard/useOpenAssessment";
-import type { BandSlice } from "@/lib/assessments/analytics";
+import type { BandSlice, MemberWorkload } from "@/lib/assessments/analytics";
 import { submitAssessmentForReview } from "@/lib/surveys/assessmentStatus";
 import type { AssessmentStatus } from "@/types/accesscheck";
 import type { Case } from "@/types/dashboard";
@@ -36,6 +38,8 @@ type Props = {
   weeklyTrend: Array<{ week: string; started: number; completed: number }>;
   bandDistribution: BandSlice[];
   canAuthor: boolean;
+  /** Per-member figures, supplied only for admins; null for everyone else. */
+  teamWorkload: MemberWorkload[] | null;
 };
 
 export default function DashboardClient({
@@ -44,6 +48,7 @@ export default function DashboardClient({
   weeklyTrend,
   bandDistribution,
   canAuthor,
+  teamWorkload,
 }: Props) {
   const router = useRouter();
   const {
@@ -54,10 +59,6 @@ export default function DashboardClient({
     startNewAssessment,
   } = useOpenAssessment(canAuthor);
   const [cases, setCases] = useState(initialCases);
-  const maxTrend = Math.max(
-    1,
-    ...weeklyTrend.flatMap((week) => [week.started, week.completed]),
-  );
   const summaryCards = [
     {
       label: "Open assessments",
@@ -147,52 +148,7 @@ export default function DashboardClient({
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_1fr]">
           <section className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
-            <h2 className="font-bold text-slate-950">Started and completed</h2>
-            <p className="mb-5 text-sm text-slate-500">
-              Weekly assessment activity
-            </p>
-            <div
-              className="flex h-52 items-end gap-2"
-              role="img"
-              aria-label="Weekly assessments started and completed"
-            >
-              {weeklyTrend.map((week) => (
-                <div
-                  key={week.week}
-                  className="flex min-w-0 flex-1 flex-col items-center gap-2"
-                >
-                  <div className="flex h-40 w-full items-end justify-center gap-1">
-                    <div
-                      className="w-2/5 rounded-t bg-blue-300"
-                      style={{
-                        height: `${Math.max(3, (week.started / maxTrend) * 100)}%`,
-                      }}
-                      title={`${week.started} started`}
-                    />
-                    <div
-                      className="w-2/5 rounded-t bg-emerald-500"
-                      style={{
-                        height: `${Math.max(3, (week.completed / maxTrend) * 100)}%`,
-                      }}
-                      title={`${week.completed} completed`}
-                    />
-                  </div>
-                  <span className="truncate text-[10px] text-slate-400">
-                    {new Date(week.week).toLocaleDateString("en-GB", {
-                      day: "numeric",
-                      month: "short",
-                    })}
-                  </span>
-                  <span className="sr-only">
-                    {week.started} started and {week.completed} completed
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 flex gap-4 text-xs text-slate-500">
-              <span className="text-blue-600">■ Started</span>
-              <span className="text-emerald-600">■ Completed</span>
-            </div>
+            <WeeklyTrendChart weeks={weeklyTrend} />
           </section>
           <section className="rounded-2xl border border-violet-100 bg-white p-5 shadow-sm">
             <h2 className="font-bold text-slate-950">Accessibility bands</h2>
@@ -233,6 +189,8 @@ export default function DashboardClient({
             </div>
           </section>
         )}
+
+        {teamWorkload && <TeamWorkloadCard workload={teamWorkload} />}
 
         <AssessmentWizard
           isOpen={wizardOpen}

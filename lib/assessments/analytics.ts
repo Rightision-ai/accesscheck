@@ -1,4 +1,4 @@
-import { normalizeAssessmentStatus } from "@/lib/assessments/status";
+import { ASSESSMENT_STATUS_META, normalizeAssessmentStatus } from "@/lib/assessments/status";
 import { LAHR_BANDS, LAHR_BAND_BY_ID, type LahrBandId } from "@/lib/accessibility/lahr/types";
 import type { AssessmentReadiness, AssessmentStatus } from "@/types/accesscheck";
 
@@ -10,10 +10,14 @@ export type AssessmentAnalyticsRow = {
   status: AssessmentStatus;
   assessment_readiness: AssessmentReadiness;
   overall_grade: string | null;
+  /** The member who created the case. Only selected where per-author figures are needed. */
+  user_id?: string | null;
 };
 
 export type BandSlice = {
-  /** A LAHR band id, or null for rows that have not been banded yet. */
+  /** Stable identity for keys: the band id, or the name of a non-band bucket. */
+  key: string;
+  /** A LAHR band id, or null for the two non-band buckets. */
   band: LahrBandId | null;
   label: string;
   colour: string;
@@ -25,13 +29,22 @@ const UNBANDED_COLOUR = "#cbd5e1";
 
 /**
  * Counts assessments per Accessible Housing Rules band, in band order (A → G), keeping
- * only the bands that actually occur. Rows whose `overall_grade` is missing or
- * unrecognised are reported separately rather than folded into G — G is a real band
- * meaning "cannot be determined", which is not the same as "not assessed yet".
+ * only the bands that actually occur.
+ *
+ * Two buckets sit outside the bands, and they mean different things:
+ *  - "Under review" — the case is not finalised, so whatever grade it carries can still
+ *    change. Counting it as a band would report unsettled work as assessed stock.
+ *  - "Not yet banded" — the case is finalised but its `overall_grade` is missing or
+ *    unrecognised. This is not band G: G is a real band meaning "cannot be determined".
  */
 export function buildBandDistribution(rows: AssessmentAnalyticsRow[]): BandSlice[] {
   const counts = new Map<LahrBandId | null, number>();
+  let underReview = 0;
   for (const row of rows) {
+    if (normalizeAssessmentStatus(row.status) !== "complete") {
+      underReview += 1;
+      continue;
+    }
     const grade = String(row.overall_grade ?? "").trim().toUpperCase();
     const band = (grade in LAHR_BAND_BY_ID ? grade : null) as LahrBandId | null;
     counts.set(band, (counts.get(band) ?? 0) + 1);
@@ -41,15 +54,28 @@ export function buildBandDistribution(rows: AssessmentAnalyticsRow[]): BandSlice
     .sort((a, b) => a.order - b.order)
     .filter((definition) => (counts.get(definition.id) ?? 0) > 0)
     .map((definition) => ({
+      key: definition.id,
       band: definition.id,
       label: definition.label,
       colour: definition.color,
       count: counts.get(definition.id) ?? 0,
     }));
 
+  if (underReview > 0) {
+    slices.push({
+      key: "under-review",
+      band: null,
+      label: "Under review",
+      // The amber the "In Review" badge uses, so the two read as the same state.
+      colour: ASSESSMENT_STATUS_META.review.colour,
+      count: underReview,
+    });
+  }
+
   const unbanded = counts.get(null) ?? 0;
   if (unbanded > 0) {
     slices.push({
+      key: "unbanded",
       band: null,
       label: "Not yet banded",
       colour: UNBANDED_COLOUR,
@@ -57,6 +83,78 @@ export function buildBandDistribution(rows: AssessmentAnalyticsRow[]): BandSlice
     });
   }
   return slices;
+}
+
+export type WorkloadMember = {
+  /** The `organisation_members` row id, which the member detail page is keyed by. */
+  id: string;
+  user_id: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  avatar_url?: string | null;
+};
+
+export type MemberWorkload = {
+  /** The member's auth user id, or "unattributed" for the catch-all row. */
+  key: string;
+  /** Membership id to link to, or null for the catch-all row, which has no member page. */
+  memberId: string | null;
+  name: string;
+  avatarUrl: string | null;
+  draft: number;
+  review: number;
+  complete: number;
+  total: number;
+};
+
+/**
+ * Per-member case counts for the admin workload card.
+ *
+ * Every active member is listed, including those with nothing on their plate — an idle
+ * colleague is exactly what an admin looking at workload needs to see. Cases whose author
+ * is no longer an active member are gathered into one "Former members" row rather than
+ * dropped, so the rows still add up to the organisation's total.
+ */
+export function buildMemberWorkload(
+  rows: AssessmentAnalyticsRow[],
+  members: WorkloadMember[],
+): MemberWorkload[] {
+  const blank = () => ({ draft: 0, review: 0, complete: 0, total: 0 });
+  const byUser = new Map<string, MemberWorkload>();
+  for (const member of members) {
+    if (!member.user_id) continue;
+    const name = [member.first_name, member.last_name].filter(Boolean).join(" ").trim();
+    byUser.set(member.user_id, {
+      key: member.user_id,
+      memberId: member.id,
+      name: name || "Unnamed member",
+      avatarUrl: member.avatar_url ?? null,
+      ...blank(),
+    });
+  }
+
+  let orphans: MemberWorkload | null = null;
+  for (const row of rows) {
+    const userId = row.user_id ?? "";
+    let entry = byUser.get(userId);
+    if (!entry) {
+      orphans ??= {
+        key: "unattributed",
+        memberId: null,
+        name: "Former members",
+        avatarUrl: null,
+        ...blank(),
+      };
+      entry = orphans;
+    }
+    entry[normalizeAssessmentStatus(row.status)] += 1;
+    entry.total += 1;
+  }
+
+  const all = [...byUser.values()];
+  if (orphans) all.push(orphans);
+  // Busiest first, then alphabetically so the order is stable between refreshes.
+  return all.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
 }
 
 export function median(values: number[]): number | null {
