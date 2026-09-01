@@ -32,6 +32,7 @@ import type { LahrBandId } from "@/lib/accessibility/lahr/types";
 import type { AdaptationPlanSet } from "@/lib/adaptation-plans/types";
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
+import { drawReportCover } from "@/lib/reports/pdfCover";
 import { isAssessmentLocked } from "@/lib/assessments/status";
 
 interface ReportViewProps {
@@ -1578,6 +1579,18 @@ const ReportView: React.FC<ReportViewProps> = ({
     } catch {
       /* non-blocking */
     }
+
+    // The branded cover every AccessCheck export opens with; content starts on page two.
+    await drawReportCover(pdf, {
+      title: caseData.address || "Property accessibility report",
+      subtitle: wizardData.organisationName || undefined,
+      meta: [
+        rawAhr.meta_data?.uprn ? `UPRN ${rawAhr.meta_data.uprn}` : `Case ${caseData.id}`,
+        `Assessed by ${wizardData.fullName || "AccessCheck"}`,
+        `Generated ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
+      ],
+    });
+    pdf.addPage();
 
     // Content flows continuously across PDF pages: `usedMm` tracks how much of the
     // current page's printable height is consumed, so chunks share pages instead of

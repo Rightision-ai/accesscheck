@@ -25,6 +25,8 @@ export const ENGINE_MODELS = {
   floorPlan: process.env.ENGINE_FLOORPLAN_MODEL || "gemini-3.7-flash",
   /** Exterior street-view vision (evidence harvester). */
   exteriorVision: process.env.ENGINE_VISION_MODEL || "gemini-3.7-flash",
+  /** Narrative commentary on an organisation's assessment report. Text in, text out. */
+  reportInsight: process.env.ENGINE_REPORT_INSIGHT_MODEL || "gemini-3.7-flash",
 } as const;
 
 export function engineUrl(model: string): string {

@@ -66,7 +66,7 @@ export default function BandDonutChart({ slices }: { slices: BandSlice[] }) {
         >
           {arcs.map(({ slice, index, dash, offset: arcOffset }) => (
             <circle
-              key={slice.band ?? "unbanded"}
+              key={slice.key}
               cx="100"
               cy="100"
               r={RADIUS}
@@ -118,7 +118,7 @@ export default function BandDonutChart({ slices }: { slices: BandSlice[] }) {
       <ul className="min-w-0 flex-1 space-y-1.5">
         {slices.map((slice, index) => (
           <li
-            key={slice.band ?? "unbanded"}
+            key={slice.key}
             onMouseEnter={() => setHovered(index)}
             onMouseLeave={() => setHovered(null)}
             className={`flex items-center gap-2.5 rounded-lg px-2 py-1 transition-colors ${

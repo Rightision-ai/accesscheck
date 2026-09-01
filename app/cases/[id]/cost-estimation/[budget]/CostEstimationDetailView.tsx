@@ -1,8 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, PoundSterling } from "lucide-react";
+import { ChevronLeft, FileDown, Loader2, PoundSterling } from "lucide-react";
+import { toast } from "sonner";
+import { exportBlocksToPdf, formatCoverDate } from "@/lib/reports/exportBlocksToPdf";
 import LahrBandBadge from "@/app/components/common/LahrBandBadge";
 import type { LahrBandId } from "@/lib/accessibility/lahr/types";
 import type {
@@ -32,19 +34,60 @@ export default function CostEstimationDetailView({
   ruleLookup,
 }: Props) {
   const isCap = tierBudget === 30000;
+  const planRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const download = async () => {
+    if (!planRef.current) return;
+    setExporting(true);
+    try {
+      await exportBlocksToPdf(planRef.current, {
+        fileName: `accesscheck-adaptation-plan-${surveyId}-${tierBudget}.pdf`,
+        cover: {
+          title: `£${tierBudget.toLocaleString()} adaptation plan`,
+          subtitle: `Case ${surveyId}`,
+          meta: [
+            tier ? `${tier.lines.length} recommended adaptation${tier.lines.length === 1 ? "" : "s"}` : "No plan generated",
+            // Spelled out rather than an arrow: the cover is set in a WinAnsi core font.
+            tier ? `Band ${currentBand} to ${tier.potentialBand}` : `Current band ${currentBand}`,
+            `Generated ${formatCoverDate(new Date().toISOString().slice(0, 10))}`,
+          ],
+          spineText: "ADAPTATION PLAN",
+        },
+      });
+      toast.success("Adaptation plan downloaded");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not build the PDF.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-slate-50">
       <div className="mx-auto max-w-4xl p-6">
-        <Link
-          href={`/cases/${surveyId}`}
-          className="inline-flex items-center gap-1 text-sm font-semibold text-primary-dark hover:text-primary-dark"
-        >
-          <ChevronLeft size={16} />
-          Back to case overview
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href={`/cases/${surveyId}`}
+            className="inline-flex items-center gap-1 text-sm font-semibold text-primary-dark hover:text-primary-dark"
+          >
+            <ChevronLeft size={16} />
+            Back to case overview
+          </Link>
+          <button
+            type="button"
+            onClick={download}
+            disabled={exporting || !tier}
+            title={tier ? undefined : "Generate the plan before exporting it"}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white shadow-[0_4px_14px_rgba(15,183,91,0.25)] transition hover:bg-primary-dark disabled:opacity-50"
+          >
+            {exporting ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
+            {exporting ? "Building PDF…" : "Download PDF"}
+          </button>
+        </div>
 
-        <header className="mt-4 flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div ref={planRef}>
+        <header className="report-block mt-4 flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div>
             <div className="flex items-center gap-2 text-primary-dark">
               <PoundSterling size={18} />
@@ -90,7 +133,7 @@ export default function CostEstimationDetailView({
         </header>
 
         {!tier ? (
-          <section className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">
+          <section className="report-block mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">
             This plan has not been generated yet. Return to the case overview to
             generate it.
           </section>
@@ -99,7 +142,7 @@ export default function CostEstimationDetailView({
             <HeadlineStrip tier={tier} planSet={planSet} />
 
             {planSet?.rationaleIfNotBandA && tier.budgetGbp === 30000 && (
-              <section className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900">
+              <section className="report-block mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900">
                 <p className="m-0">
                   <span className="font-semibold">Beyond this budget:</span>{" "}
                   {planSet.rationaleIfNotBandA}
@@ -107,7 +150,7 @@ export default function CostEstimationDetailView({
               </section>
             )}
 
-            <section className="mt-6">
+            <section className="report-block mt-6">
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600">
                 Recommended adaptations
               </h2>
@@ -142,7 +185,7 @@ export default function CostEstimationDetailView({
             </section>
 
             {tier.droppedCandidates.length > 0 && (
-              <section className="mt-6">
+              <section className="report-block mt-6">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600">
                   Considered and set aside
                 </h2>
@@ -165,6 +208,7 @@ export default function CostEstimationDetailView({
             {planSet && <FooterMeta planSet={planSet} />}
           </>
         )}
+        </div>
       </div>
     </div>
   );
@@ -178,7 +222,7 @@ function HeadlineStrip({
   planSet: AdaptationPlanSet | null;
 }) {
   return (
-    <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <section className="report-block mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <HeadlineTile
         label="Total cost"
         value={formatCostRange(tier.totalCost)}
@@ -352,7 +396,7 @@ function ConfidenceBar({ confidence }: { confidence: PlanLine["confidence"] }) {
 
 function FooterMeta({ planSet }: { planSet: AdaptationPlanSet }) {
   return (
-    <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4 text-[11px] text-slate-500">
+    <section className="report-block mt-6 rounded-xl border border-slate-200 bg-white p-4 text-[11px] text-slate-500">
       <p className="m-0">
         <span className="font-bold uppercase tracking-wider">Priced from</span>{" "}
         {planSet.rateCardLabel}

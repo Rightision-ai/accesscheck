@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAssessmentSummary,
   buildBandDistribution,
+  buildMemberWorkload,
   median,
   type AssessmentAnalyticsRow,
 } from "@/lib/assessments/analytics";
@@ -87,5 +88,78 @@ describe("band distribution", () => {
     const rows = [row(1, "A"), row(2, "C"), row(3, null), row(4, "C")];
     const slices = buildBandDistribution(rows);
     expect(slices.reduce((sum, s) => sum + s.count, 0)).toBe(rows.length);
+  });
+
+  it("reports unfinalised cases as under review rather than by band", () => {
+    const slices = buildBandDistribution([
+      row(1, "A"),
+      { ...row(2, "A"), status: "review" },
+      { ...row(3, "B"), status: "draft" },
+      { ...row(4, null), status: "review" },
+    ]);
+    // The finalised A is the only banded row; the other three are all still in play.
+    expect(slices.find((s) => s.band === "A")?.count).toBe(1);
+    expect(slices.find((s) => s.band === "B")).toBeUndefined();
+    const review = slices.find((s) => s.key === "under-review");
+    expect(review?.count).toBe(3);
+    expect(review?.label).toBe("Under review");
+    // "Not yet banded" stays reserved for finalised cases with no usable grade.
+    expect(slices.find((s) => s.key === "unbanded")).toBeUndefined();
+  });
+
+  it("keeps under review and not yet banded apart", () => {
+    const slices = buildBandDistribution([
+      { ...row(1, null), status: "draft" },
+      row(2, null),
+    ]);
+    expect(slices.find((s) => s.key === "under-review")?.count).toBe(1);
+    expect(slices.find((s) => s.key === "unbanded")?.count).toBe(1);
+  });
+});
+
+describe("member workload", () => {
+  const authored = (id: number, user_id: string | null, status: AssessmentAnalyticsRow["status"]) => ({
+    ...row(id, "A"),
+    user_id,
+    status,
+  });
+  const members = [
+    { id: "m1", user_id: "u1", first_name: "Ada", last_name: "Lovelace", avatar_url: null },
+    { id: "m2", user_id: "u2", first_name: "Grace", last_name: "Hopper", avatar_url: "https://example.test/g.png" },
+  ];
+
+  it("counts each member's cases by status, busiest first", () => {
+    const workload = buildMemberWorkload(
+      [
+        authored(1, "u2", "complete"),
+        authored(2, "u2", "review"),
+        authored(3, "u2", "draft"),
+        authored(4, "u1", "complete"),
+      ],
+      members,
+    );
+    expect(workload.map((entry) => entry.name)).toEqual(["Grace Hopper", "Ada Lovelace"]);
+    expect(workload[0]).toMatchObject({ complete: 1, review: 1, draft: 1, total: 3 });
+    expect(workload[1]).toMatchObject({ complete: 1, review: 0, draft: 0, total: 1 });
+  });
+
+  it("lists members with nothing on their plate", () => {
+    const workload = buildMemberWorkload([authored(1, "u1", "draft")], members);
+    expect(workload.find((entry) => entry.key === "u2")?.total).toBe(0);
+  });
+
+  it("gathers cases from unknown authors so the rows still add up", () => {
+    const rows = [authored(1, "u1", "complete"), authored(2, "gone", "review"), authored(3, null, "draft")];
+    const workload = buildMemberWorkload(rows, members);
+    const orphans = workload.find((entry) => entry.key === "unattributed");
+    expect(orphans?.total).toBe(2);
+    // Nothing to link to, so the card leaves the row inert.
+    expect(orphans?.memberId).toBeNull();
+    expect(workload.reduce((sum, entry) => sum + entry.total, 0)).toBe(rows.length);
+  });
+
+  it("normalises legacy statuses into the three buckets", () => {
+    const [ada] = buildMemberWorkload([authored(1, "u1", "in_progress" as never)], [members[0]]);
+    expect(ada).toMatchObject({ draft: 1, total: 1 });
   });
 });

@@ -27,6 +27,7 @@ import {
   ImageIcon,
   ExternalLink,
   Download,
+  ReceiptText,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -270,28 +271,35 @@ function AdaptationPlanSummary({
         )}
       </div>
 
-      {/* Rate card provenance — the whole block is the link to the card itself. */}
+      {/* Rate card provenance — the whole block is the link to the card itself. Tinted rather
+          than divided off by a rule: which card priced these plans is the first thing to check
+          when a figure looks wrong, and it was too easy to miss as plain text. */}
       <Link
         href="/settings/rate-card"
         aria-label="View the rate card these plans are priced from"
-        className="group flex min-w-0 items-center justify-between gap-3 rounded-xl px-2 py-1 -mx-2 no-underline transition-colors hover:bg-green-50/60 md:col-span-2 xl:col-span-1 xl:ml-0 xl:border-l xl:border-slate-200 xl:pl-6"
+        className="group flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary-light px-3.5 py-3 no-underline transition-colors hover:border-primary/50 hover:bg-[#d7f2e3] md:col-span-2 xl:col-span-1"
       >
-        <span className="flex min-w-0 flex-col">
-          <span className="mb-1 text-[11px] font-bold uppercase text-slate-500 sm:text-xs">
-            Rate card
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-primary shadow-sm">
+            <ReceiptText size={18} aria-hidden="true" />
           </span>
-          <span className="text-sm font-extrabold leading-snug text-slate-900 xl:max-w-60">
-            {planSet?.rateCardLabel ?? "National indicative — obtain quote"}
-          </span>
-          {planSet?.rateCardEffectiveFrom && (
-            <span className="mt-0.5 text-[11px] font-semibold text-slate-500">
-              Version {planSet.rateCardEffectiveFrom}
+          <span className="flex min-w-0 flex-col">
+            <span className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-primary-dark sm:text-xs">
+              Rate card
             </span>
-          )}
+            <span className="text-sm font-extrabold leading-snug text-slate-900 xl:max-w-56">
+              {planSet?.rateCardLabel ?? "National indicative — obtain quote"}
+            </span>
+            {planSet?.rateCardEffectiveFrom && (
+              <span className="mt-0.5 text-[11px] font-semibold text-slate-600">
+                Version {planSet.rateCardEffectiveFrom}
+              </span>
+            )}
+          </span>
         </span>
         <ChevronRight
           size={18}
-          className="shrink-0 text-slate-400 transition-colors group-hover:text-primary"
+          className="shrink-0 text-primary/60 transition-colors group-hover:text-primary"
         />
       </Link>
     </div>
@@ -484,6 +492,16 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
     router.push("/dashboard");
   };
 
+  /**
+   * Return to wherever the case was opened from — the assessments list, a search, a member's
+   * case list. A case can also be opened cold (a bookmarked link, a new tab), and there the
+   * dashboard is the only sensible destination.
+   */
+  const goBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push("/dashboard");
+  };
+
   return (
     <div className="min-h-[calc(100vh-64px)] bg-slate-50">
       {/* Header — sits below the app shell header, which is sticky at top-0 with a 64px height */}
@@ -491,9 +509,10 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
         <div className="max-w-[1280px] mx-auto px-4 sm:px-6 py-3 sm:py-0 sm:h-16 min-h-14 flex flex-wrap justify-between items-center gap-3">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
             <button
-              onClick={() => router.push("/dashboard")}
+              onClick={goBack}
               className="p-2 rounded-full bg-transparent border-none cursor-pointer text-slate-500 flex items-center justify-center shrink-0 touch-manipulation"
-              aria-label="Back to dashboard"
+              aria-label="Go back"
+              title="Go back"
             >
               <ArrowLeft size={20} />
             </button>

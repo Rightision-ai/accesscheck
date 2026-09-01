@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import {
   BarChart3,
   Building2,
@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { signOut } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils/cn";
+import { NavSpinner, PendingLink, TopProgressBar } from "./NavProgress";
 
 const navigation = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -39,11 +40,30 @@ type Props = {
 export default function AppShellClient({ children, userName, avatarUrl, organisationName, isAdmin, isPlatformAdmin }: Props) {
   const pathname = usePathname();
   const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(true);
   const [search, setSearch] = useState("");
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+  // Each overlay remembers the route it was opened on, which closes it as soon as a
+  // navigation lands. Closing on click instead would unmount the link that was clicked and
+  // take its loading spinner with it.
+  const [mobileOpenAt, setMobileOpenAt] = useState<string | null>(null);
+  const [accountMenuOpenAt, setAccountMenuOpenAt] = useState<string | null>(null);
+  const mobileOpen = mobileOpenAt === pathname;
+  const accountMenuOpen = accountMenuOpenAt === pathname;
+  const setMobileOpen = (open: boolean) => setMobileOpenAt(open ? pathname : null);
+  const setAccountMenuOpen = (open: boolean) => setAccountMenuOpenAt(open ? pathname : null);
+  // Route changes fetch on the server before rendering, so the shell shows the click was
+  // heard: a bar across the top, and a spinner on whichever item is being loaded.
+  const [pendingLinks, setPendingLinks] = useState<string[]>([]);
+  const [searchPending, startSearch] = useTransition();
+  const reportPending = useCallback((id: string, pending: boolean) => {
+    setPendingLinks((current) => {
+      const listed = current.includes(id);
+      if (pending === listed) return current;
+      return pending ? [...current, id] : current.filter((item) => item !== id);
+    });
+  }, []);
+  const navigating = pendingLinks.length > 0 || searchPending;
   const roleLabel = isAdmin ? "Organisation admin" : "Council member";
   const initials =
     userName
@@ -56,11 +76,13 @@ export default function AppShellClient({ children, userName, avatarUrl, organisa
   // Close the account menu on an outside click or Escape.
   useEffect(() => {
     if (!accountMenuOpen) return;
+    // Closes via the state setter itself: the `setAccountMenuOpen` wrapper is rebuilt every
+    // render, and depending on it would tear these listeners down and back up each time.
     const onPointerDown = (event: MouseEvent) => {
-      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountMenuOpen(false);
+      if (!accountMenuRef.current?.contains(event.target as Node)) setAccountMenuOpenAt(null);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setAccountMenuOpen(false);
+      if (event.key === "Escape") setAccountMenuOpenAt(null);
     };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -70,7 +92,9 @@ export default function AppShellClient({ children, userName, avatarUrl, organisa
     };
   }, [accountMenuOpen]);
 
-  const sidebar = (collapsed = false) => (
+  // `variant` keeps the desktop and mobile copies of a link reporting under separate ids,
+  // so closing the drawer mid-navigation cannot clear the desktop copy's pending state.
+  const sidebar = (collapsed = false, variant = "desktop") => (
     <div className="flex h-full flex-col bg-white">
       <div className={cn("flex h-20 items-center border-b border-slate-200", collapsed ? "justify-center px-3" : "px-5")}>
         <Link href="/dashboard" aria-label="AccessCheck overview">
@@ -90,9 +114,11 @@ export default function AppShellClient({ children, userName, avatarUrl, organisa
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
           return (
-            <Link
+            <PendingLink
               key={item.href}
+              id={`${variant}:${item.href}`}
               href={item.href}
+              report={reportPending}
               onClick={() => setMobileOpen(false)}
               className={cn(
                 "flex items-center rounded-xl py-2.5 text-sm font-semibold transition-colors",
@@ -101,18 +127,33 @@ export default function AppShellClient({ children, userName, avatarUrl, organisa
               )}
               title={collapsed ? item.label : undefined}
             >
-              <Icon size={18} aria-hidden="true" />
-              {!collapsed && item.label}
-            </Link>
+              {(pending) => (
+                <>
+                  {pending ? <NavSpinner /> : <Icon size={18} aria-hidden="true" />}
+                  {!collapsed && item.label}
+                </>
+              )}
+            </PendingLink>
           );
         })}
       </nav>
       {/* Settings and sign-out live in the header avatar menu; only platform admin remains pinned here. */}
       {isPlatformAdmin && (
         <div className="border-t border-slate-200 p-3">
-          <Link href="/platform/organisations" onClick={() => setMobileOpen(false)} title={collapsed ? "Platform administration" : undefined} className={cn("flex items-center rounded-xl py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50", collapsed ? "justify-center px-2" : "gap-3 px-3")}>
-            <Building2 size={18} /> {!collapsed && "Platform administration"}
-          </Link>
+          <PendingLink
+            id={`${variant}:/platform/organisations`}
+            href="/platform/organisations"
+            report={reportPending}
+            onClick={() => setMobileOpen(false)}
+            title={collapsed ? "Platform administration" : undefined}
+            className={cn("flex items-center rounded-xl py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50", collapsed ? "justify-center px-2" : "gap-3 px-3")}
+          >
+            {(pending) => (
+              <>
+                {pending ? <NavSpinner /> : <Building2 size={18} />} {!collapsed && "Platform administration"}
+              </>
+            )}
+          </PendingLink>
         </div>
       )}
     </div>
@@ -120,6 +161,7 @@ export default function AppShellClient({ children, userName, avatarUrl, organisa
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <TopProgressBar active={navigating} />
       <aside className={cn("fixed inset-y-0 left-0 z-40 hidden border-r border-slate-200 transition-[width] duration-200 lg:block", desktopCollapsed ? "w-20" : "w-64")}>
         {sidebar(desktopCollapsed)}
         <button
@@ -139,7 +181,7 @@ export default function AppShellClient({ children, userName, avatarUrl, organisa
             <button className="absolute right-3 top-3 rounded-lg p-2 text-slate-500" onClick={() => setMobileOpen(false)} aria-label="Close navigation">
               <X size={20} />
             </button>
-            {sidebar(false)}
+            {sidebar(false, "mobile")}
           </aside>
         </div>
       )}
@@ -155,10 +197,17 @@ export default function AppShellClient({ children, userName, avatarUrl, organisa
             className="relative w-full min-w-0 max-w-xl flex-[2]"
             onSubmit={(event) => {
               event.preventDefault();
-              if (search.trim()) router.push(`/assessments?search=${encodeURIComponent(search.trim())}`);
+              const query = search.trim();
+              // Inside a transition so the header can show the search is running; a push
+              // outside one gives no pending state to report.
+              if (query) startSearch(() => router.push(`/assessments?search=${encodeURIComponent(query)}`));
             }}
           >
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+            {searchPending ? (
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 h-[17px] w-[17px] animate-spin rounded-full border-2 border-slate-200 border-t-primary" aria-label="Searching" />
+            ) : (
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+            )}
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -169,7 +218,7 @@ export default function AppShellClient({ children, userName, avatarUrl, organisa
           <div className="relative flex min-w-0 flex-1 justify-end" ref={accountMenuRef}>
             <button
               type="button"
-              onClick={() => setAccountMenuOpen((open) => !open)}
+              onClick={() => setAccountMenuOpen(!accountMenuOpen)}
               aria-haspopup="menu"
               aria-expanded={accountMenuOpen}
               aria-label={`Account menu for ${userName}`}
@@ -195,14 +244,21 @@ export default function AppShellClient({ children, userName, avatarUrl, organisa
                   <p className="truncate text-sm font-semibold text-slate-900">{userName}</p>
                   <p className="truncate text-xs text-slate-500">{roleLabel} · {organisationName}</p>
                 </div>
-                <Link
+                <PendingLink
+                  id="account:/settings/profile"
                   href="/settings/profile"
+                  report={reportPending}
                   role="menuitem"
-                  onClick={() => setAccountMenuOpen(false)}
+                  // Left open on click deliberately: closing it here would unmount the link
+                  // and take its spinner with it. The pathname effect closes it on arrival.
                   className="flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                 >
-                  <Settings size={17} aria-hidden="true" /> Settings
-                </Link>
+                  {(pending) => (
+                    <>
+                      {pending ? <NavSpinner /> : <Settings size={17} aria-hidden="true" />} Settings
+                    </>
+                  )}
+                </PendingLink>
                 <button
                   type="button"
                   role="menuitem"
