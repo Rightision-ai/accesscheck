@@ -15,6 +15,7 @@ import type {
 } from "@/lib/adaptation-plans/types";
 import { formatCostRange } from "@/lib/adaptation-plans/narrative";
 import { ACCESSCHECK_ESTIMATION_LABEL } from "@/lib/rate-cards/accesscheckEstimation";
+import ScheduleOfRatesModal from "@/app/components/common/ScheduleOfRatesModal";
 import { ENGINE_DISPLAY_NAME } from "@/lib/engine/models";
 
 type Props = {
@@ -222,6 +223,7 @@ function HeadlineStrip({
   tier: TierPlan;
   planSet: AdaptationPlanSet | null;
 }) {
+  const [ratesOpen, setRatesOpen] = useState(false);
   return (
     <section className="report-block mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <HeadlineTile
@@ -251,7 +253,12 @@ function HeadlineStrip({
       />
       {/* Which schedule of rates priced these lines — the same provenance the plans tab shows,
           so a surveyor does not have to scroll to the footer to answer "priced from what?". */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3">
+      <button
+        type="button"
+        onClick={() => setRatesOpen(true)}
+        aria-label="View the schedule of rates these lines are priced from"
+        className="pdf-hide rounded-xl border border-slate-200 bg-white p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary-light"
+      >
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
           Schedule of rates
         </div>
@@ -263,7 +270,14 @@ function HeadlineStrip({
             ? `Version ${planSet.rateCardEffectiveFrom}`
             : "Indicative — confirm against a quote"}
         </div>
-      </div>
+      </button>
+
+      <ScheduleOfRatesModal
+        open={ratesOpen}
+        cardId={planSet?.rateCardId ?? null}
+        fallbackLabel={planSet?.rateCardLabel ?? ACCESSCHECK_ESTIMATION_LABEL}
+        onClose={() => setRatesOpen(false)}
+      />
     </section>
   );
 }

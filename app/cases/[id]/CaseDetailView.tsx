@@ -43,6 +43,8 @@ import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
 import { resolveSurveyRow } from "@/lib/surveys/resolveSurveyRow";
 import CostEstimationRows from "@/app/components/report/CostEstimationRows";
 import type { AdaptationPlanSet } from "@/lib/adaptation-plans/types";
+import { ACCESSCHECK_ESTIMATION_LABEL } from "@/lib/rate-cards/accesscheckEstimation";
+import ScheduleOfRatesModal from "@/app/components/common/ScheduleOfRatesModal";
 import { pollAdaptationPlan } from "@/lib/adaptation-plans/client";
 import {
   LAHR_BAND_BY_ID,
@@ -50,7 +52,7 @@ import {
   type LahrBandId,
 } from "@/lib/accessibility/lahr/types";
 import { formatCostRange } from "@/lib/adaptation-plans/narrative";
-import Link from "next/link";
+import PhotoLightbox from "@/app/components/common/PhotoLightbox";
 
 /**
  * Plain-English audience profile per band — what the home actually serves and where it falls
@@ -138,7 +140,7 @@ interface CaseDetailViewProps {
   /** Server-known background job state. When "pending", a regen is in flight server-side and
    *  the persisted plan is the stale one — we should show the loading state instead. */
   costEstimationJobStatus?: "pending" | "failed" | null;
-  /** The organisation's active rate card, for the "priced by a superseded version" banner. */
+  /** The organisation's active schedule of rates, for the "priced by a superseded version" banner. */
   activeRateCard?: { id: string; version: number; label: string } | null;
 }
 
@@ -188,6 +190,7 @@ function AdaptationPlanSummary({
   currentBand: LahrBandId;
   planSet: AdaptationPlanSet | null | undefined;
 }) {
+  const [ratesOpen, setRatesOpen] = useState(false);
   const currentDef = LAHR_BAND_BY_ID[currentBand];
   const best = planSet?.tiers.reduce<(typeof planSet.tiers)[number] | null>(
     (chosen, tier) => {
@@ -271,13 +274,16 @@ function AdaptationPlanSummary({
         )}
       </div>
 
-      {/* Rate card provenance — the whole block is the link to the card itself. Tinted rather
-          than divided off by a rule: which card priced these plans is the first thing to check
-          when a figure looks wrong, and it was too easy to miss as plain text. */}
-      <Link
-        href="/settings/rate-card"
-        aria-label="View the rate card these plans are priced from"
-        className="group flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary-light px-3.5 py-3 no-underline transition-colors hover:border-primary/50 hover:bg-[#d7f2e3] md:col-span-2 xl:col-span-1"
+      {/* Schedule-of-rates provenance — the whole block opens the rates that priced THESE plans.
+          It used to link to settings, which always shows the rates in force today: the wrong
+          answer whenever a plan was priced by a version since superseded. Tinted rather than
+          divided off by a rule: which rates priced these plans is the first thing to check when
+          a figure looks wrong, and it was too easy to miss as plain text. */}
+      <button
+        type="button"
+        onClick={() => setRatesOpen(true)}
+        aria-label="View the schedule of rates these plans are priced from"
+        className="group flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-primary/25 bg-primary-light px-3.5 py-3 text-left no-underline transition-colors hover:border-primary/50 hover:bg-[#d7f2e3] md:col-span-2 xl:col-span-1"
       >
         <span className="flex min-w-0 items-center gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-primary shadow-sm">
@@ -285,10 +291,10 @@ function AdaptationPlanSummary({
           </span>
           <span className="flex min-w-0 flex-col">
             <span className="mb-0.5 text-[11px] font-bold uppercase tracking-wide text-primary-dark sm:text-xs">
-              Rate card
+              Schedule of rates
             </span>
             <span className="text-sm font-extrabold leading-snug text-slate-900 xl:max-w-56">
-              {planSet?.rateCardLabel ?? "National indicative — obtain quote"}
+              {planSet?.rateCardLabel ?? ACCESSCHECK_ESTIMATION_LABEL}
             </span>
             {planSet?.rateCardEffectiveFrom && (
               <span className="mt-0.5 text-[11px] font-semibold text-slate-600">
@@ -301,7 +307,14 @@ function AdaptationPlanSummary({
           size={18}
           className="shrink-0 text-primary/60 transition-colors group-hover:text-primary"
         />
-      </Link>
+      </button>
+
+      <ScheduleOfRatesModal
+        open={ratesOpen}
+        cardId={planSet?.rateCardId ?? null}
+        fallbackLabel={planSet?.rateCardLabel ?? ACCESSCHECK_ESTIMATION_LABEL}
+        onClose={() => setRatesOpen(false)}
+      />
     </div>
   );
 }
@@ -361,6 +374,10 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
   } | null>(null);
   const [isMapLoading, setIsMapLoading] = useState(false);
   const [evidenceIndex, setEvidenceIndex] = useState(0);
+  const [lightboxPhoto, setLightboxPhoto] = useState<{
+    url: string;
+    caption: string;
+  } | null>(null);
   const { aiReport, wizardData } = caseData.mlData || {};
   const summary = aiReport?.Summary;
   // Build the same row the report tab classifies against, so both tabs always show the same
@@ -767,64 +784,48 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
                     lahrEvaluation?.criteria.filter(
                       (c) => c.triggeredRules.length > 0 && c.id !== "g_rules",
                     ) ?? [];
-                  const fallbackReasons = caseData.accessibilityReasons ?? [];
-                  if (
-                    cappingSections.length === 0 &&
-                    fallbackReasons.length === 0
-                  ) {
-                    return null;
-                  }
+                  if (cappingSections.length === 0) return null;
                   return (
                     <section className="space-y-2">
                       <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                         What&apos;s holding this grade back
                       </h3>
-                      {cappingSections.length > 0 ? (
-                        <ul className="space-y-2 m-0">
-                          {cappingSections.map((c) => (
-                            <li
-                              key={c.id}
-                              className="rounded-md border border-slate-200 bg-slate-50/60 p-3"
-                            >
-                              <div className="flex items-center justify-between gap-2 mb-1">
-                                <span className="text-[13px] font-semibold text-slate-800">
-                                  {c.label}
+                      <ul className="space-y-2 m-0">
+                        {cappingSections.map((c) => (
+                          <li
+                            key={c.id}
+                            className="rounded-md border border-slate-200 bg-slate-50/60 p-3"
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <span className="text-[13px] font-semibold text-slate-800">
+                                {c.label}
+                              </span>
+                              {c.cappedBand && (
+                                <span
+                                  className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white"
+                                  style={{
+                                    backgroundColor:
+                                      LAHR_BAND_BY_ID[c.cappedBand].color,
+                                  }}
+                                >
+                                  Caps at {c.cappedBand}
                                 </span>
-                                {c.cappedBand && (
-                                  <span
-                                    className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white"
-                                    style={{
-                                      backgroundColor:
-                                        LAHR_BAND_BY_ID[c.cappedBand].color,
-                                    }}
-                                  >
-                                    Caps at {c.cappedBand}
-                                  </span>
-                                )}
-                              </div>
-                              <ul className="list-disc pl-5 text-[12px] text-slate-600 space-y-0.5 m-0">
-                                {c.triggeredRules.slice(0, 3).map((r) => (
-                                  <li key={r.n}>{r.description}</li>
-                                ))}
-                                {c.triggeredRules.length > 3 && (
-                                  <li className="text-slate-400">
-                                    + {c.triggeredRules.length - 3} more rule
-                                    {c.triggeredRules.length - 3 === 1
-                                      ? ""
-                                      : "s"}
-                                  </li>
-                                )}
-                              </ul>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1 m-0">
-                          {fallbackReasons.map((r, i) => (
-                            <li key={i}>{r}</li>
-                          ))}
-                        </ul>
-                      )}
+                              )}
+                            </div>
+                            <ul className="list-disc pl-5 text-[12px] text-slate-600 space-y-0.5 m-0">
+                              {c.triggeredRules.slice(0, 3).map((r) => (
+                                <li key={r.n}>{r.description}</li>
+                              ))}
+                              {c.triggeredRules.length > 3 && (
+                                <li className="text-slate-400">
+                                  + {c.triggeredRules.length - 3} more rule
+                                  {c.triggeredRules.length - 3 === 1 ? "" : "s"}
+                                </li>
+                              )}
+                            </ul>
+                          </li>
+                        ))}
+                      </ul>
                     </section>
                   );
                 })()}
@@ -1013,23 +1014,32 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
               </h3>
               {(caseData.evidence?.length ?? 0) > 0 ? (
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-                  {(caseData.evidence || []).map((img: string, idx: number) => (
-                    <div
-                      key={idx}
-                      className="rounded-2xl overflow-hidden border border-slate-200 relative"
-                    >
-                      <img
-                        src={img}
-                        alt="Evidence"
-                        className="w-full aspect-16/10 object-cover block"
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 p-3 bg-linear-to-t from-black/80 to-transparent text-white text-[11px] font-extrabold">
-                        {idx === 0
-                          ? "External Elevation"
-                          : `Internal Asset #${idx}`}
-                      </div>
-                    </div>
-                  ))}
+                  {(caseData.evidence || []).map((img: string, idx: number) => {
+                    const label =
+                      idx === 0
+                        ? "External Elevation"
+                        : `Internal Asset #${idx}`;
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() =>
+                          setLightboxPhoto({ url: img, caption: label })
+                        }
+                        aria-label={`View ${label} full size`}
+                        className="rounded-2xl overflow-hidden border border-slate-200 relative block w-full text-left cursor-zoom-in"
+                      >
+                        <img
+                          src={img}
+                          alt="Evidence"
+                          className="w-full aspect-16/10 object-cover block"
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 p-3 bg-linear-to-t from-black/80 to-transparent text-white text-[11px] font-extrabold">
+                          {label}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="border border-slate-200 rounded-xl bg-slate-50 h-[180px] flex flex-col items-center justify-center text-slate-400">
@@ -1076,6 +1086,13 @@ const CaseDetailView: React.FC<CaseDetailViewProps> = ({
           </div>
         )}
       </div>
+
+      <PhotoLightbox
+        photo={lightboxPhoto?.url ?? null}
+        caption={lightboxPhoto?.caption}
+        onClose={() => setLightboxPhoto(null)}
+        alt={lightboxPhoto?.caption ?? "Evidence photo"}
+      />
     </div>
   );
 };
