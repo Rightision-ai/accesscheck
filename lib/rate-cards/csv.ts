@@ -107,10 +107,10 @@ const HEADER_ALIASES: Record<string, string> = {
   days: "duration_days_expected",
   duration_days: "duration_days_expected",
   label: "source_label",
-  // Deliberately no `source` alias. The export writes a `source` column holding "national" or
+  // Deliberately no `source` alias. The export writes a `source` column holding "accesscheck" or
   // "organisation" — provenance, not a price label — alongside `source_label`, so aliasing the
   // two together made the app's own download fail to re-upload ("two columns both mean
-  // source_label"), and a file carrying only `source` would have written "national" as the
+  // source_label"), and a file carrying only `source` would have written "accesscheck" as the
   // label on every line. It is ignored instead; see IGNORED_COLUMNS.
 };
 
@@ -164,7 +164,7 @@ const MAX_PREAMBLE_LINES = 10;
  *
  * Numbers and Excel both write the table or sheet name as a title row above the header when
  * they save a CSV, so downloading our own template, opening it and saving it produces a file
- * whose line 1 is `accesscheck-rate-card-template,,,,,,,,`. Taking line 1 as the header made
+ * whose line 1 is `accesscheck-schedule-of-rates-template,,,,,,,,`. Taking line 1 as the header made
  * every required column look missing and every real column look unrecognised — eleven errors,
  * none of which named the actual problem.
  *
@@ -191,7 +191,7 @@ function findHeaderLine(text: string): { charIndex: number; preambleLines: numbe
 /**
  * C1 control characters (U+0080–U+009F) never occur in legitimate text. They appear when a
  * UTF-8 file is read as Windows-1252 and saved again, which is what turns
- * `National indicative – obtain quote` into `National indicative â obtain quote`. The file
+ * `AccessCheck estimation – obtain quote` into `AccessCheck estimation â obtain quote`. The file
  * still parses, so this is a warning — but `source_label` is printed on the plan a council
  * takes to a DFG panel, and garbled text should be caught before publishing, not after.
  */

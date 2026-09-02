@@ -102,11 +102,6 @@ export function mapSurveyToCase(s: any): Case {
       s.inspector_phone || s.raw_ai_data?.wizardData?.phoneNumber || undefined,
     assessmentDate: s.inspection_date || s.created_at,
     aiScore: s.compliance_score ? Number(s.compliance_score) : null,
-    // Homingo-grade fields are no longer populated. The Accessible Housing Rules band is the
-    // single source of truth and is computed client-side from the survey row via classifyLahr().
-    accessibilityGrade: null,
-    accessibilityLabel: null,
-    accessibilityReasons: [],
     status: normalizeAssessmentStatus(s.status),
     source: "AI Assessment",
     date: s.created_at,

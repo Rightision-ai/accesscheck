@@ -46,7 +46,7 @@ export type RateCardItem = {
   effectiveFrom: string;
 };
 
-/** A versioned set of rates. `organisationId: null` is the national indicative card. */
+/** A versioned set of rates. `organisationId: null` is the AccessCheck estimation card. */
 export type RateCard = {
   id: string | null;
   organisationId: string | null;

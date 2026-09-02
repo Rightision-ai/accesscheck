@@ -34,6 +34,7 @@ import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
 import { drawReportCover } from "@/lib/reports/pdfCover";
 import { isAssessmentLocked } from "@/lib/assessments/status";
+import PhotoLightbox from "@/app/components/common/PhotoLightbox";
 
 interface ReportViewProps {
   caseData: Case;
@@ -44,7 +45,7 @@ interface ReportViewProps {
   /** True when the parent is resuming a server-side regen on first paint (status=pending).
    *  Forces the cost-estimation appendix into its loading state. */
   costEstimationForceLoading?: boolean;
-  /** The organisation's active rate card, for the "priced by a superseded version" banner. */
+  /** The organisation's active schedule of rates, for the "priced by a superseded version" banner. */
   activeRateCard?: { id: string; version: number; label: string } | null;
   /** Called after a successful in-place save (Reassess). Parent should `router.refresh()` so
    *  the case-detail server component re-fetches and propagates fresh data down. */
@@ -1339,6 +1340,10 @@ const ReportView: React.FC<ReportViewProps> = ({
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean } | null>(
     null,
   );
+  const [lightboxPhoto, setLightboxPhoto] = useState<{
+    url: string;
+    caption: string;
+  } | null>(null);
 
   const rawAhr = caseData.mlData?.rawAhr || {};
   const wizardData = caseData.mlData?.wizardData || {};
@@ -2127,6 +2132,14 @@ const ReportView: React.FC<ReportViewProps> = ({
         isSaving={isSaving}
         onClose={() => setConfirmModal(null)}
         onConfirm={finaliseSave}
+      />
+
+      {/* Deliberately outside .report-pages-wrapper so html2canvas never captures it. */}
+      <PhotoLightbox
+        photo={lightboxPhoto?.url ?? null}
+        caption={lightboxPhoto?.caption}
+        onClose={() => setLightboxPhoto(null)}
+        alt={lightboxPhoto?.caption ?? "Evidence photo"}
       />
 
       {/* AHR Main Document Content - fixed width on all devices; zoom/scroll to view on small screens */}
@@ -10218,15 +10231,23 @@ const ReportView: React.FC<ReportViewProps> = ({
                   >
                     {chunk.map((img: string, idx: number) => {
                       const globalIdx = pageIdx * chunkSize + idx;
+                      const label =
+                        globalIdx === 0
+                          ? "External Elevation"
+                          : `Internal Asset #${globalIdx}`;
                       return (
                         <div
                           key={globalIdx}
                           className="pdf-avoid-break"
+                          onClick={() =>
+                            setLightboxPhoto({ url: img, caption: label })
+                          }
                           style={{
                             borderRadius: "16px",
                             overflow: "hidden",
                             border: `1px solid ${AHR_BORDER}`,
                             position: "relative",
+                            cursor: "zoom-in",
                           }}
                         >
                           <img
@@ -10252,9 +10273,7 @@ const ReportView: React.FC<ReportViewProps> = ({
                               fontWeight: "800",
                             }}
                           >
-                            {globalIdx === 0
-                              ? "External Elevation"
-                              : `Internal Asset #${globalIdx}`}
+                            {label}
                           </div>
                         </div>
                       );

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { parseCandidatePool } from "@/lib/adaptation-plans/candidatePool";
-import { nationalIndicativeCard } from "@/lib/rate-cards/nationalIndicative";
+import { accesscheckEstimationCard } from "@/lib/rate-cards/accesscheckEstimation";
 
-const rateCard = nationalIndicativeCard();
+const rateCard = accesscheckEstimationCard();
 const triggeredRules = new Set([4, 53, 64, 65, 71, 72, 75, 79]);
 
 function parse(raw: unknown, maxPoolSize?: number) {
@@ -17,7 +17,7 @@ const wetRoom = {
 };
 
 describe("parseCandidatePool", () => {
-  it("prices a candidate from the rate card", () => {
+  it("prices a candidate from the schedule of rates", () => {
     const { pool } = parse({ candidates: [wetRoom] });
 
     expect(pool).toHaveLength(1);
@@ -53,7 +53,7 @@ describe("parseCandidatePool", () => {
       {
         label: "Widen the rear garden path",
         proposedWorkItem: "path_widening",
-        reason: "No rate-card line matches this work — obtain a quote.",
+        reason: "No schedule-of-rates line matches this work — obtain a quote.",
       },
     ]);
   });

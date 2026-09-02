@@ -22,5 +22,6 @@ export interface WizardStepProps {
   onPhotosChanged?: (updatedCategoryPhotos: Record<string, string[]>) => void;
   onClearFloorPlan?: () => void;
   onSelectPlanningDoc?: (sourceId: string, description?: string) => Promise<boolean>;
-  streetViewSeededUrl?: string | null;
+  /** The background Street View lookup/seed is still in flight. */
+  streetViewPending?: boolean;
 }

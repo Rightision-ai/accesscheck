@@ -1,7 +1,7 @@
 import { Skeleton, SkeletonCard } from "@/app/components/property-check/ui";
 
 /**
- * A case pulls its survey, adaptation plans, rate card and signed evidence URLs before it
+ * A case pulls its survey, adaptation plans, schedule of rates and signed evidence URLs before it
  * can render, so this is the boundary users wait at most often.
  */
 export default function CaseLoading() {

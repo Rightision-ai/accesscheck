@@ -72,13 +72,13 @@ Audience: An OT is the primary reader. They understand clinical need and tenant 
 
 Context:
 - The property has been assessed against the Accessible Housing Rules (LAHR) framework. Its current band is **${currentBand}**.
-- You are NOT choosing what fits a budget. Return every adaptation that is physically feasible on this property, in one flat list. The software selects which of them fit each funding tier, prices them from the council's rate card, and projects the resulting band.
+- You are NOT choosing what fits a budget. Return every adaptation that is physically feasible on this property, in one flat list. The software selects which of them fit each funding tier, prices them from the council's schedule of rates, and projects the resulting band.
 - Do not rank, bundle or total anything. Do not mention budgets, tiers or grant caps.
 
 Accessible Housing Rules currently capping this property:
 ${rulesBlock(triggeredRules)}
 
-Available work items — choose by code; the software prices each one from the council's rate card:
+Available work items — choose by code; the software prices each one from the council's schedule of rates:
 ${workItemsBlock(workItems)}
 
 Your job, for each adaptation you propose:
@@ -110,7 +110,7 @@ Also return:
  *
  * This is only expressible because the model no longer emits `field_patches` — Gemini's schema
  * subset has no way to describe an open map, and that was the single free-form field in the old
- * payload. With patches owned by the rate card, the whole response is schema-constrained and
+ * payload. With patches owned by the schedule of rates, the whole response is schema-constrained and
  * the JSON repairer drops back to a truncation-only safety net.
  */
 export const ADAPTATION_POOL_RESPONSE_SCHEMA = {

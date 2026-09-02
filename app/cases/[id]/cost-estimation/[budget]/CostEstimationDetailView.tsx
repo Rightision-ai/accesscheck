@@ -14,6 +14,8 @@ import type {
   TierPlan,
 } from "@/lib/adaptation-plans/types";
 import { formatCostRange } from "@/lib/adaptation-plans/narrative";
+import { ACCESSCHECK_ESTIMATION_LABEL } from "@/lib/rate-cards/accesscheckEstimation";
+import ScheduleOfRatesModal from "@/app/components/common/ScheduleOfRatesModal";
 import { ENGINE_DISPLAY_NAME } from "@/lib/engine/models";
 
 type Props = {
@@ -221,6 +223,7 @@ function HeadlineStrip({
   tier: TierPlan;
   planSet: AdaptationPlanSet | null;
 }) {
+  const [ratesOpen, setRatesOpen] = useState(false);
   return (
     <section className="report-block mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <HeadlineTile
@@ -248,21 +251,33 @@ function HeadlineStrip({
               : "significant works; consider decant"
         }
       />
-      {/* Which rate card priced these lines — the same provenance the plans tab shows, so a
-          surveyor does not have to scroll to the footer to answer "priced from what?". */}
-      <div className="rounded-xl border border-slate-200 bg-white p-3">
+      {/* Which schedule of rates priced these lines — the same provenance the plans tab shows,
+          so a surveyor does not have to scroll to the footer to answer "priced from what?". */}
+      <button
+        type="button"
+        onClick={() => setRatesOpen(true)}
+        aria-label="View the schedule of rates these lines are priced from"
+        className="pdf-hide rounded-xl border border-slate-200 bg-white p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary-light"
+      >
         <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-          Rate card
+          Schedule of rates
         </div>
         <div className="mt-1 text-sm font-extrabold leading-snug text-slate-900">
-          {planSet?.rateCardLabel ?? "National indicative — obtain quote"}
+          {planSet?.rateCardLabel ?? ACCESSCHECK_ESTIMATION_LABEL}
         </div>
         <div className="mt-0.5 text-[11px] text-slate-500">
           {planSet?.rateCardEffectiveFrom
             ? `Version ${planSet.rateCardEffectiveFrom}`
             : "Indicative — confirm against a quote"}
         </div>
-      </div>
+      </button>
+
+      <ScheduleOfRatesModal
+        open={ratesOpen}
+        cardId={planSet?.rateCardId ?? null}
+        fallbackLabel={planSet?.rateCardLabel ?? ACCESSCHECK_ESTIMATION_LABEL}
+        onClose={() => setRatesOpen(false)}
+      />
     </section>
   );
 }

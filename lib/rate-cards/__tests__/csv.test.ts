@@ -5,9 +5,9 @@ import {
   resolveAgainstNational,
   toCommitPayload,
 } from "@/lib/rate-cards/csv";
-import { nationalIndicativeCard } from "@/lib/rate-cards/nationalIndicative";
+import { accesscheckEstimationCard } from "@/lib/rate-cards/accesscheckEstimation";
 
-const national = nationalIndicativeCard().itemsByCode;
+const national = accesscheckEstimationCard().itemsByCode;
 
 const HEADER = "work_item_code,rate_low_gbp,rate_expected_gbp,rate_high_gbp";
 const csv = (...lines: string[]) => [HEADER, ...lines].join("\n");

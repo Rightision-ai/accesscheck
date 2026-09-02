@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     }
     return csvResponse(
       data.source_csv,
-      data.source_filename ?? `rate-card-v${data.version}.csv`,
+      data.source_filename ?? `schedule-of-rates-v${data.version}.csv`,
     );
   }
 
@@ -74,9 +74,9 @@ export async function GET(request: NextRequest) {
       source:
         card.ownedCardId !== null && item.rateCardId === card.ownedCardId
           ? "organisation"
-          : "national",
+          : "accesscheck",
     })),
   );
 
-  return csvResponse(csv, "accesscheck-rate-card-in-use.csv");
+  return csvResponse(csv, "accesscheck-schedule-of-rates-in-use.csv");
 }

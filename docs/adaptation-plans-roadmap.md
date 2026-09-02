@@ -16,7 +16,7 @@ The plan is no longer three budget-shaped guesses repaired after the fact.
   [`lib/adaptation-plans/selector.ts`](../lib/adaptation-plans/selector.ts). Cumulativity and band
   monotonicity are structural — `enforceCumulativeTiers()`, the tier-collapse fallback and the
   band-regression guard are gone.
-- **Cost ranges** (`CostRange`) replacing point estimates, and a seeded national **rate card**
+- **Cost ranges** (`CostRange`) replacing point estimates, and a seeded built-in **schedule of rates**
   ([`lib/rate-cards/`](../lib/rate-cards/)) so every price has provenance.
 - **Per-line confidence** and a "verify on site" flag, replacing the plan-level bar.
 - **Engine model registry** ([`lib/engine/models.ts`](../lib/engine/models.ts)) — one place to
@@ -26,11 +26,11 @@ Three defects fixed along the way: the band-source mismatch (the API classified 
 while every UI surface classified a rebuilt one), the prompt's contradictory patch whitelist, and
 three patch keys the classifier never read.
 
-## Phase 1.5 — custom rate cards · **in progress**
+## Phase 1.5 — custom schedules of rates · **in progress**
 
 Upload, versioning and use of an authority's own schedule of rates; plus locking plan
 regeneration on a completed case. Pulled forward out of Phase 2 because pricing provenance is
-worth little if every authority is stuck on national indicative figures.
+worth little if every authority is stuck on AccessCheck estimation figures.
 
 ---
 
@@ -70,7 +70,7 @@ to several properties? The latter is required for waiting-list matching in Phase
   with candidate properties drawn from the authority's own banded stock.
 - **Then** property value context — Price Paid indexed on UK HPI, LSOA median fallback, authority
   override — as a proportionality flag only, never a decision rule.
-- **Portfolio roll-up**, **waiting-list matching**, and **actual-cost feedback** into the rate card.
+- **Portfolio roll-up**, **waiting-list matching**, and **actual-cost feedback** into the schedule of rates.
 
 The spec is explicit that the appraisal comes **before** the valuation: the appraisal works
 entirely on the customer's own data and delivers the differentiating answer on its own, whereas

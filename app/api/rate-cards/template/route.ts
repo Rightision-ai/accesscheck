@@ -35,7 +35,8 @@ export async function GET() {
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": 'attachment; filename="accesscheck-rate-card-template.csv"',
+      "Content-Disposition":
+        'attachment; filename="accesscheck-schedule-of-rates-template.csv"',
     },
   });
 }

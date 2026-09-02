@@ -5,10 +5,10 @@ import businessRules from "@/lib/accessibility/lahr/tables/business-rules.json";
 import { buildRuleEnv } from "@/lib/accessibility/lahr/env";
 import { PATCHABLE_COLUMNS } from "@/lib/adaptation-plans/patchWhitelist";
 import {
-  NATIONAL_INDICATIVE_ITEMS,
-  nationalIndicativeCard,
+  ACCESSCHECK_ESTIMATION_ITEMS,
+  accesscheckEstimationCard,
   type SeedItem,
-} from "@/lib/rate-cards/nationalIndicative";
+} from "@/lib/rate-cards/accesscheckEstimation";
 import { RATE_CARD_UNITS } from "@/lib/rate-cards/types";
 
 const MIGRATION = resolve(
@@ -22,9 +22,9 @@ const ruleNumbers = new Set(
   ),
 );
 
-describe("national indicative rate card", () => {
+describe("AccessCheck estimation schedule of rates", () => {
   it("keeps costs and durations ordered", () => {
-    for (const item of NATIONAL_INDICATIVE_ITEMS) {
+    for (const item of ACCESSCHECK_ESTIMATION_ITEMS) {
       expect(item.rateLowGbp, item.workItemCode).toBeLessThanOrEqual(item.rateExpectedGbp);
       expect(item.rateExpectedGbp, item.workItemCode).toBeLessThanOrEqual(item.rateHighGbp);
       expect(item.rateLowGbp, item.workItemCode).toBeGreaterThan(0);
@@ -38,10 +38,10 @@ describe("national indicative rate card", () => {
   });
 
   it("has unique work item codes and valid enums", () => {
-    const codes = NATIONAL_INDICATIVE_ITEMS.map((item) => item.workItemCode);
+    const codes = ACCESSCHECK_ESTIMATION_ITEMS.map((item) => item.workItemCode);
 
     expect(new Set(codes).size).toBe(codes.length);
-    for (const item of NATIONAL_INDICATIVE_ITEMS) {
+    for (const item of ACCESSCHECK_ESTIMATION_ITEMS) {
       expect(RATE_CARD_UNITS, item.workItemCode).toContain(item.unit);
       expect(["minor", "moderate", "major"], item.workItemCode).toContain(item.difficulty);
       expect(item.trades.length, item.workItemCode).toBeGreaterThan(0);
@@ -49,7 +49,7 @@ describe("national indicative rate card", () => {
   });
 
   it("only references rules that exist", () => {
-    const unknown = NATIONAL_INDICATIVE_ITEMS.flatMap((item) =>
+    const unknown = ACCESSCHECK_ESTIMATION_ITEMS.flatMap((item) =>
       item.addressesRuleNumbers
         .filter((n) => !ruleNumbers.has(n))
         .map((n) => `${item.workItemCode}: rule ${n}`),
@@ -64,7 +64,7 @@ describe("national indicative rate card", () => {
     const before = buildRuleEnv({}) as unknown as Record<string, unknown>;
     const offenders: string[] = [];
 
-    for (const item of NATIONAL_INDICATIVE_ITEMS) {
+    for (const item of ACCESSCHECK_ESTIMATION_ITEMS) {
       for (const column of Object.keys(item.fieldPatches)) {
         if (!PATCHABLE_COLUMNS.has(column)) {
           offenders.push(`${item.workItemCode}: ${column} not whitelisted`);
@@ -84,7 +84,7 @@ describe("national indicative rate card", () => {
   });
 
   it("carries the corrections to the 2026-04 catalogue", () => {
-    const byCode = nationalIndicativeCard().itemsByCode;
+    const byCode = accesscheckEstimationCard().itemsByCode;
 
     // Dropped keys — each could never affect a classification.
     expect(byCode.get("stair_lift_straight")?.fieldPatches).not.toHaveProperty("has_stair_lift");
@@ -107,7 +107,7 @@ describe("national indicative rate card", () => {
     // The TS constant and the migration are two copies of the same data. Nothing but this test
     // stops them drifting the moment one of them is edited.
     expect(parseSeedFromMigration()).toEqual(
-      NATIONAL_INDICATIVE_ITEMS.map((item) => ({ ...item })),
+      ACCESSCHECK_ESTIMATION_ITEMS.map((item) => ({ ...item })),
     );
   });
 });

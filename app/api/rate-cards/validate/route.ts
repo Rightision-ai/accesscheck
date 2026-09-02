@@ -7,7 +7,7 @@ import {
   resolveAgainstNational,
 } from "@/lib/rate-cards/csv";
 import { buildRateCardDiff } from "@/lib/rate-cards/diff";
-import { nationalIndicativeCard } from "@/lib/rate-cards/nationalIndicative";
+import { accesscheckEstimationCard } from "@/lib/rate-cards/accesscheckEstimation";
 import {
   loadActiveRateCardRef,
   loadRateCardForOrganisation,
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient();
   const effective = await loadRateCardForOrganisation(supabase, context.organisationId);
-  const national = nationalIndicativeCard();
+  const national = accesscheckEstimationCard();
   const activeCard = await loadActiveRateCardRef(supabase, context.organisationId);
 
   const parsed = parseRateCardCsv(body.csv);

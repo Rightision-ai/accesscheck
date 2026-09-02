@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nationalIndicativeCard } from "@/lib/rate-cards/nationalIndicative";
+import { accesscheckEstimationCard } from "@/lib/rate-cards/accesscheckEstimation";
 import {
   clampQuantity,
   formatCostRange,
@@ -9,7 +9,7 @@ import {
 } from "@/lib/rate-cards/pricing";
 import type { RateCard, RateCardItem } from "@/lib/rate-cards/types";
 
-const card = nationalIndicativeCard();
+const card = accesscheckEstimationCard();
 const wetRoom = card.itemsByCode.get("wet_room_conversion") as RateCardItem;
 const thresholdRamp = card.itemsByCode.get("threshold_ramp") as RateCardItem;
 
@@ -164,7 +164,7 @@ describe("priceCandidate", () => {
       quantity: 2,
       unit: "each",
       rateCardId: null,
-      rateCardLabel: "National indicative — obtain quote",
+      rateCardLabel: "AccessCheck estimation — obtain quote",
       regionMultiplier: 1.15,
       effectiveFrom: "2026-04-01",
     });

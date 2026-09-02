@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 import {
-  NATIONAL_INDICATIVE_CODE,
-  NATIONAL_INDICATIVE_LABEL,
-  nationalIndicativeCard,
-} from "./nationalIndicative";
+  ACCESSCHECK_ESTIMATION_CODE,
+  ACCESSCHECK_ESTIMATION_LABEL,
+  accesscheckEstimationCard,
+} from "./accesscheckEstimation";
 import { isPatchableColumn } from "@/lib/adaptation-plans/patchWhitelist";
 import { indexByCode, type Difficulty, type RateCard, type RateCardItem, type RateCardUnit } from "./types";
 
@@ -99,7 +99,7 @@ async function loadItems(
  *
  * An organisation's own card does not replace the national one, it **shadows** it per
  * `work_item_code`: an authority that uploads a schedule of rates covering six work items gets
- * their prices for those six and the national indicative figures for the rest, rather than
+ * their prices for those six and the AccessCheck estimation figures for the rest, rather than
  * losing coverage for everything they did not price.
  *
  * Falls back to the built-in constant when the database has no national row — so a fresh
@@ -128,15 +128,15 @@ export async function loadRateCardForOrganisation(
     .filter((card) => card.organisation_id === null)
     .sort(
       (a, b) =>
-        Number(b.code === NATIONAL_INDICATIVE_CODE) -
-          Number(a.code === NATIONAL_INDICATIVE_CODE) || newestFirst(a, b),
+        Number(b.code === ACCESSCHECK_ESTIMATION_CODE) -
+          Number(a.code === ACCESSCHECK_ESTIMATION_CODE) || newestFirst(a, b),
     );
   const national = nationals[0];
   const owned = cards
     .filter((card) => card.organisation_id === organisationId)
     .sort(newestFirst)[0];
 
-  if (!national && !owned) return nationalIndicativeCard();
+  if (!national && !owned) return accesscheckEstimationCard();
 
   const rows = await loadItems(
     supabase,
@@ -162,20 +162,120 @@ export async function loadRateCardForOrganisation(
       : a.priorityHint - b.priorityHint,
   );
 
-  if (items.length === 0) return nationalIndicativeCard();
+  if (items.length === 0) return accesscheckEstimationCard();
 
   const primary = owned ?? national!;
   return {
     id: primary.id,
     organisationId: primary.organisation_id,
     code: primary.code,
-    label: primary.label ?? NATIONAL_INDICATIVE_LABEL,
+    label: primary.label ?? ACCESSCHECK_ESTIMATION_LABEL,
     version: owned ? owned.version : null,
     ownedCardId: owned?.id ?? null,
     regionMultiplier: Number(primary.region_multiplier) || 1,
     effectiveFrom: primary.effective_from,
     items,
     itemsByCode: indexByCode(items),
+  };
+}
+
+/**
+ * The schedule of rates as one specific version priced a plan.
+ *
+ * A plan records a single `rate_card_id`, but a version only holds the work items that upload
+ * actually priced — every other line was inherited from the AccessCheck estimation when the plan
+ * was generated. So "the rates that priced this plan" is that version's rows merged over the
+ * estimation's, the same shadowing `loadRateCardForOrganisation` does for the active card.
+ *
+ * One honest limitation: the inherited lines are merged from the estimation card *as it stands
+ * now*, because a retired version never stored them. The version's own rows are exact — they
+ * were copied by value on commit — so anything the authority priced is reproduced faithfully,
+ * and `rateCardId` on each item still says which card the figure came from.
+ *
+ * `cardId === null` is a plan that ran on the estimation alone, which is the fallback card.
+ */
+export async function loadRateCardVersion(
+  supabase: SupabaseClient<Database>,
+  cardId: string | null,
+): Promise<RateCard | null> {
+  const { data: estimationRows } = await supabase
+    .from("rate_cards")
+    .select(CARD_COLUMNS)
+    .is("organisation_id", null)
+    .eq("is_active", true);
+
+  const estimation = ((estimationRows ?? []) as CardRow[]).sort(
+    (a, b) =>
+      Number(b.code === ACCESSCHECK_ESTIMATION_CODE) -
+        Number(a.code === ACCESSCHECK_ESTIMATION_CODE) ||
+      b.version - a.version ||
+      String(b.created_at).localeCompare(String(a.created_at)),
+  )[0];
+
+  if (cardId === null) {
+    if (!estimation) return accesscheckEstimationCard();
+    const rows = await loadItems(supabase, [estimation.id]);
+    return rows.length === 0
+      ? accesscheckEstimationCard()
+      : toCard(estimation, rows.map((row) => toItem(row, estimation)), null);
+  }
+
+  // No `is_active` filter: the whole point is reading a superseded version. RLS restricts this
+  // to the caller's own organisation and the null-organisation estimation, so another tenant's
+  // id simply returns nothing rather than leaking their rates.
+  const { data: versionRow } = await supabase
+    .from("rate_cards")
+    .select(CARD_COLUMNS)
+    .eq("id", cardId)
+    .maybeSingle();
+  if (!versionRow) return null;
+
+  const version = versionRow as CardRow;
+  const rows = await loadItems(
+    supabase,
+    [estimation?.id, version.id].filter((id): id is string => typeof id === "string"),
+  );
+
+  // Estimation first so the version's own lines overwrite them by code.
+  const merged = new Map<string, RateCardItem>();
+  if (estimation) {
+    for (const row of rows.filter((row) => row.rate_card_id === estimation.id)) {
+      merged.set(row.work_item_code, toItem(row, estimation));
+    }
+  }
+  for (const row of rows.filter((row) => row.rate_card_id === version.id)) {
+    merged.set(row.work_item_code, toItem(row, version));
+  }
+
+  return toCard(
+    version,
+    [...merged.values()],
+    version.organisation_id === null ? null : version.id,
+  );
+}
+
+/** Shared tail of the loaders: sort by the card's own priority, then index. */
+function toCard(
+  card: CardRow,
+  items: RateCardItem[],
+  ownedCardId: string | null,
+): RateCard {
+  const sorted = items.sort((a, b) =>
+    a.priorityHint === b.priorityHint
+      ? a.workItemCode.localeCompare(b.workItemCode)
+      : a.priorityHint - b.priorityHint,
+  );
+  return {
+    id: card.id,
+    organisationId: card.organisation_id,
+    code: card.code,
+    label: card.label ?? ACCESSCHECK_ESTIMATION_LABEL,
+    version: card.organisation_id === null ? null : card.version,
+    ownedCardId,
+    regionMultiplier: Number(card.region_multiplier) || 1,
+    effectiveFrom: card.effective_from,
+    items: sorted,
+    itemsByCode: indexByCode(sorted),
   };
 }
 

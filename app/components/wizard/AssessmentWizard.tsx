@@ -15,6 +15,7 @@ import {
   RefreshCw,
   CheckCircle,
   Copy,
+  Loader2,
 } from "lucide-react";
 
 // Shared Components & Logic
@@ -85,7 +86,7 @@ const STEPS = [
 interface AssessmentWizardProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete: (newCase: Case) => void;
+  onComplete: (newCase: Case) => void | Promise<void>;
   initialData: Partial<Case> | null;
   onSaveDraft: (data: any) => void;
 }
@@ -121,6 +122,7 @@ const initialFormData = {
   // Property-search (evidence harvester) linkage
   propertyId: null as string | null,
   streetViewUrl: null as string | null,
+  streetViewPending: false,
   propertyLat: null as number | null,
   propertyLng: null as number | null,
   evidenceLoaded: false,
@@ -180,6 +182,10 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
 }) => {
   const [step, setStep] = useState<number>(1);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isFinalising, setIsFinalising] = useState(false);
+  // The Street View photo is downloaded, compressed and re-uploaded in the
+  // background; the capture step shows a placeholder while that runs.
+  const [isSeedingEntrance, setIsSeedingEntrance] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [step3AnalysisComplete, setStep3AnalysisComplete] = useState(false);
   const [categoryResults, setCategoryResults] = useState<
@@ -330,7 +336,9 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         if (data.floorPlan && data.floorPlanApproved === undefined) {
           data.floorPlanApproved = true;
         }
-        setFormData({ ...initialFormData, ...data });
+        // A draft saved mid-lookup would otherwise resume with a Street View
+        // placeholder that never resolves — nothing is in flight on a fresh open.
+        setFormData({ ...initialFormData, ...data, streetViewPending: false });
         if (data.aiSuggestions && typeof data.aiSuggestions === "object") {
           setAiSuggestions(data.aiSuggestions);
         }
@@ -349,6 +357,13 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   const handleUpdateField = (field: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
+
+  // Mirrors formData for async work that must read the latest value — state captured
+  // in an effect closure can be stale by the time a long upload resolves.
+  const formDataRef = useRef(formData);
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
 
   // Fields the user has manually chosen — AI auto-fill must never override a human selection.
   const userEditedFieldsRef = useRef<Set<string>>(new Set());
@@ -665,6 +680,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
     if (!formData.streetViewUrl || formData.entranceSeeded) return;
     if (formData.categoryPhotos?.entrance?.length) return;
     let cancelled = false;
+    setIsSeedingEntrance(true);
     (async () => {
       let stableUrl: string = formData.streetViewUrl;
       try {
@@ -687,17 +703,23 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         /* fall back to the raw signed URL */
       }
       if (cancelled) return;
-      const updated = {
-        ...(formData.categoryPhotos || {}),
-        entrance: [stableUrl],
-      };
+      // Read the latest photos, not the ones captured when this effect ran — the
+      // user may have uploaded their own entrance photo while the seed uploaded.
+      const latestPhotos = formDataRef.current.categoryPhotos || {};
+      if (latestPhotos.entrance?.length) {
+        setIsSeedingEntrance(false);
+        return;
+      }
+      const updated = { ...latestPhotos, entrance: [stableUrl] };
       handleUpdateField("categoryPhotos", updated);
       handleUpdateField("photos", Object.values(updated).flat());
       handleUpdateField("entranceSeeded", true);
+      setIsSeedingEntrance(false);
       handleStep3PhotosChanged(updated);
     })();
     return () => {
       cancelled = true;
+      setIsSeedingEntrance(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.streetViewUrl]);
@@ -1942,7 +1964,13 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         });
       } else {
         console.error("AI analysis report failed:", data);
-        toast.error("Could not generate final AI report. Please try again.");
+        // The route names the reason (a cut-off generation reads very differently from a
+        // refusal), so show it rather than the generic line it used to be buried under.
+        toast.error(
+          typeof data?.parseError === "string"
+            ? `Could not generate the final AI report. ${data.parseError} Please try again.`
+            : "Could not generate final AI report. Please try again.",
+        );
       }
     } catch (e) {
       console.error("AI Analysis error:", e);
@@ -1960,8 +1988,41 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         initial={{ opacity: 0, scale: 0.9, y: 40 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 40 }}
-        className="w-full max-w-[780px] h-[90vh] sm:h-[85vh] max-h-dvh bg-white/95 rounded-xl sm:rounded-[20px] flex flex-col overflow-hidden shadow-2xl border border-white/70"
+        className="relative w-full max-w-[780px] h-[90vh] sm:h-[85vh] max-h-dvh bg-white/95 rounded-xl sm:rounded-[20px] flex flex-col overflow-hidden shadow-2xl border border-white/70"
       >
+        <AnimatePresence>
+          {isFinalising && (
+            <motion.div
+              key="finalising-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 z-50 bg-white/85 backdrop-blur-[3px] flex flex-col items-center justify-center gap-5 px-6 text-center"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="w-20 h-20 rounded-full bg-primary-light flex items-center justify-center relative">
+                <Loader2 size={40} className="text-primary animate-spin" />
+                <motion.div
+                  animate={{ scale: [1, 1.5, 1], opacity: [0.3, 0.1, 0.3] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute inset-0 rounded-full bg-primary"
+                />
+              </div>
+              <div>
+                <h3 className="text-xl font-extrabold text-primary mb-2">
+                  Finalising your case&hellip;
+                </h3>
+                <p className="text-text-dim text-sm max-w-[340px]">
+                  Saving your photos and submitting the assessment for review.
+                  This can take a moment — please don&apos;t close this window.
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Header Section */}
         <ProgressBar currentStep={step} steps={steps} />
 
@@ -2014,10 +2075,9 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
                 analysisComplete={step3AnalysisComplete}
                 categoryResults={categoryResults}
                 onPhotosChanged={handleStep3PhotosChanged}
-                streetViewSeededUrl={
-                  formData.entranceSeeded
-                    ? (formData.categoryPhotos?.entrance?.[0] ?? null)
-                    : null
+                streetViewPending={
+                  !formData.entranceSeeded &&
+                  (!!formData.streetViewPending || isSeedingEntrance)
                 }
               />
             )}
@@ -2073,7 +2133,11 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
         <div className="shrink-0 py-2 px-3 sm:py-3 sm:px-5 bg-white border-t border-border flex flex-wrap justify-between items-center gap-2">
           <button
             onClick={onClose}
-            className="w-9 h-9 sm:w-10 sm:h-10 bg-slate-50 rounded-lg sm:rounded-xl border border-slate-200 flex items-center justify-center cursor-pointer text-slate-500 shrink-0 order-first"
+            disabled={isFinalising}
+            className={cn(
+              "w-9 h-9 sm:w-10 sm:h-10 bg-slate-50 rounded-lg sm:rounded-xl border border-slate-200 flex items-center justify-center cursor-pointer text-slate-500 shrink-0 order-first",
+              isFinalising && "opacity-50 cursor-not-allowed",
+            )}
             aria-label="Close"
           >
             <X size={18} className="sm:w-5 sm:h-5" />
@@ -2082,7 +2146,11 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
             {step > 1 && (
               <button
                 onClick={() => setStep(step - 1)}
-                className="py-2 px-3 sm:py-2.5 sm:px-5 bg-white text-text-main rounded-lg sm:rounded-xl border border-slate-200 font-bold text-xs sm:text-sm flex items-center gap-1 sm:gap-1.5 cursor-pointer shrink-0"
+                disabled={isFinalising}
+                className={cn(
+                  "py-2 px-3 sm:py-2.5 sm:px-5 bg-white text-text-main rounded-lg sm:rounded-xl border border-slate-200 font-bold text-xs sm:text-sm flex items-center gap-1 sm:gap-1.5 cursor-pointer shrink-0",
+                  isFinalising && "opacity-50 cursor-not-allowed",
+                )}
               >
                 <ChevronLeft size={18} className="sm:w-5 sm:h-5 shrink-0" />{" "}
                 <span className="hidden sm:inline">Back</span>
@@ -2091,11 +2159,12 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
 
             <button
               onClick={handleSaveDraft}
-              disabled={isSavingDraft}
+              disabled={isSavingDraft || isFinalising}
               className={cn(
                 "py-2 px-3 sm:py-2.5 sm:px-5 bg-white rounded-lg sm:rounded-xl border font-bold text-xs sm:text-sm flex items-center gap-1 sm:gap-1.5 shrink-0",
                 "border-primary text-primary",
-                isSavingDraft && "opacity-70 cursor-not-allowed",
+                (isSavingDraft || isFinalising) &&
+                  "opacity-70 cursor-not-allowed",
               )}
             >
               {isSavingDraft ? (
@@ -2157,7 +2226,7 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
             )}
 
             <button
-              disabled={isNextDisabled()}
+              disabled={isNextDisabled() || isFinalising}
               onClick={() => {
                 if (step === analysisStepIndex) {
                   handleSafeClose();
@@ -2172,26 +2241,33 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
               }}
               className={cn(
                 "py-2 px-3 sm:py-2.5 sm:px-5 rounded-lg sm:rounded-xl border-none font-bold text-xs sm:text-sm flex items-center gap-1 sm:gap-1.5 transition-all shrink-0",
-                isNextDisabled()
+                isNextDisabled() || isFinalising
                   ? "bg-slate-300 text-white cursor-not-allowed opacity-60 shadow-none"
                   : "bg-primary text-white cursor-pointer shadow-[0_4px_12px_rgba(99,102,241,0.3)]",
               )}
             >
+              {isFinalising && (
+                <Loader2 size={14} className="animate-spin shrink-0" />
+              )}
               <span className="hidden sm:inline">
-                {step === analysisStepIndex
-                  ? "Complete Assessment"
-                  : step === 8
-                    ? "Generate AI Report"
-                    : "Continue"}
+                {isFinalising
+                  ? "Finalising…"
+                  : step === analysisStepIndex
+                    ? "Complete Assessment"
+                    : step === 8
+                      ? "Generate AI Report"
+                      : "Continue"}
               </span>
               <span className="sm:hidden">
-                {step === analysisStepIndex
-                  ? "Complete"
-                  : step === 8
-                    ? "Report"
-                    : "Next"}
+                {isFinalising
+                  ? "Finalising…"
+                  : step === analysisStepIndex
+                    ? "Complete"
+                    : step === 8
+                      ? "Report"
+                      : "Next"}
               </span>
-              {step < analysisStepIndex && (
+              {step < analysisStepIndex && !isFinalising && (
                 <ChevronRight size={18} className="sm:w-5 sm:h-5 shrink-0" />
               )}
             </button>
@@ -2202,6 +2278,19 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
   );
 
   async function handleSafeClose() {
+    if (isFinalising) return;
+    setIsFinalising(true);
+    try {
+      await finaliseAssessment();
+    } catch (error) {
+      console.error(error);
+      toast.error("Couldn't finish the assessment. Please try again.");
+    } finally {
+      setIsFinalising(false);
+    }
+  }
+
+  async function finaliseAssessment() {
     const { url: floorPlanUrl, previewUrl: floorPlanPreviewUrl } =
       await persistFloorPlan();
     const detectionPayload = await buildFloorPlanDetectionPayload();
@@ -2235,7 +2324,9 @@ const AssessmentWizard: React.FC<AssessmentWizardProps> = ({
       },
     };
 
-    onComplete(completedCase);
+    // Awaited so the wizard (and its "Finalising" overlay) stays on screen for the
+    // whole save + submit, instead of vanishing while the uploads are still running.
+    await onComplete(completedCase);
     onClose();
   }
 };

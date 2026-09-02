@@ -8,7 +8,10 @@ End-to-end setup for the new LAHR-driven flow: YOLOv8 + SAM + PaddleOCR detectio
 - Detection runs after Smart Capture — fires against already-uploaded URLs.
 - Report: LAHR appendix at the top ([LahrAppendix.tsx](../app/components/report/LahrAppendix.tsx)) with band badge, section results, and annotated images.
 - Classifier: [classifyLahr](../lib/accessibility/lahr/classifier.ts) runs in [buildSurveyData](../lib/surveys/buildSurveyData.ts) and writes `raw_ai_data.lahr` + `ai_field_provenance`.
-- v1 code paths (flowchart, AccessibilityBadge, old steps) stay live — flag-gated.
+- v1 grading is gone: the flowchart classifier, its A+/A-/B+/B-/C badge and the old scorer have
+  been deleted, so the LAHR band (A-G) is the only accessibility rating in the app. Old survey
+  rows may still hold a v1 grade in `surveys.overall_grade` until
+  [backfill-lahr-bands.ts](../scripts/backfill-lahr-bands.ts) has been run against them.
 
 ## 1. Prereqs
 

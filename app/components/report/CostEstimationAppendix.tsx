@@ -40,7 +40,7 @@ type Props = {
   /** Notifies the parent whenever the internal POST-then-poll loop starts/stops. Used by the
    *  report's reassess flow to keep the page-level overlay up until the DFG regen finishes. */
   onRefreshingChange?: (isRefreshing: boolean) => void;
-  /** The organisation's active rate card, so a plan priced by a superseded version can say so. */
+  /** The organisation's active schedule of rates, so a plan priced by a superseded version can say so. */
   activeRateCard?: { id: string; version: number; label: string } | null;
   /** A finalised case is read-only: no auto-generate, no regenerate button. The server
    *  enforces this too (409) — this only avoids firing a request that would be refused. */
@@ -559,7 +559,7 @@ function ConfidencePill({
 }
 
 /**
- * Work the model identified that no rate-card line prices. Kept visible but deliberately
+ * Work the model identified that no schedule-of-rates line prices. Kept visible but deliberately
  * outside the totals and the band projection — an unpriced guess must not move a band.
  */
 function AdditionalWorks({ works }: { works: UnpricedWork[] }) {
@@ -569,8 +569,8 @@ function AdditionalWorks({ works }: { works: UnpricedWork[] }) {
         Additional works identified — quote required
       </h3>
       <p className="m-0 mb-2 text-[10px] text-amber-800">
-        Not priced from the rate card, so these are excluded from the tier totals and the
-        projected band.
+        Not priced from the schedule of rates, so these are excluded from the tier totals and
+        the projected band.
       </p>
       <ul className="space-y-1">
         {works.map((work, index) => (

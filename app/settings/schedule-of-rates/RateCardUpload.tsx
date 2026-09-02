@@ -117,7 +117,7 @@ export default function RateCardUpload({
       <h2 className="text-lg font-bold text-slate-900">Upload your own rates</h2>
       <p className="mt-1 text-sm text-slate-500">
         A CSV of your schedule of rates. Price only the work items you have a framework price
-        for — everything you leave out keeps its national rate. Download the template to start
+        for — everything you leave out keeps its AccessCheck rate. Download the template to start
         from the prices in use today.
       </p>
 

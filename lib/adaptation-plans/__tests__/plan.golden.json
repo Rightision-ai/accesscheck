@@ -40,7 +40,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -85,7 +85,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -128,7 +128,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -175,7 +175,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -244,7 +244,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -289,7 +289,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -332,7 +332,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -379,7 +379,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -449,7 +449,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -494,7 +494,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -537,7 +537,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -584,7 +584,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -629,7 +629,7 @@
             "quantity": 1,
             "unit": "each",
             "rateCardId": null,
-            "rateCardLabel": "National indicative — obtain quote",
+            "rateCardLabel": "AccessCheck estimation — obtain quote",
             "regionMultiplier": 1,
             "effectiveFrom": "2026-04-01"
           },
@@ -670,6 +670,6 @@
   "engineModel": "gemini-3.7-flash",
   "budgetCapGbp": 30000,
   "rateCardId": null,
-  "rateCardLabel": "National indicative — obtain quote",
+  "rateCardLabel": "AccessCheck estimation — obtain quote",
   "rateCardEffectiveFrom": "2026-04-01"
 }

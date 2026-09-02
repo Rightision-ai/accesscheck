@@ -277,7 +277,7 @@ export default function ReportsClient({
               <div>
                 <h2 className="font-bold text-slate-950">Adaptation plan costs</h2>
                 <p className="text-sm text-slate-500">
-                  The fullest plan generated for each case, priced from your rate card
+                  The fullest plan generated for each case, priced from your schedule of rates
                 </p>
               </div>
             </div>
@@ -295,8 +295,8 @@ export default function ReportsClient({
                 is counted more than once. Every cost is a{" "}
                 <strong className="font-semibold text-slate-800">range</strong> — the large
                 number is the expected cost, the range beneath it is the low and high estimate
-                for the same work. They are indicative prices from your rate card, not quotes,
-                and they move once a contractor prices the job.
+                for the same work. They are indicative prices from your schedule of rates, not
+                quotes, and they move once a contractor prices the job.
               </p>
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -658,7 +658,7 @@ function FeedbackCard({
           <FeedbackList title="Read with care" items={feedback.watchOuts} muted />
           <p className="border-t border-primary/20 pt-3 text-xs text-slate-500">
             Generated from the figures on this page. Costs are indicative estimates priced from
-            your rate card, not quotes — check anything you intend to act on.
+            your schedule of rates, not quotes — check anything you intend to act on.
           </p>
         </div>
       )}

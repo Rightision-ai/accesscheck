@@ -4,8 +4,9 @@ import type { Database } from "@/types/supabase";
 import {
   loadActiveRateCardRef,
   loadRateCardForOrganisation,
+  loadRateCardVersion,
 } from "@/lib/rate-cards/repository";
-import { NATIONAL_INDICATIVE_CODE } from "@/lib/rate-cards/nationalIndicative";
+import { ACCESSCHECK_ESTIMATION_CODE } from "@/lib/rate-cards/accesscheckEstimation";
 
 const ORG = "11111111-1111-1111-1111-111111111111";
 
@@ -15,8 +16,8 @@ function card(overrides: Row): Row {
   return {
     id: "card-national",
     organisation_id: null,
-    code: NATIONAL_INDICATIVE_CODE,
-    label: "National indicative",
+    code: ACCESSCHECK_ESTIMATION_CODE,
+    label: "AccessCheck estimation",
     version: 1,
     region_multiplier: 1,
     effective_from: "2026-04-01",
@@ -48,7 +49,7 @@ function item(cardId: string, code: string, overrides: Row = {}): Row {
     preconditions: null,
     field_patches: {},
     priority_hint: 10,
-    source_label: "National indicative — obtain quote",
+    source_label: "AccessCheck estimation — obtain quote",
     is_active: true,
     ...overrides,
   };
@@ -96,6 +97,12 @@ function fakeClient(cards: Row[], items: Row[]) {
       },
       in: (column: string, values: readonly unknown[]) => {
         filters.push((row) => values.includes(row[column]));
+        return chain;
+      },
+      // PostgREST needs `.is` rather than `.eq` for null, and the two are not interchangeable:
+      // `.eq(column, null)` matches nothing. `loadRateCardVersion` relies on this.
+      is: (column: string, value: unknown) => {
+        filters.push((row) => row[column] === value);
         return chain;
       },
       // Only the one shape the repository builds:
@@ -342,5 +349,85 @@ describe("loadActiveRateCardRef", () => {
       label: "Wolverhampton SOR v2",
       effectiveFrom: "2026-04-01",
     });
+  });
+});
+
+describe("loadRateCardVersion", () => {
+  /** An estimation card plus a superseded org version that priced one of the two items. */
+  const scenario = () =>
+    fakeClient(
+      [
+        card({}),
+        card({
+          id: "card-v1",
+          organisation_id: ORG,
+          code: "org-schedule-of-rates",
+          version: 1,
+          label: "Wolverhampton SOR v1",
+          effective_from: "2026-05-01",
+          effective_to: "2026-06-30",
+          is_active: false,
+        }),
+      ],
+      [
+        item("card-national", "handrail_install"),
+        item("card-national", "wet_room_conversion"),
+        item("card-v1", "wet_room_conversion", {
+          rate_expected_gbp: 9100,
+          source_label: "Wolverhampton SOR v1",
+        }),
+      ],
+    );
+
+  it("merges a superseded version over the estimation rather than showing it alone", async () => {
+    // The version only ever stored the lines that upload priced; every other line was inherited
+    // at generation time, so showing the version's rows alone would under-report the plan.
+    const { client } = scenario();
+
+    const result = await loadRateCardVersion(client, "card-v1");
+
+    expect(result?.items).toHaveLength(2);
+    expect(result?.itemsByCode.get("wet_room_conversion")?.rateExpectedGbp).toBe(9100);
+    expect(result?.itemsByCode.get("handrail_install")?.rateExpectedGbp).toBe(200);
+  });
+
+  it("reads a retired version — the whole point is showing rates no longer in force", async () => {
+    // `is_active` is deliberately not filtered. A plan priced by v1 must still explain itself
+    // after v2 supersedes it, which is exactly when the settings page gives the wrong answer.
+    const { client } = scenario();
+
+    const result = await loadRateCardVersion(client, "card-v1");
+
+    expect(result?.label).toBe("Wolverhampton SOR v1");
+    expect(result?.version).toBe(1);
+    expect(result?.effectiveFrom).toBe("2026-05-01");
+  });
+
+  it("marks which lines are the authority's own and which were inherited", async () => {
+    const { client } = scenario();
+
+    const result = await loadRateCardVersion(client, "card-v1");
+
+    expect(result?.ownedCardId).toBe("card-v1");
+    expect(result?.itemsByCode.get("wet_room_conversion")?.rateCardId).toBe("card-v1");
+    expect(result?.itemsByCode.get("handrail_install")?.rateCardId).toBe("card-national");
+  });
+
+  it("returns the estimation alone for a plan that was never priced by an org card", async () => {
+    const { client } = scenario();
+
+    const result = await loadRateCardVersion(client, null);
+
+    expect(result?.ownedCardId).toBeNull();
+    expect(result?.version).toBeNull();
+    expect(result?.itemsByCode.get("wet_room_conversion")?.rateExpectedGbp).toBe(200);
+  });
+
+  it("returns null for an id the caller cannot read", async () => {
+    // RLS filters another tenant's card out of the select, so it arrives here as no row —
+    // which must be a 404, not an empty card that reads as "this plan had no rates".
+    const { client } = scenario();
+
+    expect(await loadRateCardVersion(client, "card-someone-else")).toBeNull();
   });
 });

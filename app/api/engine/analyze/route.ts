@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ENGINE_MODELS, engineUrl, thinkingConfig } from "@/lib/engine/models";
+import { ENGINE_MODELS, engineUrl, jsonGenerationConfig } from "@/lib/engine/models";
+import { parseEngineJson } from "@/lib/engine/json";
 
 const ENGINE_API_KEY = process.env.ENGINE_API_KEY;
 const ENGINE_API_URL = engineUrl(ENGINE_MODELS.analyze);
+
+// Thinking tokens are charged against maxOutputTokens, so at "high" the old 8192 left little
+// room for the answer itself and truncated mid-object on rich inputs.
+const MAX_OUTPUT_TOKENS = 16384;
 
 export const maxDuration = 60; // Set max duration for Vercel/Next.js
 
@@ -45,12 +50,12 @@ export async function POST(req: NextRequest) {
 
     const requestBody = {
       contents: [{ parts }],
-      generationConfig: {
-        // No temperature override: Gemini 3 degrades when it is lowered.
-        // Thinking depth is nested; a flat `thinking_level` here is a 400.
-        ...thinkingConfig("high"),
-        maxOutputTokens: 8192,
-      },
+      // Includes responseMimeType: "application/json", so the model returns a bare object
+      // instead of a ```json fence every reader downstream has to strip.
+      generationConfig: jsonGenerationConfig({
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        thinkingLevel: "high",
+      }),
     };
 
     // Helper for retry logic
@@ -297,30 +302,29 @@ export async function POST(req: NextRequest) {
 
     console.log("[Engine] Response received successfully");
 
-    // Try to parse JSON from response
-    const jsonMatch = aiText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        const parsedResult = JSON.parse(jsonMatch[0]);
-        return NextResponse.json({
-          success: true,
-          result: parsedResult,
-          rawText: aiText,
-        });
-      } catch (parseError) {
-        return NextResponse.json({
-          success: true,
-          result: null,
-          rawText: aiText,
-          parseError: "Could not parse JSON from response",
-        });
+    // MAX_TOKENS is the difference between "the model had nothing to say" and "we cut it off",
+    // so it is reported rather than left for someone to infer from a half-written object.
+    const finishReason: string | undefined = data.candidates?.[0]?.finishReason;
+    const { result, recovered } = parseEngineJson(aiText);
+
+    if (result) {
+      if (recovered) {
+        console.warn(
+          `[analyze] recovered a truncated response (finishReason=${finishReason ?? "unknown"})`,
+        );
       }
+      return NextResponse.json({ success: true, result, recovered, finishReason, rawText: aiText });
     }
 
     return NextResponse.json({
-      success: true,
+      success: false,
       result: null,
+      finishReason,
       rawText: aiText,
+      parseError:
+        finishReason === "MAX_TOKENS"
+          ? "The response was cut off before it finished generating."
+          : "Could not parse JSON from response",
     });
   } catch (error: any) {
     console.error("[Engine] Server Error:", error.message);

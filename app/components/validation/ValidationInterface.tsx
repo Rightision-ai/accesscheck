@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import AddObservationModal from "./AddObservationModal";
 import ActivityTimeline from "./ActivityTimeline";
-import { COEFFICIENTS } from "@/lib/hooks/useScoringEngine";
+import PhotoLightbox from "@/app/components/common/PhotoLightbox";
+import { QUESTION_OPTIONS } from "@/lib/surveys/questionOptions";
 import { Case } from "@/types/dashboard";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -80,34 +81,6 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({
   );
 };
 
-interface PhotoModalProps {
-  photo: string | null;
-  onClose: () => void;
-}
-
-const PhotoModal: React.FC<PhotoModalProps> = ({ photo, onClose }) => {
-  if (!photo) return null;
-
-  return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 bg-black/90 z-9999 flex items-center justify-center p-5"
-    >
-      <button
-        onClick={onClose}
-        className="absolute top-5 right-5 bg-white/10 border-none rounded-full w-10 h-10 flex items-center justify-center cursor-pointer text-white"
-      >
-        <X size={24} />
-      </button>
-      <img
-        src={photo}
-        alt="Full size"
-        className="max-w-full max-h-full rounded-xl"
-      />
-    </div>
-  );
-};
-
 interface InfoCardProps {
   icon: React.ElementType;
   label: string;
@@ -136,7 +109,7 @@ interface UserInputItemProps {
   value: string;
   isEditing: boolean;
   onEdit?: () => void;
-  options: Record<string, number>;
+  options: readonly string[];
   onChange: (val: string) => void;
 }
 
@@ -180,7 +153,7 @@ const UserInputItem: React.FC<UserInputItemProps> = ({
         onChange={(e) => onChange(e.target.value)}
         className="w-full py-3 px-3 rounded-lg border border-border text-sm font-semibold outline-none cursor-pointer"
       >
-        {Object.keys(options).map((opt) => (
+        {options.map((opt) => (
           <option key={opt} value={opt}>
             {opt}
           </option>
@@ -196,7 +169,7 @@ interface InferredItemProps {
   title: string;
   questionKey: string;
   value: string;
-  options: Record<string, number>;
+  options: readonly string[];
   onUpdate: (key: string, val: string) => void;
   isRescoring: boolean;
 }
@@ -251,7 +224,7 @@ const InferredItem: React.FC<InferredItemProps> = ({
           disabled={isRescoring}
           className="w-full py-3 px-3 rounded-lg border border-border text-sm font-semibold outline-none cursor-pointer"
         >
-          {Object.keys(options).map((opt) => (
+          {options.map((opt) => (
             <option key={opt} value={opt}>
               {opt}
             </option>
@@ -389,7 +362,8 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
     });
     if (!response.ok) throw new Error(`API Error: ${response.status}`);
     const data = await response.json();
-    if (!data.success) throw new Error(data.error || "AI analysis failed");
+    if (!data.success)
+      throw new Error(data.error || data.parseError || "AI analysis failed");
     const parsed = parseJsonPayload(data.result);
     if (!parsed) throw new Error("Could not parse AI response");
     return {
@@ -556,30 +530,30 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
     {
       key: "Q2_Stairs",
       title: "Stairs Configuration",
-      options: COEFFICIENTS.Q2,
+      options: QUESTION_OPTIONS.Q2,
     },
-    { key: "Q3_Entrance", title: "Main Entrance", options: COEFFICIENTS.Q3 },
-    { key: "Q4_Garden", title: "Garden Access", options: COEFFICIENTS.Q4 },
+    { key: "Q3_Entrance", title: "Main Entrance", options: QUESTION_OPTIONS.Q3 },
+    { key: "Q4_Garden", title: "Garden Access", options: QUESTION_OPTIONS.Q4 },
     {
       key: "Q5_DoorWidth",
       title: "Internal Door Width",
-      options: COEFFICIENTS.Q5,
+      options: QUESTION_OPTIONS.Q5,
     },
     {
       key: "Q7_BathroomDoor",
       title: "Bathroom Door Width",
-      options: COEFFICIENTS.Q7,
+      options: QUESTION_OPTIONS.Q7,
     },
     {
       key: "Q8_ShowerType",
       title: "Shower/Bath Type",
-      options: COEFFICIENTS.Q8,
+      options: QUESTION_OPTIONS.Q8,
     },
-    { key: "Q9_ShowerSize", title: "Shower Size", options: COEFFICIENTS.Q9 },
+    { key: "Q9_ShowerSize", title: "Shower Size", options: QUESTION_OPTIONS.Q9 },
     {
       key: "Q11_WashDryToilet",
       title: "Wash/Dry Toilet",
-      options: COEFFICIENTS.Q11,
+      options: QUESTION_OPTIONS.Q11,
     },
   ];
 
@@ -1028,7 +1002,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
               value={editedValues.mobility}
               isEditing={false}
               onEdit={() => {}}
-              options={COEFFICIENTS.Q1}
+              options={QUESTION_OPTIONS.Q1}
               onChange={(val) => handleOverride("mobility", val)}
             />
             <UserInputItem
@@ -1037,7 +1011,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
               value={editedValues.bathing}
               isEditing={false}
               onEdit={() => {}}
-              options={COEFFICIENTS.Q6}
+              options={QUESTION_OPTIONS.Q6}
               onChange={(val) => handleOverride("bathing", val)}
             />
             <UserInputItem
@@ -1046,7 +1020,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
               value={editedValues.toileting}
               isEditing={false}
               onEdit={() => {}}
-              options={COEFFICIENTS.Q10}
+              options={QUESTION_OPTIONS.Q10}
               onChange={(val) => handleOverride("toileting", val)}
             />
           </div>
@@ -1256,7 +1230,7 @@ const ValidationInterface: React.FC<ValidationInterfaceProps> = ({
       </div>
 
       {/* Photo Modal */}
-      <PhotoModal
+      <PhotoLightbox
         photo={selectedPhoto}
         onClose={() => setSelectedPhoto(null)}
       />

@@ -26,11 +26,13 @@ export default function NewAssessmentPage() {
         toast.success("Assessment submitted for review");
       }
 
+      // Land on the case overview — the report is one tab away from there.
       if (result.id) {
-        router.push(`/assessments/${result.id}/report`);
+        router.push(`/cases/${result.id}`);
       } else {
         router.push("/dashboard");
       }
+      router.refresh();
     } catch (error) {
       console.error(error);
       toast.error("An unexpected error occurred");

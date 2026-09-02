@@ -16,8 +16,6 @@ export interface AiReport {
     };
 }
 
-export type AccessibilityGrade = "A+" | "A-" | "B+" | "B-" | "C";
-
 import type { AssessmentStatus } from "@/types/accesscheck";
 
 export interface Case {
@@ -29,9 +27,12 @@ export interface Case {
     phoneNumber?: string;
     assessmentDate: string;
     aiScore: number | null;
-    accessibilityGrade?: AccessibilityGrade | null;
-    accessibilityLabel?: string | null;
-    accessibilityReasons?: string[];
+    /**
+     * There is no grade field on a case. The Accessible Housing Rules band (A-G) is the only
+     * accessibility rating the product has, and it is classified on demand from the survey row
+     * — `classifyLahr(resolveSurveyRow(caseData))` — never carried on the case or read back
+     * from a persisted column, both of which go stale the moment an override is edited.
+     */
     status: AssessmentStatus;
     source: string;
     date: string;
