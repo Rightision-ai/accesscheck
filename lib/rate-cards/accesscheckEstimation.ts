@@ -1,7 +1,7 @@
 import { indexByCode, type RateCard, type RateCardItem } from "./types";
 
 /**
- * The national indicative rate card.
+ * The AccessCheck estimation schedule of rates.
  *
  * Revived from the `adaptation_catalogue` seeded by migration
  * `20260424120000_add_cost_estimation.sql` and dropped by `20260425120000`. When that table
@@ -23,21 +23,23 @@ import { indexByCode, type RateCard, type RateCardItem } from "./types";
  *
  * These ranges are INDICATIVE and carried forward from an April 2026 catalogue. They are
  * structurally tested, not price-checked — a human must sign them off before a pilot, and an
- * authority's own schedule of rates supersedes them once uploaded.
+ * authority's own schedule of rates supersedes them once uploaded. "AccessCheck estimation"
+ * rather than "national indicative" for exactly that reason: these are our own estimates, not
+ * a national standard, and the name should not imply an authority they do not have.
  *
- * Kept in sync with the SQL seed by `__tests__/nationalIndicative.test.ts`, which parses the
+ * Kept in sync with the SQL seed by `__tests__/accesscheckEstimation.test.ts`, which parses the
  * migration and compares element for element.
  */
-export const NATIONAL_INDICATIVE_CODE = "national-indicative-2026-04";
-export const NATIONAL_INDICATIVE_LABEL = "National indicative — obtain quote";
-export const NATIONAL_INDICATIVE_EFFECTIVE_FROM = "2026-04-01";
+export const ACCESSCHECK_ESTIMATION_CODE = "accesscheck-estimation-2026-04";
+export const ACCESSCHECK_ESTIMATION_LABEL = "AccessCheck estimation — obtain quote";
+export const ACCESSCHECK_ESTIMATION_EFFECTIVE_FROM = "2026-04-01";
 
 export type SeedItem = Omit<
   RateCardItem,
   "id" | "sourceLabel" | "rateCardId" | "effectiveFrom"
 >;
 
-export const NATIONAL_INDICATIVE_ITEMS: readonly SeedItem[] = [
+export const ACCESSCHECK_ESTIMATION_ITEMS: readonly SeedItem[] = [
   {
     workItemCode: "threshold_ramp",
     description: "Install modular threshold ramp at entrance",
@@ -296,23 +298,23 @@ export const NATIONAL_INDICATIVE_ITEMS: readonly SeedItem[] = [
 ];
 
 /** The built-in fallback used when the database has no card for the organisation. */
-export function nationalIndicativeCard(): RateCard {
-  const items: RateCardItem[] = NATIONAL_INDICATIVE_ITEMS.map((item) => ({
+export function accesscheckEstimationCard(): RateCard {
+  const items: RateCardItem[] = ACCESSCHECK_ESTIMATION_ITEMS.map((item) => ({
     ...item,
     id: item.workItemCode,
-    sourceLabel: NATIONAL_INDICATIVE_LABEL,
+    sourceLabel: ACCESSCHECK_ESTIMATION_LABEL,
     rateCardId: null,
-    effectiveFrom: NATIONAL_INDICATIVE_EFFECTIVE_FROM,
+    effectiveFrom: ACCESSCHECK_ESTIMATION_EFFECTIVE_FROM,
   }));
   return {
     id: null,
     organisationId: null,
-    code: NATIONAL_INDICATIVE_CODE,
-    label: NATIONAL_INDICATIVE_LABEL,
+    code: ACCESSCHECK_ESTIMATION_CODE,
+    label: ACCESSCHECK_ESTIMATION_LABEL,
     version: null,
     ownedCardId: null,
     regionMultiplier: 1,
-    effectiveFrom: NATIONAL_INDICATIVE_EFFECTIVE_FROM,
+    effectiveFrom: ACCESSCHECK_ESTIMATION_EFFECTIVE_FROM,
     items,
     itemsByCode: indexByCode(items),
   };

@@ -1,5 +1,5 @@
 import type { Database } from "@/types/supabase";
-import { nationalIndicativeCard } from "@/lib/rate-cards/nationalIndicative";
+import { accesscheckEstimationCard } from "@/lib/rate-cards/accesscheckEstimation";
 import { priceCandidate } from "@/lib/rate-cards/pricing";
 import { triggeredRuleNumbers } from "@/lib/adaptation-plans/planner";
 import type { AdaptationCandidate, CostRange } from "@/lib/adaptation-plans/types";
@@ -35,9 +35,9 @@ export const BAND_E_PLUS_SURVEY: Partial<SurveyRow> = {
   access_bed1: false,
 } as Partial<SurveyRow>;
 
-/** Every national rate-card line, priced against a survey — the realistic pool shape. */
+/** Every AccessCheck estimation line, priced against a survey — the realistic pool shape. */
 export function poolFor(survey: Partial<SurveyRow>): AdaptationCandidate[] {
-  const card = nationalIndicativeCard();
+  const card = accesscheckEstimationCard();
   const triggeredRules = triggeredRuleNumbers(survey);
   return card.items.map((item) =>
     priceCandidate({ id: item.workItemCode, item, card, triggeredRules, raw: {} }),
@@ -64,7 +64,7 @@ export function candidate(
       quantity: 1,
       unit: "each",
       rateCardId: null,
-      rateCardLabel: "National indicative — obtain quote",
+      rateCardLabel: "AccessCheck estimation — obtain quote",
       regionMultiplier: 1,
       effectiveFrom: "2026-04-01",
     },

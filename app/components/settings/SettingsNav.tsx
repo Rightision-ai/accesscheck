@@ -9,7 +9,7 @@ const links = [
   { href: "/settings/profile", label: "Profile", adminOnly: false },
   { href: "/settings/organisation", label: "Organisation", adminOnly: true },
   { href: "/settings/members", label: "Members", adminOnly: true },
-  { href: "/settings/rate-card", label: "Rate card", adminOnly: false },
+  { href: "/settings/schedule-of-rates", label: "Schedule of rates", adminOnly: false },
   { href: "/settings/account", label: "Account", adminOnly: false },
 ] as const;
 

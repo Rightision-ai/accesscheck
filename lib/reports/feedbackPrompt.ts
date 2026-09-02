@@ -105,7 +105,7 @@ export function buildReportFeedbackPrompt(facts: ReportFacts): string {
     "- watchOuts: 1 to 3 caveats about reading these numbers — small samples, cost estimates being",
     "  ranges rather than quotes, unfinalised cases whose band can still change.",
     "Be specific and plain. No preamble, no markdown, no bullet characters — return JSON only.",
-    "Never claim a cost is a quote: these are indicative estimates priced from a rate card.",
+    "Never claim a cost is a quote: these are indicative estimates priced from a schedule of rates.",
   ];
   return lines.join("\n");
 }

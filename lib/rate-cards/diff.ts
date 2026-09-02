@@ -8,7 +8,7 @@ export type RateCardDiffEntry = {
   description: string;
   status: RateCardDiffStatus;
   /** Where the price in use today comes from. */
-  currentSource: "national" | "organisation";
+  currentSource: "accesscheck" | "organisation";
   currentExpectedGbp: number;
   nextExpectedGbp: number;
   deltaGbp: number;
@@ -19,7 +19,7 @@ export type RateCardDiffEntry = {
 
 export type RateCardDiff = {
   entries: RateCardDiffEntry[];
-  /** National codes this upload does not price — they keep their national rates. */
+  /** Codes this upload does not price — they keep their AccessCheck rates. */
   inheritedFromNational: string[];
   summary: {
     added: number;
@@ -42,15 +42,15 @@ const STATUS_ORDER: Record<RateCardDiffStatus, number> = {
  *
  * The `removed` group is the one that needs the loudest copy in the UI. A version is exactly
  * the file uploaded: a code the organisation prices today but omits from this file is not
- * carried forward — it reverts to the national rate. That is the only rule predictable from
+ * carried forward — it reverts to the AccessCheck rate. That is the only rule predictable from
  * looking at the spreadsheet, but it is a foot-gun unless the preview says so, so those entries
- * carry the national figure as `nextExpectedGbp` rather than a blank.
+ * carry the AccessCheck figure as `nextExpectedGbp` rather than a blank.
  */
 export function buildRateCardDiff(args: {
   prepared: PreparedRateCardRow[];
   /** The merged card pricing plans right now. */
   effective: RateCard;
-  /** National rates, the floor every organisation keeps. */
+  /** AccessCheck rates, the floor every organisation keeps. */
   national: RateCard;
 }): RateCardDiff {
   const { prepared, effective, national } = args;
@@ -64,11 +64,11 @@ export function buildRateCardDiff(args: {
     const currentSource: RateCardDiffEntry["currentSource"] =
       effective.ownedCardId !== null && currentItem.rateCardId === effective.ownedCardId
         ? "organisation"
-        : "national";
+        : "accesscheck";
 
     if (!uploaded) {
       if (currentSource === "organisation") {
-        // Priced by the organisation today, absent from this file: it reverts to national.
+        // Priced by the organisation today, absent from this file: it reverts to AccessCheck rates.
         const nationalExpected = nationalItem?.rateExpectedGbp ?? currentItem.rateExpectedGbp;
         entries.push({
           workItemCode: code,
@@ -97,9 +97,9 @@ export function buildRateCardDiff(args: {
       workItemCode: code,
       description: currentItem.description,
       // "added" means the organisation is pricing this for the first time — it is currently on
-      // national rates. Whether the number moved is secondary to who now owns it.
+      // AccessCheck rates. Whether the number moved is secondary to who now owns it.
       status:
-        currentSource === "national"
+        currentSource === "accesscheck"
           ? "added"
           : priceChanged || durationChanged
             ? "changed"

@@ -8,7 +8,7 @@ const STATUS_STYLE: Record<RateCardDiffStatus, string> = {
 };
 
 const STATUS_LABEL: Record<RateCardDiffStatus, string> = {
-  removed: "Reverts to national",
+  removed: "Reverts to AccessCheck",
   changed: "Price changes",
   added: "Newly priced by you",
   unchanged: "Unchanged",
@@ -20,7 +20,7 @@ const gbp = (value: number) => `£${value.toLocaleString("en-GB")}`;
  * What publishing would actually do.
  *
  * `removed` gets the loudest treatment on purpose: a version is exactly the file uploaded, so a
- * code priced today but left out of this file reverts to the national rate. That is easy to do
+ * code priced today but left out of this file reverts to the AccessCheck rate. That is easy to do
  * by accident when someone edits a spreadsheet down to "just the lines that changed".
  */
 export default function RateCardDiffTable({ diff }: { diff: RateCardDiff }) {
@@ -31,12 +31,12 @@ export default function RateCardDiffTable({ diff }: { diff: RateCardDiff }) {
     <div className="mt-5">
       <p className="text-sm font-bold text-slate-800">
         {summary.changed} price{summary.changed === 1 ? "" : "s"} change,{" "}
-        {summary.added} newly priced, {summary.removed} revert to national,{" "}
+        {summary.added} newly priced, {summary.removed} revert to AccessCheck,{" "}
         {summary.unchanged} unchanged
         {summary.inherited > 0 && (
           <span className="font-normal text-slate-500">
             {" "}
-            · {summary.inherited} national item{summary.inherited === 1 ? "" : "s"} stay
+            · {summary.inherited} AccessCheck item{summary.inherited === 1 ? "" : "s"} stay
             inherited
           </span>
         )}
@@ -48,7 +48,7 @@ export default function RateCardDiffTable({ diff }: { diff: RateCardDiff }) {
             {reverting.length} work item{reverting.length === 1 ? "" : "s"} you price today
             {reverting.length === 1 ? " is" : " are"} not in this file
           </span>{" "}
-          and will go back to national rates. A version is exactly the file you upload — include
+          and will go back to AccessCheck rates. A version is exactly the file you upload — include
           every line you want to keep pricing.
         </p>
       )}
@@ -71,7 +71,7 @@ export default function RateCardDiffTable({ diff }: { diff: RateCardDiff }) {
                   <div className="font-semibold text-slate-800">{entry.description}</div>
                   <div className="font-mono text-[10px] text-slate-400">
                     {entry.workItemCode}
-                    {entry.currentSource === "national" && " · on national rates"}
+                    {entry.currentSource === "accesscheck" && " · on AccessCheck rates"}
                   </div>
                 </td>
                 <td className="py-2 pr-3 text-slate-600">{gbp(entry.currentExpectedGbp)}</td>

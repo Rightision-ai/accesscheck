@@ -28,7 +28,7 @@ type Props = {
   /** Bubble new estimations up so a parent can share them across siblings (e.g. report tab vs.
    *  overview tab) and avoid redundant regenerations. */
   onEstimationChange?: (next: AdaptationPlanSet | null) => void;
-  /** The organisation's active rate card, so a plan priced by a superseded version can say so. */
+  /** The organisation's active schedule of rates, so a plan priced by a superseded version can say so. */
   activeRateCard?: { id: string; version: number; label: string } | null;
   /** A finalised case is read-only: no auto-generate, no regenerate button. The server
    *  enforces this too (409) — this only avoids firing a request that would be refused. */
@@ -38,7 +38,7 @@ type Props = {
   forceLoading?: boolean;
 };
 
-/** "2026-04-01" -> "Apr 2026" — the rate card version, not a precise date. */
+/** "2026-04-01" -> "Apr 2026" — the schedule-of-rates version, not a precise date. */
 function formatEffectiveFrom(value: string): string {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime())
@@ -201,7 +201,7 @@ export default function CostEstimationRows({
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span>
             {surveyStale && rateCardStale
-              ? "The survey was edited and the rate card has moved on since this plan was generated."
+              ? "The survey was edited and the schedule of rates has moved on since this plan was generated."
               : surveyStale
                 ? "The survey was edited after this plan was generated."
                 : `This plan was priced from ${estimation?.rateCardLabel}. Your organisation has since published ${activeRateCard?.label} (version ${activeRateCard?.version}).`}{" "}

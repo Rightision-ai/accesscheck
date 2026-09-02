@@ -47,7 +47,7 @@ export default function RateCardTable({ rateCard }: { rateCard: RateCard }) {
     <section className="rounded-2xl border border-slate-200 bg-white p-6">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Rate card</h2>
+          <h2 className="text-lg font-bold text-slate-900">Schedule of rates</h2>
           <p className="mt-1 text-sm text-slate-500">
             The prices behind every adaptation plan. The engine chooses a work
             item and a quantity; the cost, duration and trades all come from
@@ -106,7 +106,7 @@ export default function RateCardTable({ rateCard }: { rateCard: RateCard }) {
                       {rateCard.ownedCardId !== null &&
                       item.rateCardId === rateCard.ownedCardId
                         ? "Your rate"
-                        : "National"}
+                        : "AccessCheck"}
                     </span>
                   </div>
                   {item.preconditions && (
@@ -159,13 +159,13 @@ export default function RateCardTable({ rateCard }: { rateCard: RateCard }) {
 
       <footer className="mt-4 space-y-1 border-t border-slate-200 pt-3 text-[11px] text-slate-500">
         <p className="m-0">
-          Rows marked <span className="font-bold">National</span> are indicative figures your
+          Rows marked <span className="font-bold">AccessCheck</span> are indicative figures your
           organisation has not priced — confirm them against a quote before commissioning
           works.
         </p>
         <p className="m-0">
           Publishing a schedule of rates above overrides any of them. Anything you do not price
-          keeps its national figure.
+          keeps its AccessCheck figure.
         </p>
       </footer>
     </section>

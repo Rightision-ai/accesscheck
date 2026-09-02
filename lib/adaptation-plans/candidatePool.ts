@@ -46,7 +46,7 @@ function asStringArray(value: unknown, limit: number): string[] {
  * Turn the engine's payload into a priced candidate pool.
  *
  * The model chooses a `work_item_code` and a quantity; everything that can affect a
- * classification — the field patches above all — comes from the rate card. A payload that
+ * classification — the field patches above all — comes from the schedule of rates. A payload that
  * carries its own `field_patches` is ignored rather than trusted, so a prompt regression cannot
  * reintroduce model-authored patches.
  *
@@ -87,13 +87,13 @@ export function parseCandidatePool(args: {
     const label = asString(raw.label, 200);
 
     if (!item) {
-      // No rate-card line prices this. Keep it visible, keep it out of the arithmetic.
+      // No schedule-of-rates line prices this. Keep it visible, keep it out of the arithmetic.
       if (!label && !workItemCode) return;
       additionalWorks.push({
         label: label ?? workItemCode ?? "Unspecified additional work",
         ...(asString(raw.narrative, 600) ? { narrative: asString(raw.narrative, 600) } : {}),
         proposedWorkItem: workItemCode ?? "unspecified",
-        reason: "No rate-card line matches this work — obtain a quote.",
+        reason: "No schedule-of-rates line matches this work — obtain a quote.",
       });
       return;
     }

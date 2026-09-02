@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parseRateCardCsv, resolveAgainstNational } from "@/lib/rate-cards/csv";
 import { buildRateCardDiff } from "@/lib/rate-cards/diff";
-import { nationalIndicativeCard } from "@/lib/rate-cards/nationalIndicative";
+import { accesscheckEstimationCard } from "@/lib/rate-cards/accesscheckEstimation";
 import { indexByCode, type RateCard, type RateCardItem } from "@/lib/rate-cards/types";
 
-const national = nationalIndicativeCard();
+const national = accesscheckEstimationCard();
 const ORG_CARD_ID = "org-card-1";
 
 /** An effective card where the listed codes are priced by the organisation. */
@@ -56,7 +56,7 @@ describe("buildRateCardDiff", () => {
 
     expect(entryFor(diff, "threshold_ramp")).toMatchObject({
       status: "added",
-      currentSource: "national",
+      currentSource: "accesscheck",
       currentExpectedGbp: 450,
       nextExpectedGbp: 520,
       deltaGbp: 70,
@@ -90,7 +90,7 @@ describe("buildRateCardDiff", () => {
     expect(entryFor(diff, "threshold_ramp")?.status).toBe("unchanged");
   });
 
-  it("marks an omitted org-priced code as removed, showing the national rate it reverts to", () => {
+  it("marks an omitted org-priced code as removed, showing the AccessCheck rate it reverts to", () => {
     // The foot-gun the preview exists to defuse: a version is exactly the uploaded file, so a
     // code the council prices today but leaves out does not carry forward.
     const diff = buildRateCardDiff({
@@ -102,12 +102,12 @@ describe("buildRateCardDiff", () => {
     expect(entryFor(diff, "handrail_install")).toMatchObject({
       status: "removed",
       currentExpectedGbp: 900,
-      nextExpectedGbp: 350, // the national figure, not a blank
+      nextExpectedGbp: 350, // the AccessCheck figure, not a blank
       deltaGbp: -550,
     });
   });
 
-  it("lists national codes the upload does not price rather than calling them removed", () => {
+  it("lists AccessCheck codes the upload does not price rather than calling them removed", () => {
     const diff = buildRateCardDiff({
       prepared: prepare("threshold_ramp,300,520,900"),
       effective: national,

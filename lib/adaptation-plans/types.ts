@@ -72,7 +72,7 @@ export type PlanLine = AdaptationCandidate & {
 };
 
 /**
- * Work the model proposed that no rate-card line prices. Never selected, never summed into a
+ * Work the model proposed that no schedule-of-rates line prices. Never selected, never summed into a
  * total, never patched into the survey, never affects the band — an unpriced guess must not
  * pollute the band arithmetic. Surfaced as "Additional works identified — quote required".
  */

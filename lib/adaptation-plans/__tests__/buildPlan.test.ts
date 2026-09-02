@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
 import { buildAdaptationPlanSet } from "@/lib/adaptation-plans/buildPlan";
 import { DFG_BUDGET_TIERS } from "@/lib/adaptation-plans/types";
-import { nationalIndicativeCard } from "@/lib/rate-cards/nationalIndicative";
+import { accesscheckEstimationCard } from "@/lib/rate-cards/accesscheckEstimation";
 import { BAND_E_PLUS_SURVEY, poolFor } from "./fixtures";
 import golden from "./plan.golden.json";
 
 const survey = BAND_E_PLUS_SURVEY;
 const currentBand = classifyLahr(survey).band;
-const rateCard = nationalIndicativeCard();
+const rateCard = accesscheckEstimationCard();
 
 function build(overrides: Partial<Parameters<typeof buildAdaptationPlanSet>[0]> = {}) {
   return buildAdaptationPlanSet({
@@ -79,10 +79,10 @@ describe("buildAdaptationPlanSet", () => {
     expect(high.totalCost.lowGbp).toBeLessThan(high.totalCost.expectedGbp);
   });
 
-  it("records the rate card that priced the plan", () => {
+  it("records the schedule of rates that priced the plan", () => {
     const set = build();
 
-    expect(set.rateCardLabel).toBe("National indicative — obtain quote");
+    expect(set.rateCardLabel).toBe("AccessCheck estimation — obtain quote");
     expect(set.rateCardEffectiveFrom).toBe("2026-04-01");
     expect(set.engineModel).toBe("gemini-3.7-flash");
   });
@@ -116,7 +116,7 @@ describe("buildAdaptationPlanSet", () => {
 
   it("matches the reviewed golden plan", () => {
     // Hand-checked output for the band E+ fixture. Any change to the objective, the tie-breaks
-    // or the rate card shows up here as a reviewable diff rather than passing silently.
+    // or the schedule of rates shows up here as a reviewable diff rather than passing silently.
     expect(
       build({
         overallNarrative:

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import Papa from "papaparse";
-import { nationalIndicativeCard } from "@/lib/rate-cards/nationalIndicative";
+import { accesscheckEstimationCard } from "@/lib/rate-cards/accesscheckEstimation";
 import {
   parseRateCardCsv,
   resolveAgainstNational,
@@ -15,7 +15,7 @@ import {
  * names or number formatting, the first thing anyone tries fails — so this test serialises the
  * same way the routes do and feeds it through the real parser.
  */
-function unparseLikeTheExportRoute(card = nationalIndicativeCard()) {
+function unparseLikeTheExportRoute(card = accesscheckEstimationCard()) {
   return Papa.unparse(
     card.items.map((item) => ({
       work_item_code: item.workItemCode,
@@ -27,13 +27,13 @@ function unparseLikeTheExportRoute(card = nationalIndicativeCard()) {
       duration_days_expected: item.durationDaysExpected,
       duration_days_high: item.durationDaysHigh,
       source_label: item.sourceLabel,
-      source: "national",
+      source: "accesscheck",
     })),
   );
 }
 
 describe("rate card export", () => {
-  const national = nationalIndicativeCard();
+  const national = accesscheckEstimationCard();
 
   it("round-trips through the parser with no errors", () => {
     const parsed = parseRateCardCsv(unparseLikeTheExportRoute());

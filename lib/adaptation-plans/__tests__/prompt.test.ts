@@ -5,10 +5,10 @@ import {
   buildAdaptationPoolPrompt,
   collectTriggeredRules,
 } from "@/lib/engine/prompts/adaptationPoolPrompt";
-import { nationalIndicativeCard } from "@/lib/rate-cards/nationalIndicative";
+import { accesscheckEstimationCard } from "@/lib/rate-cards/accesscheckEstimation";
 import { BAND_E_PLUS_SURVEY } from "./fixtures";
 
-const card = nationalIndicativeCard();
+const card = accesscheckEstimationCard();
 const evaluation = classifyLahr(BAND_E_PLUS_SURVEY);
 const prompt = buildAdaptationPoolPrompt({
   currentBand: evaluation.band,

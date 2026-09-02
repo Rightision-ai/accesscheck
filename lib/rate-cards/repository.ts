@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 import {
-  NATIONAL_INDICATIVE_CODE,
-  NATIONAL_INDICATIVE_LABEL,
-  nationalIndicativeCard,
-} from "./nationalIndicative";
+  ACCESSCHECK_ESTIMATION_CODE,
+  ACCESSCHECK_ESTIMATION_LABEL,
+  accesscheckEstimationCard,
+} from "./accesscheckEstimation";
 import { isPatchableColumn } from "@/lib/adaptation-plans/patchWhitelist";
 import { indexByCode, type Difficulty, type RateCard, type RateCardItem, type RateCardUnit } from "./types";
 
@@ -99,7 +99,7 @@ async function loadItems(
  *
  * An organisation's own card does not replace the national one, it **shadows** it per
  * `work_item_code`: an authority that uploads a schedule of rates covering six work items gets
- * their prices for those six and the national indicative figures for the rest, rather than
+ * their prices for those six and the AccessCheck estimation figures for the rest, rather than
  * losing coverage for everything they did not price.
  *
  * Falls back to the built-in constant when the database has no national row — so a fresh
@@ -128,15 +128,15 @@ export async function loadRateCardForOrganisation(
     .filter((card) => card.organisation_id === null)
     .sort(
       (a, b) =>
-        Number(b.code === NATIONAL_INDICATIVE_CODE) -
-          Number(a.code === NATIONAL_INDICATIVE_CODE) || newestFirst(a, b),
+        Number(b.code === ACCESSCHECK_ESTIMATION_CODE) -
+          Number(a.code === ACCESSCHECK_ESTIMATION_CODE) || newestFirst(a, b),
     );
   const national = nationals[0];
   const owned = cards
     .filter((card) => card.organisation_id === organisationId)
     .sort(newestFirst)[0];
 
-  if (!national && !owned) return nationalIndicativeCard();
+  if (!national && !owned) return accesscheckEstimationCard();
 
   const rows = await loadItems(
     supabase,
@@ -162,14 +162,14 @@ export async function loadRateCardForOrganisation(
       : a.priorityHint - b.priorityHint,
   );
 
-  if (items.length === 0) return nationalIndicativeCard();
+  if (items.length === 0) return accesscheckEstimationCard();
 
   const primary = owned ?? national!;
   return {
     id: primary.id,
     organisationId: primary.organisation_id,
     code: primary.code,
-    label: primary.label ?? NATIONAL_INDICATIVE_LABEL,
+    label: primary.label ?? ACCESSCHECK_ESTIMATION_LABEL,
     version: owned ? owned.version : null,
     ownedCardId: owned?.id ?? null,
     regionMultiplier: Number(primary.region_multiplier) || 1,

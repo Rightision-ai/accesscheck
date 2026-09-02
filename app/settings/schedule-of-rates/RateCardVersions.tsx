@@ -50,8 +50,8 @@ export default function RateCardVersions({
       <section className="rounded-2xl border border-slate-200 bg-white p-6">
         <h2 className="text-lg font-bold text-slate-900">Version history</h2>
         <p className="mt-1 text-sm text-slate-500">
-          You have not published a schedule of rates yet. Plans are priced from the national
-          indicative card, which every organisation starts on.
+          You have not published a schedule of rates yet. Plans are priced from the AccessCheck
+          estimation, which every organisation starts on.
         </p>
       </section>
     );

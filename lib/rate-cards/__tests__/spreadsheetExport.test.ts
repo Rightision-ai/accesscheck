@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { nationalIndicativeCard } from "@/lib/rate-cards/nationalIndicative";
+import { accesscheckEstimationCard } from "@/lib/rate-cards/accesscheckEstimation";
 import { parseRateCardCsv, resolveAgainstNational } from "@/lib/rate-cards/csv";
 
 /**
@@ -19,7 +19,7 @@ const fixture = readFileSync(
 );
 
 describe("a template saved by a spreadsheet app", () => {
-  const national = nationalIndicativeCard();
+  const national = accesscheckEstimationCard();
 
   it("parses despite the title row the spreadsheet added", () => {
     const parsed = parseRateCardCsv(fixture);

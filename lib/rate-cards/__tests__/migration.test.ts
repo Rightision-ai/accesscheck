@@ -31,10 +31,11 @@ function statements(sql: string): string {
 const seed = statements(migration("add_rate_cards"));
 const versioning = statements(migration("rate_card_versioning"));
 const activateFix = statements(migration("fix_activate_rate_card_effective_to"));
+const rename = statements(migration("rename_accesscheck_estimation"));
 
 describe("rate card seed migration", () => {
   it("contains exactly one CROSS JOIN (VALUES block", () => {
-    // `nationalIndicative.test.ts` parses this file positionally over that block. A second one
+    // `accesscheckEstimation.test.ts` parses this file positionally over that block. A second one
     // would silently reshuffle its column mapping, so fail loudly here instead.
     const blocks = seed.match(/CROSS JOIN \(VALUES/gi) ?? [];
     expect(blocks).toHaveLength(1);
@@ -101,8 +102,17 @@ describe("rate card versioning migration", () => {
   });
 });
 
-describe("commit_rate_card_version", () => {
-  const body = versioning.slice(versioning.indexOf("commit_rate_card_version"));
+/**
+ * The rename migration recreated `commit_rate_card_version` wholesale to swap the card code in
+ * its ordering tiebreak. Asserting the guards only against `versioning` would let a guard
+ * dropped during that copy pass silently, so every invariant below runs against both — the
+ * original definition and the one actually in force.
+ */
+describe.each([
+  ["versioning migration", versioning],
+  ["rename migration", rename],
+])("commit_rate_card_version (%s)", (_name, source) => {
+  const body = source.slice(source.indexOf("commit_rate_card_version"));
 
   it("serialises concurrent commits", () => {
     // Two admins publishing at once would otherwise both read the same MAX(version).
@@ -119,11 +129,17 @@ describe("commit_rate_card_version", () => {
     expect(retire).toBeLessThan(insert);
   });
 
-  it("inherits non-price fields from the national card rather than the upload", () => {
+  it("inherits non-price fields from the AccessCheck estimation rather than the upload", () => {
     // An authority prices work items; it must never be able to change what moves a band.
     expect(body).toMatch(/field_patches/);
     expect(body).toMatch(/addresses_rule_numbers/);
     expect(body).toMatch(/JOIN/i);
+  });
+
+  it("refuses a work item code the AccessCheck estimation does not define", () => {
+    // Without this an upload could invent a priced line with no rule mapping and no patches.
+    expect(body).toMatch(/unknown_codes/i);
+    expect(body).toMatch(/RAISE EXCEPTION 'Unknown work item code/i);
   });
 
   it("runs as the caller so RLS still applies", () => {
@@ -143,8 +159,10 @@ describe("activate_rate_card_version", () => {
     expect(activateFix).not.toMatch(/effective_to\s*=\s*COALESCE\(effective_to,\s*current_date\)/i);
   });
 
-  it("refuses to touch the national card", () => {
-    expect(activateFix).toMatch(/national rate card cannot be activated or retired/i);
+  it("refuses to touch the AccessCheck estimation card", () => {
+    // Asserted against the rename migration, which recreated the function last and is therefore
+    // the definition actually in force. `activateFix` still carries the pre-rename wording.
+    expect(rename).toMatch(/AccessCheck estimation cannot be activated or retired/i);
   });
 
   it("takes the same lock as the commit path", () => {

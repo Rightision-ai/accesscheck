@@ -5,7 +5,7 @@ import {
   loadActiveRateCardRef,
   loadRateCardForOrganisation,
 } from "@/lib/rate-cards/repository";
-import { NATIONAL_INDICATIVE_CODE } from "@/lib/rate-cards/nationalIndicative";
+import { ACCESSCHECK_ESTIMATION_CODE } from "@/lib/rate-cards/accesscheckEstimation";
 
 const ORG = "11111111-1111-1111-1111-111111111111";
 
@@ -15,8 +15,8 @@ function card(overrides: Row): Row {
   return {
     id: "card-national",
     organisation_id: null,
-    code: NATIONAL_INDICATIVE_CODE,
-    label: "National indicative",
+    code: ACCESSCHECK_ESTIMATION_CODE,
+    label: "AccessCheck estimation",
     version: 1,
     region_multiplier: 1,
     effective_from: "2026-04-01",
@@ -48,7 +48,7 @@ function item(cardId: string, code: string, overrides: Row = {}): Row {
     preconditions: null,
     field_patches: {},
     priority_hint: 10,
-    source_label: "National indicative — obtain quote",
+    source_label: "AccessCheck estimation — obtain quote",
     is_active: true,
     ...overrides,
   };

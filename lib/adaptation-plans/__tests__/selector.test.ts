@@ -22,7 +22,7 @@ function run(overrides: Partial<Parameters<typeof selectTiers>[0]> = {}) {
 
 const ids = (selected: AdaptationCandidate[]) => selected.map((item) => item.id);
 
-describe("selectTiers on a real rate card", () => {
+describe("selectTiers on a real schedule of rates", () => {
   it("starts from a band that needs work", () => {
     expect(currentBand).toBe("E+");
   });

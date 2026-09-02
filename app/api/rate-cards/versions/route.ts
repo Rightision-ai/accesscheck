@@ -9,7 +9,7 @@ import {
   resolveAgainstNational,
   toCommitPayload,
 } from "@/lib/rate-cards/csv";
-import { nationalIndicativeCard } from "@/lib/rate-cards/nationalIndicative";
+import { accesscheckEstimationCard } from "@/lib/rate-cards/accesscheckEstimation";
 import {
   loadActiveRateCardRef,
   loadRateCardVersions,
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       : 1;
 
   const parsed = parseRateCardCsv(body.csv);
-  const national = nationalIndicativeCard();
+  const national = accesscheckEstimationCard();
   const resolved = resolveAgainstNational(parsed.rows, national.itemsByCode);
   const errors = [...parsed.errors, ...resolved.errors];
   if (errors.length > 0 || resolved.prepared.length === 0) {
