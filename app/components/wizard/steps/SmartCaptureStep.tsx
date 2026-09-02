@@ -1,8 +1,15 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Trash2, CheckCircle, RefreshCw, Sparkles } from "lucide-react";
+import {
+  Camera,
+  Trash2,
+  CheckCircle,
+  RefreshCw,
+  Loader2,
+} from "lucide-react";
 import { WizardStepProps } from "../types";
 import { cn } from "@/lib/utils/cn";
+import PhotoLightbox from "@/app/components/common/PhotoLightbox";
 
 const CAPTURE_CATEGORIES = [
   {
@@ -55,9 +62,10 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
   isAnalyzing,
   categoryResults,
   onPhotosChanged,
-  streetViewSeededUrl,
+  streetViewPending,
 }) => {
   const categoryPhotos = formData.categoryPhotos || {};
+  const [lightboxPhoto, setLightboxPhoto] = React.useState<string | null>(null);
 
   const removePhoto = (catId: string, photoIndex: number) => {
     const currentCatPhotos = [...(categoryPhotos[catId] || [])];
@@ -158,6 +166,13 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
 
           const isUploadBlocked = isProcessing || isAnalyzing;
 
+          // The Street View seed for Main Entrance resolves in the background from
+          // step 1 — hold its slot so the photo doesn't just pop in unannounced.
+          const showStreetViewPlaceholder =
+            cat.id === "entrance" &&
+            currentPhotos.length === 0 &&
+            !!streetViewPending;
+
           const cardBorderClass =
             analysisResult === "valid"
               ? "border-2 border-green-500"
@@ -192,14 +207,6 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
                     )}
                   </h4>
                   <p className="text-[11px] text-slate-500">{cat.desc}</p>
-                  {cat.id === "entrance" &&
-                    streetViewSeededUrl &&
-                    currentPhotos[0] === streetViewSeededUrl && (
-                      <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary-light py-0.5 px-1.5 rounded">
-                        <Sparkles size={10} />
-                        Detected with our AI — replace if inaccurate
-                      </div>
-                    )}
                   {hasError && (
                     <div className="mt-1 text-[10px] text-amber-600 font-bold">
                       ⚠️ Unrelated photo
@@ -247,21 +254,62 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
                     key={idx}
                     className="relative aspect-square rounded-lg overflow-hidden border border-slate-200"
                   >
-                    <img
-                      src={photo}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
                     <button
-                      onClick={() => removePhoto(cat.id, idx)}
+                      type="button"
+                      onClick={() => setLightboxPhoto(photo)}
+                      aria-label={`View ${cat.title} photo ${idx + 1} full size`}
+                      className="block w-full h-full cursor-zoom-in"
+                    >
+                      <img
+                        src={photo}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        // Sits on top of the photo — don't also open the lightbox.
+                        e.stopPropagation();
+                        removePhoto(cat.id, idx);
+                      }}
                       disabled={isAnalyzing}
+                      aria-label="Remove photo"
                       className="absolute top-0.5 right-0.5 bg-black/50 border-none rounded-full w-[18px] h-[18px] flex items-center justify-center text-white z-10 disabled:cursor-not-allowed cursor-pointer"
                     >
                       <Trash2 size={10} />
                     </button>
                   </div>
                 ))}
-                {!isFull && (
+                {showStreetViewPlaceholder && (
+                  <label
+                    className={cn(
+                      "relative col-span-3 h-20 rounded-lg border border-dashed border-slate-300",
+                      "bg-slate-100 animate-pulse flex flex-col items-center justify-center gap-1",
+                      isUploadBlocked
+                        ? "cursor-not-allowed opacity-70"
+                        : "cursor-pointer",
+                    )}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*,image/heic,.heic"
+                      hidden
+                      onChange={(e) =>
+                        handlePhotoUpload && handlePhotoUpload(e, cat.id)
+                      }
+                      multiple
+                      disabled={isUploadBlocked}
+                    />
+                    <Loader2 size={18} className="text-slate-400 animate-spin" />
+                    <span className="text-[11px] font-bold text-slate-500">
+                      Finding Street View photo&hellip;
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      or tap to upload your own
+                    </span>
+                  </label>
+                )}
+                {!isFull && !showStreetViewPlaceholder && (
                   <label
                     className={cn(
                       "relative aspect-square bg-slate-50 rounded-lg border border-dashed border-slate-300 flex flex-col items-center justify-center cursor-pointer transition-all",
@@ -300,6 +348,12 @@ const SmartCaptureStep: React.FC<WizardStepProps> = ({
           );
         })}
       </div>
+
+      <PhotoLightbox
+        photo={lightboxPhoto}
+        onClose={() => setLightboxPhoto(null)}
+        alt="Evidence photo"
+      />
     </motion.div>
   );
 };

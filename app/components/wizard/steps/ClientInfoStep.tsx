@@ -114,6 +114,10 @@ const ClientInfoStep: React.FC<WizardStepProps> = ({
       if (evRes.ok) applyEvidenceToForm(await evRes.json());
     } catch {
       /* silent — manual fields are already available */
+    } finally {
+      // Clears on every exit path so the capture step never waits forever for a
+      // Street View photo that isn't coming.
+      handleUpdateField("streetViewPending", false);
     }
   }
 
@@ -125,7 +129,9 @@ const ClientInfoStep: React.FC<WizardStepProps> = ({
     handleUpdateField("street", parsed.street ?? address);
     handleUpdateField("postcode", postcode.trim() || formData.postcode);
     handleUpdateField("evidenceLoaded", true);
-    // Fetch public records in the background.
+    // Fetch public records in the background. The Street View image is part of that
+    // response, so flag it as pending for the capture step's placeholder.
+    handleUpdateField("streetViewPending", true);
     void enrich(address, uprn);
   }
 

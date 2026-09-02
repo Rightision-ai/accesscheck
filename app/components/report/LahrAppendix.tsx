@@ -9,6 +9,8 @@ import {
 } from "@/lib/accessibility/lahr/types";
 import type { Database } from "@/types/supabase";
 import AnnotatedImage, { type Annotation } from "./AnnotatedImage";
+import PhotoLightbox from "@/app/components/common/PhotoLightbox";
+import { Maximize2 } from "lucide-react";
 
 type SurveyRow = Database["public"]["Tables"]["surveys"]["Row"];
 
@@ -48,6 +50,10 @@ export default function LahrAppendix({
 }: Props) {
   const evaluation = useMemo(() => classifyLahr(survey ?? {}), [survey]);
   const [activeCriterion, setActiveCriterion] = useState<string | null>(null);
+  const [lightboxPhoto, setLightboxPhoto] = useState<{
+    url: string;
+    caption: string;
+  } | null>(null);
 
   const byImage = useMemo(() => {
     const grouped = new Map<string, SurveyAnnotationRow[]>();
@@ -126,12 +132,25 @@ export default function LahrAppendix({
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
             Floor plan — detected
           </h3>
-          <AnnotatedImage
-            src={floorPlanUrl}
-            annotations={renderAnnotations(byImage.get("floor-plan") ?? [])}
-            highlightedId={activeCriterion ?? undefined}
-            onAnnotationClick={(a) => setActiveCriterion(a.criterionId ?? null)}
-          />
+          <div className="relative">
+            <AnnotatedImage
+              src={floorPlanUrl}
+              annotations={renderAnnotations(byImage.get("floor-plan") ?? [])}
+              highlightedId={activeCriterion ?? undefined}
+              onAnnotationClick={(a) =>
+                setActiveCriterion(a.criterionId ?? null)
+              }
+            />
+            <ExpandButton
+              label="floor plan"
+              onClick={() =>
+                setLightboxPhoto({
+                  url: floorPlanUrl,
+                  caption: "Floor plan — detected",
+                })
+              }
+            />
+          </div>
         </section>
       )}
 
@@ -146,14 +165,25 @@ export default function LahrAppendix({
               const rows = byImage.get(key) ?? [];
               return (
                 <div key={url} className="space-y-1">
-                  <AnnotatedImage
-                    src={url}
-                    annotations={renderAnnotations(rows)}
-                    highlightedId={activeCriterion ?? undefined}
-                    onAnnotationClick={(a) =>
-                      setActiveCriterion(a.criterionId ?? null)
-                    }
-                  />
+                  <div className="relative">
+                    <AnnotatedImage
+                      src={url}
+                      annotations={renderAnnotations(rows)}
+                      highlightedId={activeCriterion ?? undefined}
+                      onAnnotationClick={(a) =>
+                        setActiveCriterion(a.criterionId ?? null)
+                      }
+                    />
+                    <ExpandButton
+                      label={`evidence photo ${i + 1}`}
+                      onClick={() =>
+                        setLightboxPhoto({
+                          url,
+                          caption: `Evidence photo ${i + 1}`,
+                        })
+                      }
+                    />
+                  </div>
                   <p className="text-[10px] text-slate-500">
                     {rows.length} detection{rows.length === 1 ? "" : "s"}
                   </p>
@@ -165,7 +195,38 @@ export default function LahrAppendix({
       )}
 
       <LahrBandsLegend band={evaluation.band} />
+
+      <PhotoLightbox
+        photo={lightboxPhoto?.url ?? null}
+        caption={lightboxPhoto?.caption}
+        onClose={() => setLightboxPhoto(null)}
+        alt={lightboxPhoto?.caption ?? "Evidence photo"}
+      />
     </div>
+  );
+}
+
+/**
+ * Opens the image full size. A corner button rather than a click on the image
+ * itself, because clicking an AnnotatedImage already selects an annotation.
+ */
+function ExpandButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`View ${label} full size`}
+      title="View full size"
+      className="absolute top-2 right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-600 shadow-sm hover:bg-white"
+    >
+      <Maximize2 size={13} />
+    </button>
   );
 }
 

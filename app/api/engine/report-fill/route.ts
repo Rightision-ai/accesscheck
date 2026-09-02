@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildReportFillPrompt } from "@/lib/engine/prompts/reportFillPrompt";
-import { ENGINE_MODELS, engineUrl, thinkingConfig } from "@/lib/engine/models";
+import { ENGINE_MODELS, engineUrl, jsonGenerationConfig } from "@/lib/engine/models";
+import { parseEngineJson } from "@/lib/engine/json";
 
 const ENGINE_API_KEY = process.env.ENGINE_API_KEY;
 const ENGINE_API_URL = engineUrl(ENGINE_MODELS.reportFill);
 
-export const maxDuration = 60;
+// The fill is the largest generation in the product — a ~100-field section_fill, the summary,
+// the findings and the gaps list — and it thinks at "high" before writing any of it. Thinking
+// tokens are charged against maxOutputTokens, so 8192 truncated real assessments mid-object.
+const MAX_OUTPUT_TOKENS = 32768;
+
+// Raised with the token budget: the request is only slow because we asked for a lot.
+export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   if (!ENGINE_API_KEY) {
@@ -35,12 +42,12 @@ export async function POST(req: NextRequest) {
 
     const requestBody = {
       contents: [{ parts: [{ text: finalPrompt }] }],
-      generationConfig: {
-        // No temperature override: Gemini 3 degrades when it is lowered.
-        // Thinking depth is nested; a flat `thinking_level` here is a 400.
-        ...thinkingConfig("high"),
-        maxOutputTokens: 8192,
-      },
+      // Includes responseMimeType: "application/json". Without it the model wraps the object in
+      // a ```json fence, which every reader downstream then has to strip.
+      generationConfig: jsonGenerationConfig({
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        thinkingLevel: "high",
+      }),
     };
 
     const response = await fetch(`${ENGINE_API_URL}?key=${ENGINE_API_KEY}`, {
@@ -63,30 +70,31 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
     const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const jsonMatch = aiText.match(/\{[\s\S]*\}/);
+    // MAX_TOKENS is the difference between "the model had nothing to say" and "we cut it off",
+    // so it is reported rather than left for someone to infer from a half-written object.
+    const finishReason: string | undefined = data.candidates?.[0]?.finishReason;
+    const { result, recovered } = parseEngineJson(aiText);
 
-    if (jsonMatch) {
-      try {
-        const parsedResult = JSON.parse(jsonMatch[0]);
-        return NextResponse.json({
-          success: true,
-          result: parsedResult,
-          rawText: aiText,
-        });
-      } catch {
-        return NextResponse.json({
-          success: true,
-          result: null,
-          rawText: aiText,
-          parseError: "Could not parse JSON from response",
-        });
+    if (result) {
+      if (recovered) {
+        console.warn(
+          `[report-fill] recovered a truncated response (finishReason=${finishReason ?? "unknown"})`,
+        );
       }
+      return NextResponse.json({ success: true, result, recovered, finishReason, rawText: aiText });
     }
 
+    // No usable object. Previously this answered success: true with a null result, so the
+    // wizard reported a generic failure and the reason never left the browser console.
     return NextResponse.json({
-      success: true,
+      success: false,
       result: null,
+      finishReason,
       rawText: aiText,
+      parseError:
+        finishReason === "MAX_TOKENS"
+          ? "The report was cut off before it finished generating."
+          : "Could not parse JSON from response",
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";

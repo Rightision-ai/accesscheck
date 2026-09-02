@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useSyncExternalStore } from "react";
+import React, { useMemo, useSyncExternalStore } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LayoutGrid, List } from "lucide-react";
 import { toast } from "sonner";
@@ -8,7 +8,12 @@ import AssessmentWizard from "@/app/components/wizard/AssessmentWizard";
 import CaseCard from "@/app/components/dashboard/CaseCard";
 import { useOpenAssessment } from "@/app/components/dashboard/useOpenAssessment";
 import AssessmentStatusBadge from "@/app/components/common/AssessmentStatusBadge";
+import LahrBandChip from "@/app/components/common/LahrBandChip";
 import Pager from "@/app/components/common/Pager";
+import { normalizeAssessmentStatus } from "@/lib/assessments/status";
+import { classifyLahr } from "@/lib/accessibility/lahr/classifier";
+import type { LahrBandId } from "@/lib/accessibility/lahr/types";
+import { resolveSurveyRow } from "@/lib/surveys/resolveSurveyRow";
 import { submitAssessmentForReview } from "@/lib/surveys/assessmentStatus";
 import { cn } from "@/lib/utils/cn";
 import type { Case } from "@/types/dashboard";
@@ -80,6 +85,23 @@ export default function AssessmentsClient({
   const viewMode = useSyncExternalStore(subscribeToView, readView, readServerView);
   const { wizardOpen, wizardInitialData, openAssessment, closeWizard } =
     useOpenAssessment(canAuthor);
+
+  // The band is classified here rather than read from the persisted `overall_grade` column:
+  // that column still holds legacy A+/A-/B+/B-/C grades on cases assessed before the
+  // Accessible Housing Rules bands, and even a freshly written one can drift from what
+  // `classifyLahr(resolveSurveyRow(...))` produces once user overrides are applied. The case
+  // detail page classifies the same way, so a case reads the same band in both places.
+  //
+  // Drafts are skipped: an unfinished survey classifies as A simply because no rule has the
+  // data to cap it, which would report unassessed stock as fully accessible.
+  const bandsById = useMemo(() => {
+    const bands = new Map<string, LahrBandId>();
+    for (const assessment of cases) {
+      if (normalizeAssessmentStatus(assessment.status) === "draft") continue;
+      bands.set(assessment.id, classifyLahr(resolveSurveyRow(assessment)).band);
+    }
+    return bands;
+  }, [cases]);
 
   const goToPage = (target: number) => {
     if (target < 1 || target > pages || target === page) return;
@@ -157,6 +179,7 @@ export default function AssessmentsClient({
                 {cases.map((assessment) => {
                   const row = (assessment.mlData?.surveyRow ?? {}) as Record<string, unknown>;
                   const updatedAt = row.updated_at ? String(row.updated_at) : "";
+                  const band = bandsById.get(assessment.id);
                   return (
                     <tr
                       key={assessment.id}
@@ -177,8 +200,14 @@ export default function AssessmentsClient({
                       <td className="px-5 py-4">
                         <AssessmentStatusBadge status={assessment.status} size="sm" />
                       </td>
-                      <td className="px-5 py-4 font-bold text-slate-700">
-                        {String(row.overall_grade || "—")}
+                      <td className="px-5 py-4">
+                        {band ? (
+                          <LahrBandChip band={band} className="max-w-45" />
+                        ) : (
+                          <span className="text-xs text-slate-400">
+                            Not assessed yet
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-4 text-slate-500">
                         {updatedAt ? new Date(updatedAt).toLocaleDateString("en-GB") : "—"}
